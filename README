@@ -1,2 +1,5 @@
 This is an addon under construction. Loading destruction_gui.py manually with "Run Script" works, but loading 
 as addon not yet. Then a gui is displayed under Object->Destructability but nothing is done yet with it.
+
+Changelog:
+    -   loading the GUI as addon works now, manual loading no more but that is obsolete by now

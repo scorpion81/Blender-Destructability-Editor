@@ -12,13 +12,13 @@ bl_info = {
 	"category": "Object"}
 
 
-if "bpy" in locals():
-	import imp
-	imp.reload(destruction_data)
-	imp.reload(destruction_gui)
-else:
-	from . import destruction_data
-	from . import destruction_gui
+#if "bpy" in locals():
+#	import imp
+#   imp.reload(destruction_data)
+#	imp.reload(destruction_gui)
+#else:
+#   from . import destruction_data
+from . import destruction_gui
 
 import bpy
 #import destruction_data
@@ -32,13 +32,13 @@ def register():
 
 def unregister():
 #   destruction_gui.unregister()
-#	destruction_gui.uninitialize()
+#   destruction_gui.uninitialize()
 	bpy.utils.unregister_module(__name__)
 #   bpy.utils.register_module(destruction_data)
 	 
 if __name__ == "__main__":
 	print("IN INITPY MAIN")
-	destruction_gui.initialize()
+#	destruction_gui.initialize()
 	register()
-
+#   destruction_gui.initialize()
 	

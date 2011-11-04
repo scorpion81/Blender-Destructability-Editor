@@ -1,6 +1,7 @@
 from bpy import types, props, utils
 from bpy.types import Object
-from destruction_data import DataStore, Grid
+from . import destruction_data as dd
+#from destruction_data import DataStore, Grid
 
 
 class DestructabilityPanel(types.Panel):
@@ -10,8 +11,8 @@ class DestructabilityPanel(types.Panel):
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
 	
-    def register():
-        initialize()	
+	def register():
+		initialize()	
   
 	def draw_header(self, context):
 	  #   self.layout.prop(context.object, "useDestructability", text = "")
@@ -98,8 +99,8 @@ class RemoveTargetOperator(types.Operator):
 def updateGrid(self, context):
 	obj = context.object
 	dim = obj.bound_box.data.dimensions.to_tuple()
-	DataStore.grid = Grid(self.grid, obj.location.to_tuple(), dim, obj.children)
-	print(DataStore.grid)
+	dd.DataStore.grid = dd.Grid(self.grid, obj.location.to_tuple(), dim, obj.children)
+	print(dd.DataStore.grid)
 	return None
 
 
@@ -147,16 +148,16 @@ def initialize():
 	Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")  
 		
 #def uninitialize():
-#	   utils.unregister_class(DestructionContext)	   
+#   utils.unregister_class(DestructionContext)   
 
 def register():  
-#	utils.register_class(DestructionContext)
+	#utils.register_class(DestructionContext)
 	initialize()
 	utils.register_class(AddGroundOperator)
 	utils.register_class(RemoveGroundOperator)
 	utils.register_class(AddTargetOperator)
 	utils.register_class(RemoveTargetOperator)
-	utils.register_class(DestructabilityPanel)	
+	utils.register_class(DestructabilityPanel)  
   
 def unregister():
 	utils.unregister_class(DestructabilityPanel)

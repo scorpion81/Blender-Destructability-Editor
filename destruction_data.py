@@ -19,7 +19,7 @@ class Cell:
 					  (self.center[1] - cellDim[1] / 2, self.center[1] + cellDim[0] / 2),
 					  (self.center[2] - cellDim[2] / 2, self.center[2] + cellDim[0] / 2)] 
 										 
-		self.children = [c for c in grid.children if isInside(self, c)]
+		self.children = [c for c in grid.children if self.isInside(c)]
 		
 			
 			
@@ -41,10 +41,6 @@ class Cell:
 		 
 		   
 		
-				 
-			
-	
-
 class Grid:
 	
 	def __init__(self, cellCounts, pos, dim, children):
@@ -75,9 +71,9 @@ class Grid:
 class DataStore:
 	pass
 
-def register():
-	pass
+#def register():
+#   pass
 
-def unregister():
-	pass
+#def unregister():
+#   pass
 	

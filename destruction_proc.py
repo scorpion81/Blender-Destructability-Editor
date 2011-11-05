@@ -7,11 +7,11 @@ from . import destruction_data as dd
 class Processor():
                   
     def processDestruction(self, context):
-        self.context = context
+       # self.context = context
       
         modes = {DestructionContext.destModes[0][0]: "self.applyFracture(parts)",
-                 DestructionContext.destModes[1][0]: "self.applyExplo(parts, granularity, thickness)",
-                 DestructionContext.destModes[2][0]: "self.previewExplo(parts, granularity, thickness)" } 
+                 DestructionContext.destModes[1][0]: "self.applyExplo(context, parts, granularity, thickness)",
+                 DestructionContext.destModes[2][0]: "self.previewExplo(context, parts, granularity, thickness)" } 
         #make an object backup if necessary (if undo doesnt handle this)
         #according to mode call correct method
         mode = context.object.destruction.destructionMode
@@ -27,15 +27,20 @@ class Processor():
         return None
     
     
-    def previewExplo(self, parts, granularity, thickness):
+    def previewExplo(self, context, parts, granularity, thickness):
         #create modifiers if not there
         
-        if self.context.object.destruction.previewDone: 
+        if context.object.destruction.previewDone: 
             return
         
         print("previewExplo", parts, granularity, thickness)
         
         #granularity -> subdivision of object in editmode, + particle size enabled (set manually)
+        if granularity > 0:
+            ops.object.editmode_toggle()
+           # ops.mesh.select_all()
+            ops.mesh.subdivide(number_cuts = granularity)
+            ops.object.editmode_toggle()
         
         ops.object.particle_system_add()
         #ops.object.modifier_add(type = 'PARTICLE_SYSTEM')
@@ -43,52 +48,53 @@ class Processor():
         ops.object.modifier_add(type = 'SOLIDIFY')
         
         #get modifier stackindex later, for now use a given order.
-        settings = self.context.object.particle_systems[0].settings        
+        settings = context.object.particle_systems[0].settings        
         settings.count = parts
         settings.frame_start = 2
         settings.frame_end = 2
         settings.distribution = 'RAND'
        
         
-        explo = self.context.object.modifiers[1]
+        explo = context.object.modifiers[1]
         explo.use_edge_cut = True
      #   explo.use_size = True
         
-        solid = self.context.object.modifiers[2]
+        solid = context.object.modifiers[2]
         solid.thickness = thickness
         
-        self.context.object.destruction.previewDone = True
-        self.context.object.destruction.applyDone = False
+        context.object.destruction.previewDone = True
+        context.object.destruction.applyDone = False
         
         
         
-    def applyExplo(self, parts, granularity, thickness):
+    def applyExplo(self, context, parts, granularity, thickness):
         #create objects from explo by applying it(or by loose parts)
         #check modifier sequence before applying it 
         #(if all are there; for now no other modifiers allowed in between)
         print("applyExplo", parts, granularity, thickness)
         
-        if self.context.object.destruction.applyDone:
+        if context.object.destruction.applyDone:
             return
         
-        self.previewExplo(parts, granularity, thickness)
-        self.context.object.destruction.applyDone = True
-        self.context.object.destruction.previewDone = False
+        self.previewExplo(context, parts, granularity, thickness)
+        context.object.destruction.applyDone = True
+        context.object.destruction.previewDone = False
         
-        pos = self.context.object.location.to_tuple()
-        parentName = "P_" + self.context.object.name
-        destruction = self.context.object.destruction
-        solid = self.context.object.modifiers[2]  
-        explo = self.context.object.modifiers[1]
+        pos = context.object.location.to_tuple()
+        name = context.object.name
+        parentName = "P_" + name
+        destruction = context.object.destruction
+        solid = context.object.modifiers[2]  
+        explo = context.object.modifiers[1]
         
         #if object shall stay together
-        settings = self.context.object.particle_systems[0].settings  
+        settings = context.object.particle_systems[0].settings  
         settings.physics_type = 'NO'
         settings.normal_factor = 0.0
         
-        self.context.scene.frame_current = 2
-      #  self.context.scene.frame_current = 1
-      #  self.context.scene.frame_current = 2
+        context.scene.frame_current = 2
+      #  context.scene.frame_current = 1
+      #  context.scene.frame_current = 2
       #  ops.object.explode_refresh()
        
         ops.object.modifier_apply(modifier = explo.name)
@@ -97,34 +103,43 @@ class Processor():
         #must select particle system before somehow
         ops.object.particle_system_remove() 
         ops.object.editmode_toggle() 
+        ops.mesh.select_all(action = 'DESELECT')
+        ops.mesh.select_by_number_vertices(type='OTHER')
+        ops.mesh.delete(type = 'VERT')
+        ops.mesh.select_all(action = 'SELECT')
         ops.mesh.separate(type = 'LOOSE')
         ops.object.editmode_toggle()
-        
+        print("separated")
         
         #and parent them all to an empty created before -> this is the key
         #P_name = Parent of
         #omit objects which have only one vertex
-        children = []
-        for c in data.objects:
-            if self.valid(c):
-                children.append(c)
-            elif not c.name.startswith("P_"):
-                c.select = True
-                
-        ops.object.delete()
-        
+        children = [c for c in data.objects if c.name.startswith(name)]
+#        for c in data.objects:
+#            if self.valid(context, c):
+#                children.append(c)
+#            elif not c.name.startswith("P_"):
+#                c.select = True
+#                
+#        print("invalids selected")        
+#        ops.object.delete()
+#        
+#        print("invalids deleted")
         ops.object.add(type = 'EMPTY')
-        parent = self.context.active_object
+        parent = context.active_object
         parent.name = parentName
-    #    self.context.active_object.destruction = destruction
+    #    context.active_object.destruction = destruction
         
+        for o in data.objects:
+            o.select = False
         for c in children:
             c.select = True
             
-    #    self.context.active_object = parent    
+    #    context.active_object = parent
+        parent.select = True    
         ops.object.parent_set(type = 'OBJECT')
         
-        print(self.context.active_object.name, self.context.active_object.children)
+        print(context.active_object.name, context.active_object.children)
              
     
     def applyFracture(self,parts):
@@ -135,9 +150,9 @@ class Processor():
         #_1, _2 and so on
         print("applyFracture", parts)  
     
-    def valid(self, child):
-        return (child.name.startswith(self.context.object.name) and \
-               len(child.data.vertices) > 1)
+    def valid(self,context, child):
+        return child.name.startswith(context.object.name) #and \
+#               len(child.data.vertices) > 1)
     
 
 def updateGrid(self, context):

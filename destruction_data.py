@@ -23,7 +23,7 @@ class Cell:
 		
 			
 			
-	def isInside(self, child):
+	def isInside(self, c):
 		if c.pos[0] in range(self.range[0][0], self.range[0][1]) and \
 		   c.pos[1] in range(self.range[1][0], self.range[1][1]) and \
 		   c.pos[2] in range(self.range[2][0], self.range[2][1]):
@@ -31,13 +31,34 @@ class Cell:
 		   
 		return False
 	
-	def findNeighbors():
-		 self.neighbors = [grid.cells[(self.gridPos[0], self.gridPos[1] + 1, self.gridPos[2])],
-						  grid.cells[(self.gridPos[0], self.gridPos[1] - 1, self.gridPos[2])],
-						  grid.cells[(self.gridPos[0] - 1, self.gridPos[1], self.gridPos[2])],
-						  grid.cells[(self.gridPos[0] + 1, self.gridPos[1], self.gridPos[2])],
-						  grid.cells[(self.gridPos[0], self.gridPos[1], self.gridPos[2] - 1)],
-						  grid.cells[(self.gridPos[0], self.gridPos[1], self.gridPos[2] + 1)]]
+	def findNeighbors(self):
+	
+		back = None
+		if self.gridPos[1] < self.grid.cellCounts[1] - 1:
+			back = self.grid.cells[(self.gridPos[0], self.gridPos[1] + 1, self.gridPos[2])]
+		 
+		front = None
+		if self.gridPos[1] > 0:
+			front = self.grid.cells[(self.gridPos[0], self.gridPos[1] - 1, self.gridPos[2])]
+			
+		left = None
+		if self.gridPos[0] < self.grid.cellCounts[0] - 1:
+			left = self.grid.cells[(self.gridPos[0] + 1, self.gridPos[1], self.gridPos[2])]
+		 
+		right = None
+		if self.gridPos[0] > 0:
+			bottom = self.grid.cells[(self.gridPos[0] - 1, self.gridPos[1], self.gridPos[2])]
+			
+		top  = None
+		if self.gridPos[2] < self.grid.cellCounts[2] - 1:
+			top = self.grid.cells[(self.gridPos[0], self.gridPos[1], self.gridPos[2] + 1)]
+		 
+		bottom = None
+		if self.gridPos[2] > 0:
+			bottom = self.grid.cells[(self.gridPos[0], self.gridPos[1], self.gridPos[2] - 1)]
+			
+		self.neighbors = [back, front, left, right, top, bottom]
+						  
 		 
 		   
 		
@@ -59,14 +80,14 @@ class Grid:
 				for z in range(0, cellCounts[2]):
 				   self.cells[(x,y,z)] = Cell((x,y,z), self)
 				   
-		self.buildNeighborhood()
+	#   self.buildNeighborhood()
 	
 	def buildNeighborhood(self):
-		[c.findNeighbors() for c in grid.cells.values()]
+		[c.findNeighbors() for c in self.cells.values()]
 		
 	
 	def __str__(self):
-		print(self.pos, self.dim, len(self.children))
+		return str(self.pos) + " " + str(self.dim) + " " + str(len(self.children))
 
 class DataStore:
 	pass

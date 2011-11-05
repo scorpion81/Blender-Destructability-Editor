@@ -1,19 +1,17 @@
-from bpy import types, props, utils
+from bpy import types, props, utils, ops, data
 from bpy.types import Object
 from . import destruction_data as dd
 
 #do the actual non-bge processing here
 
 class Processor():
-    
-   
-                 
+                  
     def processDestruction(self, context):
         self.context = context
-        
-        modes = {DestructionContext.destModes[0][0]: "self.applyFracture",
-                 DestructionContext.destModes[1][0]: "self.applyExplo",
-                 DestructionContext.destModes[2][0]: "self.previewExplo" } 
+      
+        modes = {DestructionContext.destModes[0][0]: "self.applyFracture(parts)",
+                 DestructionContext.destModes[1][0]: "self.applyExplo(parts, granularity, thickness)",
+                 DestructionContext.destModes[2][0]: "self.previewExplo(parts, granularity, thickness)" } 
         #make an object backup if necessary (if undo doesnt handle this)
         #according to mode call correct method
         mode = context.object.destruction.destructionMode
@@ -31,19 +29,103 @@ class Processor():
     
     def previewExplo(self, parts, granularity, thickness):
         #create modifiers if not there
+        
+        if self.context.object.destruction.previewDone: 
+            return
+        
         print("previewExplo", parts, granularity, thickness)
         
-        return "previewExplo2"
+        #granularity -> subdivision of object in editmode, + particle size enabled (set manually)
         
-    
+        ops.object.particle_system_add()
+        #ops.object.modifier_add(type = 'PARTICLE_SYSTEM')
+        ops.object.modifier_add(type = 'EXPLODE')
+        ops.object.modifier_add(type = 'SOLIDIFY')
+        
+        #get modifier stackindex later, for now use a given order.
+        settings = self.context.object.particle_systems[0].settings        
+        settings.count = parts
+        settings.frame_start = 2
+        settings.frame_end = 2
+        settings.distribution = 'RAND'
+       
+        
+        explo = self.context.object.modifiers[1]
+        explo.use_edge_cut = True
+     #   explo.use_size = True
+        
+        solid = self.context.object.modifiers[2]
+        solid.thickness = thickness
+        
+        self.context.object.destruction.previewDone = True
+        self.context.object.destruction.applyDone = False
+        
+        
+        
     def applyExplo(self, parts, granularity, thickness):
         #create objects from explo by applying it(or by loose parts)
         #check modifier sequence before applying it 
         #(if all are there; for now no other modifiers allowed in between)
         print("applyExplo", parts, granularity, thickness)
         
-        #and parent them all to an empty
-          
+        if self.context.object.destruction.applyDone:
+            return
+        
+        self.previewExplo(parts, granularity, thickness)
+        self.context.object.destruction.applyDone = True
+        self.context.object.destruction.previewDone = False
+        
+        pos = self.context.object.location.to_tuple()
+        parentName = "P_" + self.context.object.name
+        destruction = self.context.object.destruction
+        solid = self.context.object.modifiers[2]  
+        explo = self.context.object.modifiers[1]
+        
+        #if object shall stay together
+        settings = self.context.object.particle_systems[0].settings  
+        settings.physics_type = 'NO'
+        settings.normal_factor = 0.0
+        
+        self.context.scene.frame_current = 2
+      #  self.context.scene.frame_current = 1
+      #  self.context.scene.frame_current = 2
+      #  ops.object.explode_refresh()
+       
+        ops.object.modifier_apply(modifier = explo.name)
+        ops.object.modifier_apply(modifier = solid.name)
+        
+        #must select particle system before somehow
+        ops.object.particle_system_remove() 
+        ops.object.editmode_toggle() 
+        ops.mesh.separate(type = 'LOOSE')
+        ops.object.editmode_toggle()
+        
+        
+        #and parent them all to an empty created before -> this is the key
+        #P_name = Parent of
+        #omit objects which have only one vertex
+        children = []
+        for c in data.objects:
+            if self.valid(c):
+                children.append(c)
+            elif not c.name.startswith("P_"):
+                c.select = True
+                
+        ops.object.delete()
+        
+        ops.object.add(type = 'EMPTY')
+        parent = self.context.active_object
+        parent.name = parentName
+    #    self.context.active_object.destruction = destruction
+        
+        for c in children:
+            c.select = True
+            
+    #    self.context.active_object = parent    
+        ops.object.parent_set(type = 'OBJECT')
+        
+        print(self.context.active_object.name, self.context.active_object.children)
+             
     
     def applyFracture(self,parts):
         #make fracture gui available as sublayout in panel
@@ -52,6 +134,11 @@ class Processor():
         #when applying hierarchical fracturing, append hierarchy level number to part number
         #_1, _2 and so on
         print("applyFracture", parts)  
+    
+    def valid(self, child):
+        return (child.name.startswith(self.context.object.name) and \
+               len(child.data.vertices) > 1)
+    
 
 def updateGrid(self, context):
     obj = context.object
@@ -62,6 +149,7 @@ def updateGrid(self, context):
     return None
 
 def updateDestructionMode(self, context):
+    dd.DataStore.proc.processDestruction(context)
     return None
 
 def updatePartCount(self, context):
@@ -133,10 +221,12 @@ class DestructionContext(types.PropertyGroup):
     groundSelector = props.StringProperty(name = "groundSelector")
     targetSelector = props.StringProperty(name = "targetSelector")
 
-    wallThickness = props.IntProperty(name = "wallThickness", default = 1, min = 1, max = 100,
+    wallThickness = props.FloatProperty(name = "wallThickness", default = 0.01, min = 0.01, max = 10,
                                       update = updateWallThickness)
     pieceGranularity = props.IntProperty(name = "pieceGranularity", default = 0, min = 0, max = 100, 
                                          update = updatePieceGranularity)
+    applyDone = props.BoolProperty(name = "applyDone", default = False)
+    previewDone = props.BoolProperty(name = "previewDone", default = False)
     
 def initialize():
 #   print("HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")

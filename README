@@ -1,5 +1,11 @@
 This is an addon under construction. Loading destruction_gui.py manually with "Run Script" works, but loading 
-as addon not yet. Then a gui is displayed under Object->Destructability but nothing is done yet with it.
+as addon not yet. Then a gui is displayed under Object->Destructability but a few is done yet with it.
+
+To decompose an object(tested with default cube scene only) to many by explode modifier choose
+Parts, Thickness and Granularity(the higher the value, the smaller the pieces may be when many pieces are to be 
+created) and select "Apply Explosion Modifier" as destruction mode. The rest of the GUI is still not functional
 
 Changelog:
     -   loading the GUI as addon works now, manual loading no more but that is obsolete by now
+    -   basic object decomposition with explode modifier, parenting not correctly functional yet.
+    

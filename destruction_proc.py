@@ -37,13 +37,11 @@ class Processor():
         
         #granularity -> subdivision of object in editmode, + particle size enabled (set manually)
         if granularity > 0:
-            ops.object.editmode_toggle()
-           # ops.mesh.select_all()
+            ops.object.mode_set(mode = 'EDIT')
             ops.mesh.subdivide(number_cuts = granularity)
-            ops.object.editmode_toggle()
+            ops.object.mode_set()
         
         ops.object.particle_system_add()
-        #ops.object.modifier_add(type = 'PARTICLE_SYSTEM')
         ops.object.modifier_add(type = 'EXPLODE')
         ops.object.modifier_add(type = 'SOLIDIFY')
         
@@ -57,7 +55,6 @@ class Processor():
         
         explo = context.object.modifiers[1]
         explo.use_edge_cut = True
-     #   explo.use_size = True
         
         solid = context.object.modifiers[2]
         solid.thickness = thickness
@@ -83,6 +80,13 @@ class Processor():
         pos = context.object.location.to_tuple()
         name = context.object.name
         parentName = "P_" + name
+        
+       # ops.object.add(type = 'EMPTY')
+   #     context.object.select = True
+        #context.scene.objects.active = data.objects["Empty"]
+        #ops.object.parent_set(type = 'OBJECT')
+        
+        #context.scene.objects.active = context.object
         destruction = context.object.destruction
         solid = context.object.modifiers[2]  
         explo = context.object.modifiers[1]
@@ -93,50 +97,28 @@ class Processor():
         settings.normal_factor = 0.0
         
         context.scene.frame_current = 2
-      #  context.scene.frame_current = 1
-      #  context.scene.frame_current = 2
-      #  ops.object.explode_refresh()
        
         ops.object.modifier_apply(modifier = explo.name)
         ops.object.modifier_apply(modifier = solid.name)
         
         #must select particle system before somehow
         ops.object.particle_system_remove() 
-        ops.object.editmode_toggle() 
+        ops.object.mode_set(mode = 'EDIT')
         ops.mesh.select_all(action = 'DESELECT')
+        #omit loose vertices, otherwise they form an own object!
         ops.mesh.select_by_number_vertices(type='OTHER')
         ops.mesh.delete(type = 'VERT')
         ops.mesh.select_all(action = 'SELECT')
         ops.mesh.separate(type = 'LOOSE')
-        ops.object.editmode_toggle()
+        ops.object.mode_set()
         print("separated")
         
         #and parent them all to an empty created before -> this is the key
         #P_name = Parent of
-        #omit objects which have only one vertex
-        children = [c for c in data.objects if c.name.startswith(name)]
-#        for c in data.objects:
-#            if self.valid(context, c):
-#                children.append(c)
-#            elif not c.name.startswith("P_"):
-#                c.select = True
-#                
-#        print("invalids selected")        
-#        ops.object.delete()
-#        
-#        print("invalids deleted")
-        ops.object.add(type = 'EMPTY')
-        parent = context.active_object
-        parent.name = parentName
-    #    context.active_object.destruction = destruction
         
-        for o in data.objects:
-            o.select = False
-        for c in children:
-            c.select = True
-            
-    #    context.active_object = parent
-        parent.select = True    
+        ops.object.add(type = 'EMPTY') 
+        context.active_object.name = parentName
+        [self.select(c) for c in data.objects if c.name.startswith("Cube")]   
         ops.object.parent_set(type = 'OBJECT')
         
         print(context.active_object.name, context.active_object.children)
@@ -149,10 +131,47 @@ class Processor():
         #when applying hierarchical fracturing, append hierarchy level number to part number
         #_1, _2 and so on
         print("applyFracture", parts)  
+        data.objects["Cube"].select = True
+        ops.object.duplicate()
+        
+        #data.objects["Cube"].select = True
+        #data.objects["Cube.001"].select = True
+      #  ops.object.modifier_add(type = 'EXPLODE')
+       # ops.object.modifier_apply()
+        #ops.object.editmode_toggle()
+        #ops.object.editmode_toggle()
+        
+        ops.object.add()
+        data.objects["Cube"].select = True
+        data.objects["Cube.001"].select = True
+        ops.object.parent_set()
     
     def valid(self,context, child):
         return child.name.startswith(context.object.name) #and \
 #               len(child.data.vertices) > 1)
+
+    def select(self, c):
+        c.select = True
+        
+    def applyKnife(self, context, parts, jitter, thickness):
+        pass
+        
+        #create an empty as parent
+        
+        #for 1 ... parts
+        
+        #make a random OperatorMousePath Collection to define cut path, the higher the jitter
+        #the more deviation from path
+        
+        #pick a random part
+        
+        #apply the cut, exact cut
+        
+        #select loop-to-region to get a half (the smaller one ?)
+        
+        #separate object
+        
+        #parent object to empty
     
 
 def updateGrid(self, context):
@@ -164,7 +183,9 @@ def updateGrid(self, context):
     return None
 
 def updateDestructionMode(self, context):
-    dd.DataStore.proc.processDestruction(context)
+   # dd.DataStore.proc.processDestruction(context)
+    p = Processor()
+    p.processDestruction(context)
     return None
 
 def updatePartCount(self, context):
@@ -216,7 +237,7 @@ class DestructionContext(types.PropertyGroup):
     destroyable = props.BoolProperty(name = "destroyable",
                          description = "This object can be destroyed, according to parent relations")
     
-    partCount = props.IntProperty(name = "partCount", default = 1, min = 1, max = 999, update = updatePartCount)
+    partCount = props.IntProperty(name = "partCount", default = 10, min = 1, max = 999, update = updatePartCount)
     destructionMode = props.EnumProperty(items = destModes, update = updateDestructionMode)
     destructor = props.BoolProperty(name = "destructor", 
                         description = "This object can trigger destruction", update = updateDestructor)
@@ -238,7 +259,7 @@ class DestructionContext(types.PropertyGroup):
 
     wallThickness = props.FloatProperty(name = "wallThickness", default = 0.01, min = 0.01, max = 10,
                                       update = updateWallThickness)
-    pieceGranularity = props.IntProperty(name = "pieceGranularity", default = 0, min = 0, max = 100, 
+    pieceGranularity = props.IntProperty(name = "pieceGranularity", default = 3, min = 0, max = 100, 
                                          update = updatePieceGranularity)
     applyDone = props.BoolProperty(name = "applyDone", default = False)
     previewDone = props.BoolProperty(name = "previewDone", default = False)

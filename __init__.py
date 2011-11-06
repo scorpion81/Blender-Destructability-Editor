@@ -12,13 +12,13 @@ bl_info = {
 	"category": "Object"}
 
 
-#if "bpy" in locals():
-#	import imp
+if "bpy" in locals():
+	import imp
 #   imp.reload(destruction_data)
-#	imp.reload(destruction_gui)
-#else:
+	imp.reload(destruction_gui)
+else:
 #   from . import destruction_data
-from . import destruction_gui
+    from . import destruction_gui
 
 import bpy
 #import destruction_data

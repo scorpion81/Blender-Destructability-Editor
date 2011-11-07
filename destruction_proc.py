@@ -10,17 +10,17 @@ class Processor():
        # self.context = context
       
         modes = {DestructionContext.destModes[0][0]: "self.applyFracture(parts)",
-                 DestructionContext.destModes[1][0]: "self.applyExplo(context, parts, granularity, thickness)",
-                 DestructionContext.destModes[2][0]: "self.previewExplo(context, parts, granularity, thickness)" } 
+                 DestructionContext.destModes[1][0]: "self.applyExplo(context, parts, granularity, thickness)"}
+               #  DestructionContext.destModes[2][0]: "self.previewExplo(context, parts, granularity, thickness)" } 
         #make an object backup if necessary (if undo doesnt handle this)
         #according to mode call correct method
         mode = context.object.destruction.destructionMode
         parts = context.object.destruction.partCount
         granularity = context.object.destruction.pieceGranularity
         thickness = context.object.destruction.wallThickness
-        args = [parts, granularity, thickness]
+        destroyable = context.object.destruction.destroyable
         
-        if (parts > 1):
+        if (parts > 1) and destroyable:
             print(mode, modes[mode])
             eval(modes[mode])
         
@@ -70,8 +70,8 @@ class Processor():
         #(if all are there; for now no other modifiers allowed in between)
         print("applyExplo", parts, granularity, thickness)
         
-        if context.object.destruction.applyDone:
-            return
+ #       if context.object.destruction.applyDone:
+ #           return
         
         self.previewExplo(context, parts, granularity, thickness)
         context.object.destruction.applyDone = True
@@ -118,7 +118,9 @@ class Processor():
         
         ops.object.add(type = 'EMPTY') 
         context.active_object.name = parentName
-        [self.select(c) for c in data.objects if c.name.startswith("Cube")]   
+        print(name, context.object.name)
+        
+        [self.applyDataSet(c) for c in data.objects if c.name.startswith(name)]   
         ops.object.parent_set(type = 'OBJECT')
         
         print(context.active_object.name, context.active_object.children)
@@ -130,9 +132,9 @@ class Processor():
         #children with same Name and different number
         #when applying hierarchical fracturing, append hierarchy level number to part number
         #_1, _2 and so on
-        print("applyFracture", parts)  
-        data.objects["Cube"].select = True
-        ops.object.duplicate()
+      #  print("applyFracture", parts)  
+      #  data.objects["Cube"].select = True
+      #  ops.object.duplicate()
         
         #data.objects["Cube"].select = True
         #data.objects["Cube.001"].select = True
@@ -141,16 +143,21 @@ class Processor():
         #ops.object.editmode_toggle()
         #ops.object.editmode_toggle()
         
-        ops.object.add()
-        data.objects["Cube"].select = True
-        data.objects["Cube.001"].select = True
-        ops.object.parent_set()
+       # ops.object.add()
+       # data.objects["Cube"].select = True
+       # data.objects["Cube.001"].select = True
+       # ops.object.parent_set()
+       return None
     
     def valid(self,context, child):
         return child.name.startswith(context.object.name) #and \
 #               len(child.data.vertices) > 1)
 
-    def select(self, c):
+    def applyDataSet(self, c):
+        c.destruction.destroyable = False
+        c.destruction.parts = 1
+        c.destruction.granularity = 0
+        c.destruction.thickness = 0.01
         c.select = True
         
     def applyKnife(self, context, parts, jitter, thickness):
@@ -223,8 +230,8 @@ def updateTransmitMode(self, context):
 class DestructionContext(types.PropertyGroup):
     
     destModes = [('DESTROY_F', 'Apply Fracture Addon', 'Destroy this object using the fracture addon', 0 ), 
-             ('DESTROY_E', 'Apply Explosion Modifier', 'Destroy this object using the explosion modifier', 1),
-             ('DESTROY_P', 'Preview Explosion Modifier', 'Preview destruction with explosion modifier', 2)] 
+             ('DESTROY_E', 'Apply Explosion Modifier', 'Destroy this object using the explosion modifier', 1)]
+            # ('DESTROY_P', 'Preview Explosion Modifier', 'Preview destruction with explosion modifier', 2)] 
     
     transModes = [('T_SELF', 'This Object Only', 'Apply settings to this object only', 0), 
              ('T_CHILDREN', 'Direct Children', 'Apply settings to direct children as well', 1),
@@ -269,3 +276,7 @@ def initialize():
 #   utils.register_class(DestructionContext)
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")
     dd.DataStore.proc = Processor()  
+    
+def uninitialize():
+    del Object.destruction
+    utils.unregister_class(DestructionContext)

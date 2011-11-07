@@ -15,7 +15,7 @@ class DestructabilityPanel(types.Panel):
 
     def unregister():
         del Object.destruction
-        utils.unregister_class(dp.DestructionContext)   
+        utils.unregister_class(DestructionContext)   
     
     def draw(self, context):
         layout = self.layout
@@ -33,9 +33,13 @@ class DestructabilityPanel(types.Panel):
         col.prop(context.object.destruction, "partCount", text = "Parts")
         col.prop(context.object.destruction, "wallThickness", text = "Thickness")
         col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
+        col.active = context.object.destruction.destroyable
 
         
-        layout.prop(context.object.destruction, "destructionMode", text = "Destruction Mode")
+        row = layout.row()
+        row.prop(context.object.destruction, "destructionMode", text = "Destruction Mode")
+        row.active = context.object.destruction.destroyable
+        
         layout.separator()
        
         layout.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")

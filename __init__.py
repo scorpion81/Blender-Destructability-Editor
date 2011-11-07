@@ -30,8 +30,6 @@ def unregister():
      
 if __name__ == "__main__":
     print("IN INITPY MAIN")
-    from . import destruction_gui
-    import imp
-    imp.reload(destruction_gui)
-#    bpy.utils.register_module(destruction_gui)
+    import destruction_gui
+    destruction_gui.register()
     

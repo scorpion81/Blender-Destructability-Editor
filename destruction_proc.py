@@ -1,6 +1,8 @@
 from bpy import types, props, utils, ops, data
-from bpy.types import Object
+from bpy.types import Object, Scene
 from . import destruction_data as dd
+#import destruction_data as dd
+#import bpy
 
 #do the actual non-bge processing here
 
@@ -78,13 +80,43 @@ class Processor():
         context.object.destruction.previewDone = False
         
         pos = context.object.location.to_tuple()
-        name = context.object.name
-        parentName = "P_" + name
         
-       # ops.object.add(type = 'EMPTY')
-   #     context.object.select = True
-        #context.scene.objects.active = data.objects["Empty"]
-        #ops.object.parent_set(type = 'OBJECT')
+        split = context.object.name.split(".")
+        parentName = ""
+        nameStart = ""
+        nameEnd = ""
+        
+        if len(split) == 2:
+            nameStart = split[0]
+            nameEnd = split[1]
+        else:
+            nameStart = context.object.name
+            context.object.name = nameStart + ".000"
+            nameEnd = "000"
+            
+        parentName = "P0_" + nameStart + "." + nameEnd
+   
+        #and parent them all to an empty created before -> this is the key
+        #P_name = Parent of
+        
+    #    print(name, context.object.name)
+        children = data.objects
+        largest = nameEnd
+        print(context.active_object.parent)
+        if context.active_object.parent != None:
+            pLevel = context.active_object.parent.name.split("_")[0]
+            level = int(pLevel.lstrip("P"))
+            level += 1
+            #get child with lowest number, must search for it if its not child[0]
+            parentName = "P" + str(level) + "_" + context.active_object.parent.children[0].name
+       #     children = context.active_object.parent.children
+            print("Subparenting...", children)
+            length = len(context.active_object.parent.children)
+            
+            #get the largest child index number, hopefully it is the last one and hopefully
+            #this scheme will not change in future releases !
+            largest = context.active_object.parent.children[length - 1].name.split(".")[1]
+            
         
         #context.scene.objects.active = context.object
         destruction = context.object.destruction
@@ -112,16 +144,18 @@ class Processor():
         ops.mesh.separate(type = 'LOOSE')
         ops.object.mode_set()
         print("separated")
+            
         
-        #and parent them all to an empty created before -> this is the key
-        #P_name = Parent of
-        
+        print("Largest: ", largest)    
+            
         ops.object.add(type = 'EMPTY') 
+        context.active_object.game.physics_type = 'RIGID_BODY'            
         context.active_object.name = parentName
-        print(name, context.object.name)
-        
-        [self.applyDataSet(c) for c in data.objects if c.name.startswith(name)]   
-        ops.object.parent_set(type = 'OBJECT')
+        context.active_object.parent = context.object.parent
+        [self.applyDataSet(context, c, largest, parentName) for c in children if  
+        c.name.startswith(nameStart)]  
+         
+        ops.object.origin_set(type = 'ORIGIN_GEOMETRY') 
         
         print(context.active_object.name, context.active_object.children)
              
@@ -153,13 +187,35 @@ class Processor():
         return child.name.startswith(context.object.name) #and \
 #               len(child.data.vertices) > 1)
 
-    def applyDataSet(self, c):
-        c.destruction.destroyable = False
-        c.destruction.parts = 1
-        c.destruction.granularity = 0
-        c.destruction.thickness = 0.01
-        c.select = True
+    def applyDataSet(self, context, c, nameEnd, parentName):
+       # c.destruction.destroyable = False
+       # c.destruction.parts = 1
+       # c.destruction.granularity = 0
+       # c.destruction.thickness = 0.01
+        split = c.name.split(".")
+        end = split[1]
         
+        if (int(end) > int(nameEnd)) or self.isBeingSplit(c):
+            self.assign(c, parentName)  
+        
+    def assign(self, c, parentName):
+         
+        c.parent = data.objects[parentName]
+        c.game.physics_type = 'RIGID_BODY'
+        c.game.collision_bounds_type = 'CONVEX_HULL'
+        c.game.collision_margin = 0.00 
+      #  c.game.use_collision_compound = True
+        c.game.use_collision_bounds = True 
+        c.select = True   
+    
+    def isBeingSplit(self, child):
+        if child.parent == None:
+            return True
+        #parent and child have the same index number->this child was being split
+        elif child.parent.name.split(".")[1] == child.name.split(".")[1]:
+            return True
+        return False
+       
     def applyKnife(self, context, parts, jitter, thickness):
         pass
         
@@ -190,12 +246,17 @@ def updateGrid(self, context):
     return None
 
 def updateDestructionMode(self, context):
-   # dd.DataStore.proc.processDestruction(context)
-    p = Processor()
-    p.processDestruction(context)
+    dd.DataStore.proc.processDestruction(context)
+    #p = Processor()
+    #p.processDestruction(context)
     return None
 
 def updatePartCount(self, context):
+   # print(bpy.context, context)
+   # print(bpy.context.active_object, context.active_object)
+   # print(bpy.context.object, context.object)
+    #p = Processor()
+    #p.processDestruction(context)
     dd.DataStore.proc.processDestruction(context)
     return None
 
@@ -272,9 +333,11 @@ class DestructionContext(types.PropertyGroup):
     previewDone = props.BoolProperty(name = "previewDone", default = False)
     
 def initialize():
-#   print("HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
-#   utils.register_class(DestructionContext)
+#    print("HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+#    utils.register_class(DestructionContext)
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")
+    Scene.player = props.BoolProperty(name = "player")
+    Scene.converted = props.BoolProperty(name = "converted")
     dd.DataStore.proc = Processor()  
     
 def uninitialize():

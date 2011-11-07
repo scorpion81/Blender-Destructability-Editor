@@ -5,7 +5,18 @@ To decompose an object(tested with default cube scene only) to many by explode m
 Parts, Thickness and Granularity(the higher the value, the smaller the pieces may be when many pieces are to be 
 created) and select "Apply Explosion Modifier" as destruction mode. The rest of the GUI is still not functional
 
+Furthermore you can apply destruction to pieces of the previously destroyed object by hand.
+With "Setup Player" create a simple mouseview and shoot player, "Clear Player" removes it.
+
+To apply destructable parenting for the gameengine, hit "To Game Parenting" prior to starting the gameengine
+To convert back, hit "To Editor Parenting" (same button)
+
+
+
 Changelog:
     -   loading the GUI as addon works now, manual loading no more but that is obsolete by now
     -   basic object decomposition with explode modifier, parenting not correctly functional yet.
+    -   destruction of objects includes parenting, and can be hierarchical (if you reapply destruction at each
+        piece by hand), a better automation is planned.
+    -   setup for a default player and conversion to game parenting (using properties) added    
     

@@ -12,7 +12,7 @@ class DestructabilityPanel(types.Panel):
     bl_context = "object"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
-   # bl_options = {'REGISTER', 'UNDO'}
+   # bl_options = {'UNDO'}
     
     def register():
         dp.initialize()
@@ -51,35 +51,50 @@ class DestructabilityPanel(types.Panel):
        
         layout.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
         layout.prop(context.object.destruction, "groundConnectivity", text = "Calculate Ground Connectivity")
-        layout.label(text = "Connected Grounds")
+        
+        row = layout.row()
+        row.label(text = "Connected Grounds")
+        row.active = context.object.destruction.groundConnectivity
         
         row = layout.row()
         row.template_list(context.object.destruction, "grounds", 
                           context.object.destruction, "active_ground", rows = 2)
         row.operator("ground.remove", icon = 'ZOOMOUT', text = "")
+        row.active = context.object.destruction.groundConnectivity
         
         row = layout.row()
         row.label(text = "Select Ground:")
-        row.prop(context.object.destruction, "groundSelector", text = "")
+     #   row.prop(context.object.destruction, "groundSelector", text = "")
+        row.prop_search(context.object.destruction, "groundSelector", 
+                        context.scene, "objects", icon = 'OBJECT_DATA', text = "")
         row.operator("ground.add", icon = 'ZOOMIN', text = "")
+        row.active = context.object.destruction.groundConnectivity
         
         row = layout.row()
         col = row.column()
         col.prop(context.object.destruction, "grid", text = "Connectivity Grid")
+        col.active = context.object.destruction.groundConnectivity
         layout.separator()
          
         layout.prop(context.object.destruction, "destructor", text = "Destructor")
-       
-        layout.label(text = "Destructor Targets")
+        
+        row = layout.row()
+        row.label(text = "Destructor Targets")
+        row.active = context.object.destruction.destructor
+        
         row = layout.row()
         row.template_list(context.object.destruction, "destructorTargets", 
                           context.object.destruction, "active_target" , rows = 2) 
-        row.operator("target.remove", icon = 'ZOOMOUT', text = "")   
+        row.operator("target.remove", icon = 'ZOOMOUT', text = "") 
+        row.active = context.object.destruction.destructor  
         
         row = layout.row()
         row.label(text = "Select Destroyable: ")
-        row.prop(context.object.destruction, "targetSelector", text = "")
+     #   row.prop(context.object.destruction, "targetSelector", text = "")
+        row.prop_search(context.object.destruction, "targetSelector", context.scene, 
+                       "objects", icon = 'OBJECT_DATA', text = "")
         row.operator("target.add", icon = 'ZOOMIN', text = "")
+        row.active = context.object.destruction.destructor 
         
         row = layout.row()
         col = row.column() 
@@ -104,6 +119,15 @@ class AddGroundOperator(types.Operator):
     bl_label = "add ground"
     
     def execute(self, context):
+        found = False
+        for prop in context.object.destruction.grounds:
+            if prop.name == context.object.destruction.groundSelector:
+                found = True
+                break
+        if not found:
+           propNew = context.object.destruction.grounds.add()
+           propNew.name = context.object.destruction.groundSelector
+               
         return {'FINISHED'}   
     
 class RemoveGroundOperator(types.Operator):
@@ -111,6 +135,8 @@ class RemoveGroundOperator(types.Operator):
     bl_label = "remove ground"
     
     def execute(self, context):
+        index = context.object.destruction.active_ground
+        context.object.destruction.grounds.remove(index)
         return {'FINISHED'}
        
         
@@ -119,6 +145,14 @@ class AddTargetOperator(types.Operator):
     bl_label = "add target"
     
     def execute(self, context):
+        found = False
+        for prop in context.object.destruction.destructorTargets:
+            if prop.name == context.object.destruction.targetSelector:
+                found = True
+                break
+        if not found:
+            propNew = context.object.destruction.destructorTargets.add()
+            propNew.name = context.object.destruction.targetSelector
         return {'FINISHED'}   
     
 class RemoveTargetOperator(types.Operator):
@@ -126,6 +160,8 @@ class RemoveTargetOperator(types.Operator):
     bl_label = "remove target"
     
     def execute(self, context):
+        index = context.object.destruction.active_target
+        context.object.destruction.destructorTargets.remove(index)
         return {'FINISHED'} 
     
 class SetupPlayer(types.Operator):
@@ -185,6 +221,8 @@ class SetupPlayer(types.Operator):
        # print(path.abspath(data.texts
         print(ops.text.open(filepath = currentDir + "\destruction_bge.py", internal = True))
         print(ops.text.open(filepath = currentDir + "\player.py", internal = True))
+        print(ops.text.open(filepath = currentDir + "\destruction_data.py", internal = False))
+        
         
         #setup logic bricks -player
         context.scene.objects.active = data.objects["Player"]
@@ -241,12 +279,22 @@ class SetupPlayer(types.Operator):
         ops.logic.controller_add(type = 'PYTHON', object = "Ball")
         ops.logic.sensor_add(type = 'COLLISION', object = "Ball")
         
+        context.active_object.game.sensors[0].use_pulse_true_level = True
+        
         context.active_object.game.controllers[0].mode = 'MODULE'
         context.active_object.game.controllers[0].module = "destruction_bge.collide"
         
         context.active_object.game.controllers[0].link(
             context.active_object.game.sensors[0])
         
+        #by default destroy all destroyable objects
+        context.active_object.destruction.destructor = True
+        
+        for o in data.objects:
+            if o.destruction.destroyable:
+                target = context.active_object.destruction.destructorTargets.add()
+                target.name = o.name
+                
         
         return {'FINISHED'}
     
@@ -271,6 +319,7 @@ class ClearPlayer(types.Operator):
         data.objects["Eye"].select = True
         data.objects["Launcher"].select = True
         data.objects["Ball"].select = True
+     
         ops.object.delete()
         
         context.scene.layers = [True, False, False, False, False,
@@ -304,14 +353,53 @@ class ConvertParenting(types.Operator):
                 if o.name == "Player" or o.name == "Eye" or \
                    o.name == "Launcher":
                        continue
-            
+            index = -1
             context.scene.objects.active = o
+            ctx = dp.setObject(context, o)
             if o.parent != None:
+                index = 0
                 ops.object.game_property_new()
                 o.game.properties[0].name = "myParent"
                 o.game.properties[0].type = 'STRING'
                 o.game.properties[0].value = o.parent.name
                 o.parent = None
+            
+            ctx = dp.setObject(context, o)    
+            ops.object.game_property_new(ctx)
+            o.game.properties[index + 1].name = "destroyable"
+            o.game.properties[index + 1].type = 'BOOL'
+            o.game.properties[index + 1].value = o.destruction.destroyable
+            
+            ctx = dp.setObject(context, o)
+            ops.object.game_property_new(ctx)
+            o.game.properties[index + 2].name = "isGround"
+            o.game.properties[index + 2].type = 'BOOL'
+            o.game.properties[index + 2].value = o.destruction.isGround
+            
+            ctx = dp.setObject(context, o)
+            ops.object.game_property_new(ctx)
+            o.game.properties[index + 3].name = "groundConnectivity"
+            o.game.properties[index + 3].type = 'BOOL'
+            o.game.properties[index + 3].value = o.destruction.groundConnectivity
+            
+            ctx = dp.setObject(context, o)
+            ops.object.game_property_new(ctx)
+            o.game.properties[index + 4].name = "grounds"
+            o.game.properties[index + 4].type = 'STRING'
+            o.game.properties[index + 4].value = self.grounds(context)
+            
+            ctx = dp.setObject(context, o)
+            ops.object.game_property_new(ctx)
+            o.game.properties[index + 5].name = "destructor"
+            o.game.properties[index + 5].type = 'BOOL'
+            o.game.properties[index + 5].value = o.destruction.destructor
+            
+            ctx = dp.setObject(context, o)
+            ops.object.game_property_new(ctx)
+            o.game.properties[index + 6].name = "destructorTargets"
+            o.game.properties[index + 6].type = 'STRING'
+            o.game.properties[index + 6].value = self.targets(context)
+                
                 
     def unconvert(self, context):
         for o in data.objects:
@@ -322,7 +410,22 @@ class ConvertParenting(types.Operator):
                        continue
             
             context.scene.objects.active = o
-            if len(o.game.properties) > 0:
+            if len(o.game.properties) > 6:
                 o.parent = data.objects[o.game.properties[0].value]
-                ops.object.game_property_remove()
-                    
+                
+                while len(o.game.properties) > 0:
+                    ctx = dp.setObject(context, o)
+                    ops.object.game_property_remove(ctx)
+    
+    def grounds(self, context):
+       retVal = ""
+       for g in context.object.destruction.grounds:
+           retVal = retVal + g.name + " "
+       return retVal
+   
+   
+    def targets(self, context):
+       retVal = ""
+       for t in context.object.destruction.destructorTargets:
+           retVal = retVal + t.name + " "
+       return retVal                 

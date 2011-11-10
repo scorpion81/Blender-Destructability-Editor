@@ -18,5 +18,7 @@ Changelog:
     -   basic object decomposition with explode modifier, parenting not correctly functional yet.
     -   destruction of objects includes parenting, and can be hierarchical (if you reapply destruction at each
         piece by hand), a better automation is planned.
-    -   setup for a default player and conversion to game parenting (using properties) added    
+    -   setup for a default player and conversion to game parenting (using properties) added
+    -   most gui elements functional now
+    -   checks added for registration of destructors / destroyability    
     

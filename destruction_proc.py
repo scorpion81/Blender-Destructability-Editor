@@ -2,7 +2,7 @@ from bpy import types, props, utils, ops, data
 from bpy.types import Object, Scene
 from . import destruction_data as dd
 #import destruction_data as dd
-#import bpy
+import bpy
 
 #do the actual non-bge processing here
 
@@ -21,19 +21,31 @@ class Processor():
         granularity = context.object.destruction.pieceGranularity
         thickness = context.object.destruction.wallThickness
         destroyable = context.object.destruction.destroyable
+        transmitMode = context.object.destruction.transmitMode
         
-        if (parts > 1) and destroyable:
-            print(mode, modes[mode])
-            eval(modes[mode])
+        context.scene.objects.active = context.object
         
+        parent = context.object   
+        if parts > 1 and destroyable:
+            if transmitMode == 'T_CHILDREN':
+                for o in parent.children:
+                    context.scene.objects.active = o
+                    o.select = True
+                    print(mode, modes[mode], context.active_object)
+                    eval(modes[mode])
+            
+               # dd.DataStore.backup = None
+            
+            elif transmitMode == 'T_SELF':
+                print(mode, modes[mode])
+                eval(modes[mode])
         return None
     
     
     def previewExplo(self, context, parts, granularity, thickness):
-        #create modifiers if not there
-        
-        if context.object.destruction.previewDone: 
-            return
+        #create modifiers if not there 
+      #  if context.active_object.destruction.previewDone: 
+      #      return
         
         print("previewExplo", parts, granularity, thickness)
         
@@ -43,26 +55,33 @@ class Processor():
             ops.mesh.subdivide(number_cuts = granularity)
             ops.object.mode_set()
         
-        ops.object.particle_system_add()
-        ops.object.modifier_add(type = 'EXPLODE')
-        ops.object.modifier_add(type = 'SOLIDIFY')
+      #  ops.object.particle_system_add()
+      #  ps = types.ParticleSystem(context.object)
+      #  context.active_object.particle_systems[0] = ps
+      #  print(ops.object.modifier_add(type = 'EXPLODE'))
+        context.active_object.modifiers.new(name = "ParticleSystem", type = 'PARTICLE_SYSTEM')
+        explode = context.active_object.modifiers.new(name = "Explode", type = 'EXPLODE')
+      #  print(context.active_object, len(context.active_object.modifiers))
+      #  explode = context.active_object.modifiers[len(context.active_object.modifiers)-1]
+        
+      #  print(ops.object.modifier_add(type = 'SOLIDIFY'))
+      #  solidify = context.active_object.modifiers[len(context.active_object.modifiers)-1]
+        solidify = context.active_object.modifiers.new(name = "Solidify", type = 'SOLIDIFY')
         
         #get modifier stackindex later, for now use a given order.
-        settings = context.object.particle_systems[0].settings        
+        settings = context.active_object.particle_systems[0].settings        
         settings.count = parts
         settings.frame_start = 2
         settings.frame_end = 2
         settings.distribution = 'RAND'
+        
+        explode.use_edge_cut = True
        
+        solidify.thickness = thickness
+   #     solidify.use_even_offset = True
         
-        explo = context.object.modifiers[1]
-        explo.use_edge_cut = True
-        
-        solid = context.object.modifiers[2]
-        solid.thickness = thickness
-        
-        context.object.destruction.previewDone = True
-        context.object.destruction.applyDone = False
+   #     context.active_object.destruction.previewDone = True
+   #     context.active_object.destruction.applyDone = False
         
         
         
@@ -76,12 +95,12 @@ class Processor():
  #           return
         
         self.previewExplo(context, parts, granularity, thickness)
-        context.object.destruction.applyDone = True
-        context.object.destruction.previewDone = False
+ #       context.active_object.destruction.applyDone = True
+ #       context.active_object.destruction.previewDone = False
         
-        pos = context.object.location.to_tuple()
+        pos = context.active_object.location.to_tuple()
         
-        split = context.object.name.split(".")
+        split = context.active_object.name.split(".")
         parentName = ""
         nameStart = ""
         nameEnd = ""
@@ -90,8 +109,8 @@ class Processor():
             nameStart = split[0]
             nameEnd = split[1]
         else:
-            nameStart = context.object.name
-            context.object.name = nameStart + ".000"
+            nameStart = context.active_object.name
+            context.active_object.name = nameStart + ".000"
             nameEnd = "000"
             
         parentName = "P0_" + nameStart + "." + nameEnd
@@ -119,22 +138,25 @@ class Processor():
             
         
         #context.scene.objects.active = context.object
-        destruction = context.object.destruction
-        solid = context.object.modifiers[2]  
-        explo = context.object.modifiers[1]
+        destruction = context.active_object.destruction
+        explode = context.active_object.modifiers[len(context.active_object.modifiers)-2]
         
         #if object shall stay together
-        settings = context.object.particle_systems[0].settings  
+        settings = context.active_object.particle_systems[0].settings  
         settings.physics_type = 'NO'
         settings.normal_factor = 0.0
         
         context.scene.frame_current = 2
        
-        ops.object.modifier_apply(modifier = explo.name)
-        ops.object.modifier_apply(modifier = solid.name)
+        ops.object.modifier_apply(setObject(context, context.active_object), modifier = explode.name)
+        solidify = context.active_object.modifiers[len(context.active_object.modifiers)-1]
+        
+        ops.object.modifier_apply(setObject(context, context.active_object), modifier = solidify.name)
         
         #must select particle system before somehow
-        ops.object.particle_system_remove() 
+       # ops.object.particle_system_remove()
+        particle = context.active_object.modifiers[len(context.active_object.modifiers)-1]
+        context.active_object.modifiers.remove(particle) 
         ops.object.mode_set(mode = 'EDIT')
         ops.mesh.select_all(action = 'DESELECT')
         #omit loose vertices, otherwise they form an own object!
@@ -149,15 +171,23 @@ class Processor():
         print("Largest: ", largest)    
             
         ops.object.add(type = 'EMPTY') 
-        context.active_object.game.physics_type = 'RIGID_BODY'            
+        context.active_object.game.physics_type = 'RIGID_BODY'  
+        context.active_object.game.radius = 0.01  
+        context.active_object.game.use_ghost = True        
         context.active_object.name = parentName
         context.active_object.parent = context.object.parent
-        [self.applyDataSet(context, c, largest, parentName) for c in children if  
-        c.name.startswith(nameStart)]  
-         
-        ops.object.origin_set(type = 'ORIGIN_GEOMETRY') 
+        context.active_object.destruction.destroyable = True
+       # copyDataSet(context.object, context.active_object)
         
-        print(context.active_object.name, context.active_object.children)
+        context.scene.objects.active = context.object
+        [self.applyDataSet(context, c, largest, parentName) for c in children if 
+         self.isRelated(context, c, nameStart)]   
+         
+        ops.object.origin_set(setObject(context, context.active_object), type = 'ORIGIN_GEOMETRY') 
+        
+     #   context.scene.active_objects = dd.DataStore.backupChild
+        
+      #  print(context.active_object.name, context.active_object.children)
              
     
     def applyFracture(self,parts):
@@ -188,10 +218,6 @@ class Processor():
 #               len(child.data.vertices) > 1)
 
     def applyDataSet(self, context, c, nameEnd, parentName):
-       # c.destruction.destroyable = False
-       # c.destruction.parts = 1
-       # c.destruction.granularity = 0
-       # c.destruction.thickness = 0.01
         split = c.name.split(".")
         end = split[1]
         
@@ -204,9 +230,16 @@ class Processor():
         c.game.physics_type = 'RIGID_BODY'
         c.game.collision_bounds_type = 'CONVEX_HULL'
         c.game.collision_margin = 0.00 
-      #  c.game.use_collision_compound = True
+        c.game.radius = 0.01
         c.game.use_collision_bounds = True 
         c.select = True   
+        
+        c.destruction.transmitMode = 'T_SELF'
+        c.destruction.destroyable = False
+        c.destruction.partCount = 1
+        c.destruction.wallThickness = 0.01
+        c.destruction.pieceGranularity = 0
+        c.destruction.destructionMode = 'DESTROY_F'
     
     def isBeingSplit(self, child):
         if child.parent == None:
@@ -215,6 +248,13 @@ class Processor():
         elif child.parent.name.split(".")[1] == child.name.split(".")[1]:
             return True
         return False
+    
+  #  def copyDataSet(oldObj, newObj):
+  #      newObj.destruction.partCount = oldObj.destruction.partCount
+  #      newObj.destruction.wallThickness = oldObj.destruction.wallThickness
+  #      newObj.destruction.pieceGranularity = oldObj.destruction.pieceGranularity
+  #      newObj.destruction.groundConnectivity = oldObj.groundConnectivity...
+        
        
     def applyKnife(self, context, parts, jitter, thickness):
         pass
@@ -236,13 +276,20 @@ class Processor():
         
         #parent object to empty
     
+    def isRelated(self, context, c, nameStart):
+        return (c.name.startswith(nameStart) and not self.isChild(context,c)) or self.isChild(context, c)    
+        
+    def isChild(self, context, child):
+        return context.active_object.destruction.transmitMode == 'T_CHILDREN' and \
+              child.parent == context.active_object
 
 def updateGrid(self, context):
     obj = context.object
     dim = obj.bound_box.data.dimensions.to_tuple()
-    dd.DataStore.grid = dd.Grid(self.grid, obj.location.to_tuple(), dim, obj.children)
-    dd.DataStore.grid.buildNeighborhood()
-    print(dd.DataStore.grid)
+    grid = dd.Grid(self.grid, obj.location.to_tuple(), dim, obj.children)
+    grid.buildNeighborhood()
+    dd.DataStore.grids[obj.name] = grid
+    print(dd.DataStore.grids[obj.name])
     return None
 
 def updateDestructionMode(self, context):
@@ -261,9 +308,11 @@ def updatePartCount(self, context):
     return None
 
 def updateWallThickness(self, context):
+    dd.DataStore.proc.processDestruction(context)
     return None
 
 def updatePieceGranularity(self, context):
+    dd.DataStore.proc.processDestruction(context)
     return None
 
 def updateIsGround(self, context):
@@ -285,7 +334,35 @@ def updateDestructor(self, context):
 #template_list -> Operators
 
 def updateTransmitMode(self, context):
+    #re apply to children -> process
+#    dd.DataStore.proc.processDestruction(context)
     return None 
+
+def updateValidTargets(self, context):
+    
+    while len(context.object.destruction.validTargets) > 0:
+        del context.object.destruction.validTargets[0]
+        
+    for o in data.objects:
+        if o.type == 'MESH' and o.name != context.object.name: 
+        # and o not in grounds
+            context.object.destruction.validTargets.add()
+            context.object.destruction.validTargets.name = o.name
+   
+    return None
+
+def updateValidGrounds(self, context):
+    
+    while len(context.object.destruction.validGrounds) > 0:
+        del context.object.destruction.validGrounds[0]
+        
+    for o in data.objects:
+        if o.type == 'MESH' and o.name != context.object.name: 
+        # and o not in grounds
+            context.object.destruction.validGrounds.add()
+            context.object.destruction.validGrounds.name = o.name
+            
+    return None
         
 
 class DestructionContext(types.PropertyGroup):
@@ -332,14 +409,26 @@ class DestructionContext(types.PropertyGroup):
     applyDone = props.BoolProperty(name = "applyDone", default = False)
     previewDone = props.BoolProperty(name = "previewDone", default = False)
     
+    validTargets = props.CollectionProperty(name = "validTargets", type = types.PropertyGroup)
+    validGrounds = props.CollectionProperty(name = "validGrounds", type = types.PropertyGroup)
+    
 def initialize():
 #    print("HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
 #    utils.register_class(DestructionContext)
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")
     Scene.player = props.BoolProperty(name = "player")
     Scene.converted = props.BoolProperty(name = "converted")
+  #  Scene.backup = props.PointerProperty(name = "backup", type = Object)
     dd.DataStore.proc = Processor()  
+  #  updateValidTargets(None, bpy.context)
+  #  updateValidGrounds(None, bpy.context)
     
 def uninitialize():
     del Object.destruction
     utils.unregister_class(DestructionContext)
+    
+def setObject(context, object):
+    copy = context.copy()
+    copy["object"] = object
+    return copy
+    

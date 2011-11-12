@@ -33,7 +33,8 @@ def setup():
         if "myParent" in o.getPropertyNames():
             o.setParent(o["myParent"], False, False)
             print(o.parent)
-        o.suspendDynamics()    
+        o.suspendDynamics() 
+    print("Grids: ", dd.DataStore.grids)   
 
 def collide():
     
@@ -55,28 +56,21 @@ def dissolve(obj, depth, maxdepth, owner):
     if isDestroyable(obj.parent) and isRegistered(obj.parent, owner):
         
         grid = None
-        if obj.parent.name in dd.DataStore.grids:
+        if obj.parent.name in dd.DataStore.grids.keys():
             grid = dd.DataStore.grids[obj.parent.name]
                  
         if isGroundConnectivity(obj.parent) and not isGround(obj.parent):
             if grid != None:
                 for cell in grid.cells:
                     destroyNeighborhood(cell)
-        
+                return
         if depth < maxdepth: 
             [dissolve(c, depth + 1, maxdepth, owner) for c in obj.parent.children]
             [activate(c, owner) for c in obj.parent.children]
-        activate(obj, owner, grid)
+        activate(obj, owner)
 
-def activate(child, owner, grid):
- #   if child.getDistanceTo(owner.worldPosition) < defaultRadius:
-     if isGroundConnectivity(child.parent) and grid != None:
-         #remove this child from all intersecting gridcells, 
-         #for now only from own grid cells
-         for cell in grid.cells():
-             if child in cell.children:
-                 cell.children.remove(child)
-         
+def activate(child, owner):
+ #   if child.getDistanceTo(owner.worldPosition) < defaultRadius:         
      print("activated: ", child)
      child.removeParent()
      child.restoreDynamics() 
@@ -123,10 +117,12 @@ def destroyNeighborhood(cell):
         if cell in cells:
             cells.remove(cell)
         
-           # print("Destroyed: ", cell.mid)
+            print("Destroyed: ", cell.gridPos)
             for o in cell.children:
+                o.removeParent()
                 o.restoreDynamics()
 
+    activate
 def destructionList(cell, destList):
       
     if doReturn:

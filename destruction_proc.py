@@ -21,24 +21,11 @@ class Processor():
         granularity = context.object.destruction.pieceGranularity
         thickness = context.object.destruction.wallThickness
         destroyable = context.object.destruction.destroyable
-        transmitMode = context.object.destruction.transmitMode
         
-        context.scene.objects.active = context.object
+        if (parts > 1) and destroyable:
+            print(mode, modes[mode])
+            eval(modes[mode])
         
-        parent = context.object   
-        if parts > 1 and destroyable:
-            if transmitMode == 'T_CHILDREN':
-                for o in parent.children:
-                    context.scene.objects.active = o
-                    o.select = True
-                    print(mode, modes[mode], context.active_object)
-                    eval(modes[mode])
-            
-               # dd.DataStore.backup = None
-            
-            elif transmitMode == 'T_SELF':
-                print(mode, modes[mode])
-                eval(modes[mode])
         return None
     
     
@@ -55,30 +42,24 @@ class Processor():
             ops.mesh.subdivide(number_cuts = granularity)
             ops.object.mode_set()
         
-      #  ops.object.particle_system_add()
-      #  ps = types.ParticleSystem(context.object)
-      #  context.active_object.particle_systems[0] = ps
-      #  print(ops.object.modifier_add(type = 'EXPLODE'))
-        context.active_object.modifiers.new(name = "ParticleSystem", type = 'PARTICLE_SYSTEM')
-        explode = context.active_object.modifiers.new(name = "Explode", type = 'EXPLODE')
-      #  print(context.active_object, len(context.active_object.modifiers))
-      #  explode = context.active_object.modifiers[len(context.active_object.modifiers)-1]
+        ops.object.particle_system_add()
+        ops.object.modifier_add(type = 'EXPLODE')
+        ops.object.modifier_add(type = 'SOLIDIFY')
         
-      #  print(ops.object.modifier_add(type = 'SOLIDIFY'))
-      #  solidify = context.active_object.modifiers[len(context.active_object.modifiers)-1]
-        solidify = context.active_object.modifiers.new(name = "Solidify", type = 'SOLIDIFY')
+        explode = context.object.modifiers[len(context.active_object.modifiers)-2]
+        solidify = context.object.modifiers[len(context.active_object.modifiers)-1]
         
         #get modifier stackindex later, for now use a given order.
-        settings = context.active_object.particle_systems[0].settings        
+        settings = context.object.particle_systems[0].settings        
         settings.count = parts
         settings.frame_start = 2
         settings.frame_end = 2
         settings.distribution = 'RAND'
         
+        explode = context.object.modifiers[len(context.active_object.modifiers)-2]
         explode.use_edge_cut = True
        
         solidify.thickness = thickness
-   #     solidify.use_even_offset = True
         
    #     context.active_object.destruction.previewDone = True
    #     context.active_object.destruction.applyDone = False
@@ -95,12 +76,12 @@ class Processor():
  #           return
         
         self.previewExplo(context, parts, granularity, thickness)
- #       context.active_object.destruction.applyDone = True
- #       context.active_object.destruction.previewDone = False
+        context.object.destruction.applyDone = True
+        context.object.destruction.previewDone = False
         
-        pos = context.active_object.location.to_tuple()
+        context.object.destruction.pos = context.object.location.to_tuple()
         
-        split = context.active_object.name.split(".")
+        split = context.object.name.split(".")
         parentName = ""
         nameStart = ""
         nameEnd = ""
@@ -109,8 +90,8 @@ class Processor():
             nameStart = split[0]
             nameEnd = split[1]
         else:
-            nameStart = context.active_object.name
-            context.active_object.name = nameStart + ".000"
+            nameStart = context.object.name
+            context.object.name = nameStart + ".000"
             nameEnd = "000"
             
         parentName = "P0_" + nameStart + "." + nameEnd
@@ -121,42 +102,42 @@ class Processor():
     #    print(name, context.object.name)
         children = data.objects
         largest = nameEnd
-        print(context.active_object.parent)
-        if context.active_object.parent != None:
-            pLevel = context.active_object.parent.name.split("_")[0]
+        print(context.object.parent)
+        if context.object.parent != None:
+            pLevel = context.object.parent.name.split("_")[0]
             level = int(pLevel.lstrip("P"))
             level += 1
             #get child with lowest number, must search for it if its not child[0]
-            parentName = "P" + str(level) + "_" + context.active_object.parent.children[0].name
+            parentName = "P" + str(level) + "_" + context.object.name
        #     children = context.active_object.parent.children
             print("Subparenting...", children)
-            length = len(context.active_object.parent.children)
+            length = len(context.object.parent.children)
             
             #get the largest child index number, hopefully it is the last one and hopefully
             #this scheme will not change in future releases !
-            largest = context.active_object.parent.children[length - 1].name.split(".")[1]
+            largest = context.object.parent.children[length - 1].name.split(".")[1]
+          #  nr = int(largest) + 1
+          #  largest = self.endStr(nr)
+            
             
         
         #context.scene.objects.active = context.object
-        destruction = context.active_object.destruction
-        explode = context.active_object.modifiers[len(context.active_object.modifiers)-2]
+       # destruction = context.object.destruction
+        explode = context.object.modifiers[len(context.active_object.modifiers)-2]
+        solidify = context.object.modifiers[len(context.active_object.modifiers)-1]
         
         #if object shall stay together
-        settings = context.active_object.particle_systems[0].settings  
+        settings = context.object.particle_systems[0].settings  
         settings.physics_type = 'NO'
         settings.normal_factor = 0.0
         
         context.scene.frame_current = 2
        
-        ops.object.modifier_apply(setObject(context, context.active_object), modifier = explode.name)
-        solidify = context.active_object.modifiers[len(context.active_object.modifiers)-1]
-        
-        ops.object.modifier_apply(setObject(context, context.active_object), modifier = solidify.name)
+        ops.object.modifier_apply(modifier = explode.name)
+        ops.object.modifier_apply(modifier = solidify.name)
         
         #must select particle system before somehow
-       # ops.object.particle_system_remove()
-        particle = context.active_object.modifiers[len(context.active_object.modifiers)-1]
-        context.active_object.modifiers.remove(particle) 
+        ops.object.particle_system_remove() 
         ops.object.mode_set(mode = 'EDIT')
         ops.mesh.select_all(action = 'DESELECT')
         #omit loose vertices, otherwise they form an own object!
@@ -166,16 +147,46 @@ class Processor():
         ops.mesh.separate(type = 'LOOSE')
         ops.object.mode_set()
         print("separated")
-            
+        
+        
+        
+#        children = data.objects
+#        largest = nameEnd
+#        print(context.object.parent)
+#        if context.object.parent != None:
+#            pLevel = context.object.parent.name.split("_")[0]
+#            level = int(pLevel.lstrip("P"))
+#            level += 1
+#            #get child with lowest number, must search for it if its not child[0]
+#            parentName = "P" + str(level) + "_" + context.object.parent.children[0].name
+#       #     children = context.active_object.parent.children
+#            print("Subparenting...", children)
+#            length = len(context.object.parent.children)
+#            
+#            #get the largest child index number, hopefully it is the last one and hopefully
+#            #this scheme will not change in future releases !
+#            largest = context.active_object.parent.children[length - 1].name.split(".")[1]
+#          #  nr = int(largest) + 1
+#          #  largest = self.endStr(nr)
+#            
         
         print("Largest: ", largest)    
             
         ops.object.add(type = 'EMPTY') 
-        context.active_object.game.physics_type = 'RIGID_BODY'  
+        context.active_object.game.physics_type = 'RIGID_BODY'            
         context.active_object.game.radius = 0.01  
         context.active_object.game.use_ghost = True        
-        context.active_object.name = parentName
+        context.active_object.name = parentName   
         context.active_object.parent = context.object.parent
+        
+      #  childs = []
+      #  for c in context.object.children:
+      #      childs.append(c)
+      #      c.parent = None
+            
+      #  context.active_object.location = context.object.location
+        context.active_object.destruction.pos = context.object.destruction.pos
+        
         context.active_object.destruction.destroyable = True
        # copyDataSet(context.object, context.active_object)
         
@@ -183,7 +194,9 @@ class Processor():
         [self.applyDataSet(context, c, largest, parentName) for c in children if 
          self.isRelated(context, c, nameStart)]   
          
-        ops.object.origin_set(setObject(context, context.active_object), type = 'ORIGIN_GEOMETRY') 
+        ops.object.origin_set(type = 'ORIGIN_GEOMETRY') 
+        
+     
         
      #   context.scene.active_objects = dd.DataStore.backupChild
         
@@ -221,7 +234,8 @@ class Processor():
         split = c.name.split(".")
         end = split[1]
         
-        if (int(end) > int(nameEnd)) or self.isBeingSplit(c):
+        if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName):
+            print(int(end) > int(nameEnd), self.isBeingSplit(c, parentName))
             self.assign(c, parentName)  
         
     def assign(self, c, parentName):
@@ -241,11 +255,12 @@ class Processor():
         c.destruction.pieceGranularity = 0
         c.destruction.destructionMode = 'DESTROY_F'
     
-    def isBeingSplit(self, child):
-        if child.parent == None:
-            return True
+    def isBeingSplit(self, c, parentName):
+        #if context.object.parent == None:
+        #    return True
         #parent and child have the same index number->this child was being split
-        elif child.parent.name.split(".")[1] == child.name.split(".")[1]:
+        if parentName.split(".")[1] == c.name.split(".")[1]:
+            #context.scene.objects.unlink(data.objects[child.name])
             return True
         return False
     
@@ -282,18 +297,27 @@ class Processor():
     def isChild(self, context, child):
         return context.active_object.destruction.transmitMode == 'T_CHILDREN' and \
               child.parent == context.active_object
+              
+    def endStr(self, nr):
+        if nr < 10:
+            return "00" + str(nr)
+        if nr < 100:
+            return "0" + str(nr)
+        return str(nr)
+    
 
 def updateGrid(self, context):
     obj = context.object
     dim = obj.bound_box.data.dimensions.to_tuple()
-    grid = dd.Grid(self.grid, obj.location.to_tuple(), dim, obj.children)
+    grid = dd.Grid(self.gridDim, obj.location.to_tuple(), dim, obj.children)
     grid.buildNeighborhood()
     dd.DataStore.grids[obj.name] = grid
-    print(dd.DataStore.grids[obj.name])
+    #context.object.grid = grid
+    #print(obj.name, context.object.grid)
     return None
 
 def updateDestructionMode(self, context):
-    dd.DataStore.proc.processDestruction(context)
+   # dd.DataStore.proc.processDestruction(context)
     #p = Processor()
     #p.processDestruction(context)
     return None
@@ -304,15 +328,15 @@ def updatePartCount(self, context):
    # print(bpy.context.object, context.object)
     #p = Processor()
     #p.processDestruction(context)
-    dd.DataStore.proc.processDestruction(context)
+#    dd.DataStore.proc.processDestruction(context)
     return None
 
 def updateWallThickness(self, context):
-    dd.DataStore.proc.processDestruction(context)
+#    dd.DataStore.proc.processDestruction(context)
     return None
 
 def updatePieceGranularity(self, context):
-    dd.DataStore.proc.processDestruction(context)
+  #  dd.DataStore.proc.processDestruction(context)
     return None
 
 def updateIsGround(self, context):
@@ -392,7 +416,7 @@ class DestructionContext(types.PropertyGroup):
      
     groundConnectivity = props.BoolProperty(name = "groundConnectivity", 
     description = "Determines whether connectivity of parts of this object is calculated, so only unconnected parts collapse according to their parent relations", update = updateGroundConnectivity)
-    grid = props.IntVectorProperty(name = "grid", default = (1, 1, 1), min = 1, max = 100, 
+    gridDim = props.IntVectorProperty(name = "grid", default = (1, 1, 1), min = 1, max = 100, 
                                           subtype ='XYZ', update = updateGrid )
     destructorTargets = props.CollectionProperty(type = types.PropertyGroup, name = "destructorTargets")
     grounds = props.CollectionProperty(type = types.PropertyGroup, name = "grounds")
@@ -411,6 +435,8 @@ class DestructionContext(types.PropertyGroup):
     
     validTargets = props.CollectionProperty(name = "validTargets", type = types.PropertyGroup)
     validGrounds = props.CollectionProperty(name = "validGrounds", type = types.PropertyGroup)
+    pos = props.FloatVectorProperty(name = "pos" , default = (0, 0, 0))
+ #   grid = None
     
 def initialize():
 #    print("HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")

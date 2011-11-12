@@ -19,7 +19,7 @@ class Cell:
                       (self.center[1] - cellDim[1] / 2, self.center[1] + cellDim[0] / 2),
                       (self.center[2] - cellDim[2] / 2, self.center[2] + cellDim[0] / 2)] 
                                          
-        self.children = [c for c in grid.children if self.isInside(c)]
+        self.children = [c.name for c in grid.children if self.isInside(c)]
         self.count = len(self.children)
         self.isGroundCell = False
     
@@ -27,9 +27,9 @@ class Cell:
         return len(self.children) / self.count > intgr     
             
     def isInside(self, c):
-        if c.pos[0] in range(self.range[0][0], self.range[0][1]) and \
-           c.pos[1] in range(self.range[1][0], self.range[1][1]) and \
-           c.pos[2] in range(self.range[2][0], self.range[2][1]):
+        if c.destruction.pos[0] >= self.range[0][0] and c.destruction.pos[0] <= self.range[0][1] and \
+           c.destruction.pos[1] >= self.range[1][0] and c.destruction.pos[1] <= self.range[1][1] and \
+           c.destruction.pos[2] >= self.range[2][0] and c.destruction.pos[2] <= self.range[2][1]:
                return True
            
         return False
@@ -84,9 +84,17 @@ class Grid:
                    self.cells[(x,y,z)] = Cell((x,y,z), self)
                    
     #   self.buildNeighborhood()
+        self.children = None
+        self.pos = None
+        self.dim =  None
     
     def buildNeighborhood(self):
         [c.findNeighbors() for c in self.cells.values()]
+        #delete possible refs to bpy objects
+        for c in self.cells.values():
+            c.cellDim = None
+            c.gridPos = None
+            c.grid = None
         
     
     def __str__(self):

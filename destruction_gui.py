@@ -1,9 +1,11 @@
 from bpy import types, props, utils, ops, data, path
 from bpy.types import Object, Scene
 from . import destruction_proc as dp
-#import destruction_proc as dp
+from . import destruction_data as dd
 import math
 import os
+import pickle
+import inspect
 
 
 class DestructabilityPanel(types.Panel):
@@ -47,6 +49,10 @@ class DestructabilityPanel(types.Panel):
         row.prop(context.object.destruction, "destructionMode", text = "Destruction Mode")
         row.active = context.object.destruction.destroyable
         
+        row = layout.row()
+        row.operator("object.destroy")
+        row.active = context.object.destruction.destroyable
+        
         layout.separator()
        
         layout.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
@@ -72,7 +78,7 @@ class DestructabilityPanel(types.Panel):
         
         row = layout.row()
         col = row.column()
-        col.prop(context.object.destruction, "grid", text = "Connectivity Grid")
+        col.prop(context.object.destruction, "gridDim", text = "Connectivity Grid")
         col.active = context.object.destruction.groundConnectivity
         layout.separator()
          
@@ -362,7 +368,7 @@ class ConvertParenting(types.Operator):
                 o.game.properties[0].name = "myParent"
                 o.game.properties[0].type = 'STRING'
                 o.game.properties[0].value = o.parent.name
-                o.parent = None
+              #  o.parent = None
             
             ctx = dp.setObject(context, o)    
             ops.object.game_property_new(ctx)
@@ -399,8 +405,20 @@ class ConvertParenting(types.Operator):
             o.game.properties[index + 6].name = "destructorTargets"
             o.game.properties[index + 6].type = 'STRING'
             o.game.properties[index + 6].value = self.targets(context)
-                
-                
+            
+            ctx = dp.setObject(context, o)
+            ops.object.game_property_new(ctx)
+            o.game.properties[index + 7].name = "grid"
+            o.game.properties[index + 7].type = 'STRING'
+            o.game.properties[index + 7].value = self.pickleGrid(o.name)
+  
+        for o in data.objects: #restrict to P_ parents only ! no use all
+            if context.scene.player:
+                if o.name == "Player" or o.name == "Eye" or \
+                   o.name == "Launcher":
+                    continue
+            o.parent = None
+                       
     def unconvert(self, context):
         for o in data.objects:
             
@@ -428,4 +446,22 @@ class ConvertParenting(types.Operator):
        retVal = ""
        for t in context.object.destruction.destructorTargets:
            retVal = retVal + t.name + " "
-       return retVal                 
+       return retVal
+   
+    def pickleGrid(self, name):
+        print(name, dd.DataStore.grids, name in dd.DataStore.grids.keys())
+        if name not in dd.DataStore.grids.keys():
+            return ""
+        grid = dd.DataStore.grids[name]
+        print(inspect.getmembers(grid.cells[(0,0,0)]))
+        strObj = str(pickle.dumps(grid), 'ascii')
+        print("Pickled: ", strObj)
+        return strObj                 
+   
+class DestroyObject(types.Operator):
+    bl_idname = "object.destroy"
+    bl_label = "Destroy Object"
+    
+    def execute(self, context):
+        dd.DataStore.proc.processDestruction(context)
+        return {'FINISHED'}

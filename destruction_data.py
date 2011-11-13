@@ -14,22 +14,30 @@ class Cell:
         self.gridPos = gridPos
         self.grid = grid
         cellDim = grid.cellDim
-        self.center = (gridPos[0] * cellDim[0], gridPos[1] * cellDim[1], gridPos[2] * cellDim[2]) 
+        self.center = ((gridPos[0] + 0.5) * cellDim[0] + grid.pos[0], 
+                       (gridPos[1] + 0.5) * cellDim[1] + grid.pos[1], 
+                       (gridPos[2] + 0.5) * cellDim[2] + grid.pos[2]) 
+                       
         self.range = [(self.center[0] - cellDim[0] / 2, self.center[0] + cellDim[0] / 2),
-                      (self.center[1] - cellDim[1] / 2, self.center[1] + cellDim[0] / 2),
-                      (self.center[2] - cellDim[2] / 2, self.center[2] + cellDim[0] / 2)] 
+                      (self.center[1] - cellDim[1] / 2, self.center[1] + cellDim[1] / 2),
+                      (self.center[2] - cellDim[2] / 2, self.center[2] + cellDim[2] / 2)] 
                                          
-        self.children = [c.name for c in grid.children if self.isInside(c)]
+        self.children = [c for c in grid.children if self.isInside(c)]
         self.count = len(self.children)
+        print("Cell created: ", self.center, self.count)
         self.isGroundCell = False
     
     def integrity(self, intgr):
+        if self.count == 0:
+            return 0
         return len(self.children) / self.count > intgr     
             
     def isInside(self, c):
-        if c.destruction.pos[0] >= self.range[0][0] and c.destruction.pos[0] <= self.range[0][1] and \
-           c.destruction.pos[1] >= self.range[1][0] and c.destruction.pos[1] <= self.range[1][1] and \
-           c.destruction.pos[2] >= self.range[2][0] and c.destruction.pos[2] <= self.range[2][1]:
+       # print("Child: ", c, c.worldPosition, self.range) 
+        
+        if c.worldPosition[0] >= self.range[0][0] and c.worldPosition[0] <= self.range[0][1] and \
+           c.worldPosition[1] >= self.range[1][0] and c.worldPosition[1] <= self.range[1][1] and \
+           c.worldPosition[2] >= self.range[2][0] and c.worldPosition[2] <= self.range[2][1]:
                return True
            
         return False
@@ -69,13 +77,16 @@ class Grid:
     
     def __init__(self, cellCounts, pos, dim, children):
         self.cells = {}
-        self.pos = pos
+        #must start at upper left corner of bbox, that is the "origin" of the grid
+        self.pos = (pos[0] - dim[0] / 2, pos[1] - dim[1] / 2, pos[2] - dim[2] / 2)
         self.dim = dim #from objects bbox
         self.children = children
         self.cellCounts = cellCounts
     
-        self.cellDim = [ round(dim[0] / cellCounts[0]), round(dim[1] / cellCounts[1]), 
-                         round(dim[2] / cellCounts[2])]
+        self.cellDim = [ dim[0] / cellCounts[0], dim[1] / cellCounts[1], 
+                         dim[2] / cellCounts[2]]
+                         
+        print("cell/grid dimension: ", self.cellDim, self.dim)
         
         #build cells
         for x in range(0, cellCounts[0]):
@@ -84,17 +95,17 @@ class Grid:
                    self.cells[(x,y,z)] = Cell((x,y,z), self)
                    
     #   self.buildNeighborhood()
-        self.children = None
-        self.pos = None
-        self.dim =  None
+    #    self.children = None
+    #    self.pos = None
+    #    self.dim =  None
     
     def buildNeighborhood(self):
         [c.findNeighbors() for c in self.cells.values()]
         #delete possible refs to bpy objects
-        for c in self.cells.values():
-            c.cellDim = None
-            c.gridPos = None
-            c.grid = None
+    #    for c in self.cells.values():
+    #        c.cellDim = None
+    #        c.gridPos = None
+    #        c.grid = None
         
     
     def __str__(self):

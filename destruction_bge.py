@@ -26,14 +26,25 @@ hierarchyDepth = 1 # this must be stored per destructor, how deep destruction sh
 #otherwise 1 level each collision with destroyer / ground
 #maxDepth = 10  #this must be stored in scene
 doReturn = False
-
 def setup():
+    
+    #doReturn = False
     scene = logic.getCurrentScene()
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():
             o.setParent(o["myParent"], False, False)
             print(o.parent)
         o.suspendDynamics() 
+    
+    
+    for o in scene.objects:
+        if isGroundConnectivity(o):
+            bbox = getFloats(o["gridbbox"])
+            dim = getInts(o["griddim"])
+            grid = dd.Grid(dim, o.worldPosition, bbox, o.children)
+            grid.buildNeighborhood()
+            dd.DataStore.grids[o.name] = grid    
+        
     print("Grids: ", dd.DataStore.grids)   
 
 def collide():
@@ -61,9 +72,11 @@ def dissolve(obj, depth, maxdepth, owner):
                  
         if isGroundConnectivity(obj.parent) and not isGround(obj.parent):
             if grid != None:
-                for cell in grid.cells:
-                    destroyNeighborhood(cell)
-                return
+                cells = [c for c in grid.cells.values()]
+                if len(cells) > 0:
+                    destroyNeighborhood(cells[0])
+                    return
+                
         if depth < maxdepth: 
             [dissolve(c, depth + 1, maxdepth, owner) for c in obj.parent.children]
             [activate(c, owner) for c in obj.parent.children]
@@ -76,6 +89,8 @@ def activate(child, owner):
      child.restoreDynamics() 
 
 def isGroundConnectivity(obj):
+    if "groundConnectivity" not in obj.getPropertyNames():
+        return False
     return obj["groundConnectivity"]
 
 def isGround(obj):
@@ -102,45 +117,69 @@ def isRegistered(destroyable, destructor):
         
     return False
 
-def destroyNeighborhood(cell):
+def getFloats(str):
+    parts = str.split(" ")
+    return (float(parts[0]), float(parts[1]), float(parts[2]))
 
+def getInts(str):
+    parts = str.split(" ")
+    return (int(parts[0]), int(parts[1]), int(parts[2]))
+        
+
+def destroyNeighborhood(cell):
+    
+    global doReturn
+    
     destlist = []
     destructionList(cell, destlist)
     doReturn = False
     
-    for cell in destList:
-        if cell.isGroundCell() and cell.integrity(0.45):
+    for cell in destlist:
+        if cell.isGroundCell and cell.integrity(0.45):
             return
         
     #destroy unconnected cells -> enable physics within radius -> fuzzy
-    for cell in destList:
-        if cell in cells:
-            cells.remove(cell)
+    print("Destruction List", len(destlist))
+    cells = dict(cell.grid.cells)
+    for cell in destlist:
+        for item in cell.grid.cells.items():
+            if cell == item[1] and item[0] in cells:
+                del cells[item[0]]
         
-            print("Destroyed: ", cell.gridPos)
-            for o in cell.children:
-                o.removeParent()
-                o.restoreDynamics()
+        print("Destroyed: ", cell.gridPos)
+        childs = [c for c in cell.children]
+        for o in cell.children:
+            print("cell child: ", o)
+            o.removeParent()
+            o.restoreDynamics()
+            childs.remove(o)
+            
+        cell.children = childs
+            
+    cell.grid.cells = cells
 
-    activate
 def destructionList(cell, destList):
-      
+    
+    global doReturn  
+    
     if doReturn:
         return
     
-    if cell.isGroundCell():
+    if cell.isGroundCell:
         destList.append(cell)
         doReturn = True
         return
     
     for i in range(0,6):
-        neighbor = cell.getNeighbor(i)
+        neighbor = cell.neighbors[i]
         if neighbor != None and not neighbor in destList:
             destList.append(neighbor)
-            if neighbor.integrity(0.45):
-                destructionList(neighbor, destList)
-             
-    destList.append(cell)
+           # if neighbor.integrity(0.45):
+            destructionList(neighbor, destList)
+    
+    #no neighbors found            
+    if len(destList) == 0:         
+        destList.append(cell)
        
     
     

@@ -80,6 +80,7 @@ class Processor():
         context.object.destruction.previewDone = False
         
         context.object.destruction.pos = context.object.location.to_tuple()
+        bbox = context.object.bound_box.data.dimensions.to_tuple()
         
         split = context.object.name.split(".")
         parentName = ""
@@ -178,6 +179,7 @@ class Processor():
         context.active_object.game.use_ghost = True        
         context.active_object.name = parentName   
         context.active_object.parent = context.object.parent
+        context.active_object.destruction.gridBBox = bbox
         
       #  childs = []
       #  for c in context.object.children:
@@ -307,11 +309,11 @@ class Processor():
     
 
 def updateGrid(self, context):
-    obj = context.object
-    dim = obj.bound_box.data.dimensions.to_tuple()
-    grid = dd.Grid(self.gridDim, obj.location.to_tuple(), dim, obj.children)
-    grid.buildNeighborhood()
-    dd.DataStore.grids[obj.name] = grid
+#    obj = context.object
+#    dim = obj.bound_box.data.dimensions.to_tuple()
+#    grid = dd.Grid(self.gridDim, obj.location.to_tuple(), dim, obj.children)
+#    grid.buildNeighborhood()
+#    dd.DataStore.grids[obj.name] = grid
     #context.object.grid = grid
     #print(obj.name, context.object.grid)
     return None
@@ -418,6 +420,7 @@ class DestructionContext(types.PropertyGroup):
     description = "Determines whether connectivity of parts of this object is calculated, so only unconnected parts collapse according to their parent relations", update = updateGroundConnectivity)
     gridDim = props.IntVectorProperty(name = "grid", default = (1, 1, 1), min = 1, max = 100, 
                                           subtype ='XYZ', update = updateGrid )
+    gridBBox = props.FloatVectorProperty(name = "gridbbox", default = (0, 0, 0))
     destructorTargets = props.CollectionProperty(type = types.PropertyGroup, name = "destructorTargets")
     grounds = props.CollectionProperty(type = types.PropertyGroup, name = "grounds")
     transmitMode = props.EnumProperty(items = transModes, name = "Transmit Mode", update = updateTransmitMode)

@@ -406,11 +406,28 @@ class ConvertParenting(types.Operator):
             o.game.properties[index + 6].type = 'STRING'
             o.game.properties[index + 6].value = self.targets(context)
             
+#            ctx = dp.setObject(context, o)
+#            ops.object.game_property_new(ctx)
+#            o.game.properties[index + 7].name = "grid"
+#            o.game.properties[index + 7].type = 'STRING'
+#            o.game.properties[index + 7].value = self.pickleGrid(o.name)
+
+            
+            bbox = o.destruction.gridBBox
+            dim  = o.destruction.gridDim
+
             ctx = dp.setObject(context, o)
             ops.object.game_property_new(ctx)
-            o.game.properties[index + 7].name = "grid"
+            o.game.properties[index + 7].name = "gridbbox"
             o.game.properties[index + 7].type = 'STRING'
-            o.game.properties[index + 7].value = self.pickleGrid(o.name)
+            o.game.properties[index + 7].value = str(bbox[0]) + " " + str(bbox[1]) + " " + str(bbox[2])
+            
+            ctx = dp.setObject(context, o)
+            ops.object.game_property_new(ctx)
+            o.game.properties[index + 8].name = "griddim"
+            o.game.properties[index + 8].type = 'STRING'
+            o.game.properties[index + 8].value = str(dim[0]) + " " + str(dim[1]) + " " + str(dim[2])
+            
   
         for o in data.objects: #restrict to P_ parents only ! no use all
             if context.scene.player:
@@ -428,7 +445,7 @@ class ConvertParenting(types.Operator):
                        continue
             
             context.scene.objects.active = o
-            if len(o.game.properties) > 6:
+            if len(o.game.properties) > 8:
                 o.parent = data.objects[o.game.properties[0].value]
                 
                 while len(o.game.properties) > 0:

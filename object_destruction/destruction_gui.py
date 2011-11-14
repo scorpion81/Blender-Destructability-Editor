@@ -4,8 +4,8 @@ from . import destruction_proc as dp
 from . import destruction_data as dd
 import math
 import os
-import pickle
-import inspect
+#import pickle
+#import inspect
 
 
 class DestructabilityPanel(types.Panel):
@@ -23,8 +23,7 @@ class DestructabilityPanel(types.Panel):
    #     return {'FINISHED'}
 
     def unregister():
-        del Object.destruction
-        utils.unregister_class(DestructionContext)   
+        dp.uninitialize()
     
     def draw(self, context):
         layout = self.layout

@@ -468,7 +468,7 @@ def initialize():
     
 def uninitialize():
     del Object.destruction
-    utils.unregister_class(DestructionContext)
+  #  utils.unregister_class(DestructionContext)
     
 def setObject(context, object):
     copy = context.copy()

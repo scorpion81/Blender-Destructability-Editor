@@ -1,0 +1,42 @@
+This is an addon under construction. Loading destruction_gui.py manually with "Run Script" works, but loading 
+as addon not yet. Then a gui is displayed under Object->Destructability but a few is done yet with it.
+
+To decompose an object(tested with default cube scene only) to many by explode modifier choose
+Parts, Thickness and Granularity(the higher the value, the smaller the pieces may be when many pieces are to be 
+created) and select "Apply Explosion Modifier" as destruction mode. The rest of the GUI is still not functional
+
+Furthermore you can apply destruction to pieces of the previously destroyed object by hand.
+With "Setup Player" create a simple mouseview and shoot player, "Clear Player" removes it.
+
+To apply destructable parenting for the gameengine, hit "To Game Parenting" prior to starting the gameengine
+To convert back, hit "To Editor Parenting" (same button)
+
+
+
+Changelog:
+    -   loading the GUI as addon works now, manual loading no more but that is obsolete by now
+    -   basic object decomposition with explode modifier, parenting not correctly functional yet.
+    -   destruction of objects includes parenting, and can be hierarchical (if you reapply destruction at each
+        piece by hand), a better automation is planned.
+    -   setup for a default player and conversion to game parenting (using properties) added
+    -   most gui elements functional now
+    -   checks added for registration of destructors / destroyability
+    -   ground connectivity calculation works now, tested with scaled default cube
+        but TODO: take position/rotation of objects into account !
+        
+
+Setup for a basic destructable (hollow) Wall:
+    - Blender ->  File:New
+    - Scale Default Cube e.g. SY 9,  SZ 6
+    - Object->Destructability: check Destroyable, set: Parts = 200, Thickness = 0.1, Granularity = 40
+    - Set Destruction Mode to "Apply Explosion Modifier" and hit Destroy Object (wait a bit)
+    - Select new Parent Empty (P0_Cube.001) and hit Setup Player (button is near bottom)
+    - Move the now selected Ground Plane near the bottom of the scaled default cube, it must touch/intersect          the cube  
+    - Select X = 1, Y = 9, Z = 6 at Connectivity Grid
+    - Make sure P0_Cube.001 is still selected, then hit "To Game Parenting" button
+    - Move the player as desired
+    - Start the game engine
+    - Shoot balls with Left Mouse Button, move mouse to aim
+    - preferably shoot bottom parts of wall first and watch unconnected parts to collapse automatically!
+    
+       

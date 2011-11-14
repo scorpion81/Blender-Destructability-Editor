@@ -356,6 +356,19 @@ def updatePieceGranularity(self, context):
     return None
 
 def updateIsGround(self, context):
+    
+    for g in context.scene.validGrounds:
+        if g.name == "":# hack to prevent side effects / errors
+            break
+        context.scene.objects.active = context.scene.objects[g.name]
+        ops.valid_ground.remove()
+    
+    for o in context.scene.objects:
+        if o.destruction.isGround and o != context.object:
+            context.scene.objects.active = o
+            ops.valid_ground.add()
+    
+    context.scene.objects.active = context.object
     return None
 
 
@@ -378,32 +391,51 @@ def updateTransmitMode(self, context):
 #    dd.DataStore.proc.processDestruction(context)
     return None 
 
-def updateValidTargets(self, context):
-    
-    while len(context.object.destruction.validTargets) > 0:
-        del context.object.destruction.validTargets[0]
-        
-    for o in data.objects:
-        if o.type == 'MESH' and o.name != context.object.name: 
-        # and o not in grounds
-            context.object.destruction.validTargets.add()
-            context.object.destruction.validTargets.name = o.name
-   
-    return None
+def updateTransmitMode(self, context):
+    #re apply to children -> process
+#    dd.DataStore.proc.processDestruction(context)
+    return None 
 
-def updateValidGrounds(self, context):
+def updateDestroyable(self, context):
+    for t in context.scene.validTargets:
+        if t.name == "":# hack to prevent side effects / errors
+            break
+        context.scene.objects.active = context.scene.objects[t.name]
+        ops.valid_target.remove()
     
-    while len(context.object.destruction.validGrounds) > 0:
-        del context.object.destruction.validGrounds[0]
-        
-    for o in data.objects:
-        if o.type == 'MESH' and o.name != context.object.name: 
-        # and o not in grounds
-            context.object.destruction.validGrounds.add()
-            context.object.destruction.validGrounds.name = o.name
-            
-    return None
-        
+    for o in context.scene.objects:
+        if o.destruction.destroyable and o != context.object:
+            context.scene.objects.active = o
+            ops.valid_target.add()
+    context.scene.objects.active = context.object
+    return None 
+
+#def updateValidTargets(self, context):
+#    
+#    while len(context.object.destruction.validTargets) > 0:
+#        del context.object.destruction.validTargets[0]
+#        
+#    for o in data.objects:
+#        if o.type == 'MESH' and o.name != context.object.name: 
+#        # and o not in grounds
+#            context.object.destruction.validTargets.add()
+#            context.object.destruction.validTargets.name = o.name
+#   
+#    return None
+#
+#def updateValidGrounds(self, context):
+#    
+#    while len(context.object.destruction.validGrounds) > 0:
+#        del context.object.destruction.validGrounds[0]
+#        
+#    for o in data.objects:
+#        if o.type == 'MESH' and o.name != context.object.name: 
+#        # and o not in grounds
+#            context.object.destruction.validGrounds.add()
+#            context.object.destruction.validGrounds.name = o.name
+#            
+#    return None
+#        
 
 class DestructionContext(types.PropertyGroup):
     
@@ -420,7 +452,8 @@ class DestructionContext(types.PropertyGroup):
     
    # nested = props.FloatProperty(name="Nested", default=0.0)
     destroyable = props.BoolProperty(name = "destroyable",
-                         description = "This object can be destroyed, according to parent relations")
+                         description = "This object can be destroyed, according to parent relations", 
+                         update = updateDestroyable)
     
     partCount = props.IntProperty(name = "partCount", default = 10, min = 1, max = 999, update = updatePartCount)
     destructionMode = props.EnumProperty(items = destModes, update = updateDestructionMode)
@@ -440,6 +473,8 @@ class DestructionContext(types.PropertyGroup):
     transmitMode = props.EnumProperty(items = transModes, name = "Transmit Mode", update = updateTransmitMode)
     active_target = props.IntProperty(name = "active_target", default = 0)
     active_ground = props.IntProperty(name = "active_ground", default = 0)
+    #active_valid_target = props.IntProperty(name = "active_valid_target", default = 0)
+    #active_valid_ground = props.IntProperty(name = "active_valid_ground", default = 0)
     groundSelector = props.StringProperty(name = "groundSelector")
     targetSelector = props.StringProperty(name = "targetSelector")
 
@@ -450,8 +485,7 @@ class DestructionContext(types.PropertyGroup):
     applyDone = props.BoolProperty(name = "applyDone", default = False)
     previewDone = props.BoolProperty(name = "previewDone", default = False)
     
-    validTargets = props.CollectionProperty(name = "validTargets", type = types.PropertyGroup)
-    validGrounds = props.CollectionProperty(name = "validGrounds", type = types.PropertyGroup)
+   
     pos = props.FloatVectorProperty(name = "pos" , default = (0, 0, 0))
  #   grid = None
     
@@ -461,6 +495,8 @@ def initialize():
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")
     Scene.player = props.BoolProperty(name = "player")
     Scene.converted = props.BoolProperty(name = "converted")
+    Scene.validTargets = props.CollectionProperty(name = "validTargets", type = types.PropertyGroup)
+    Scene.validGrounds = props.CollectionProperty(name = "validGrounds", type = types.PropertyGroup)
   #  Scene.backup = props.PointerProperty(name = "backup", type = Object)
     dd.DataStore.proc = Processor()  
   #  updateValidTargets(None, bpy.context)

@@ -72,7 +72,7 @@ class DestructabilityPanel(types.Panel):
         row.label(text = "Connected Grounds")
         row.active = context.object.destruction.groundConnectivity
         
-        row = layout.row()
+        row = layout.row()       
         row.template_list(context.object.destruction, "grounds", 
                           context.object.destruction, "active_ground", rows = 2)
         row.operator("ground.remove", icon = 'ZOOMOUT', text = "")
@@ -81,8 +81,12 @@ class DestructabilityPanel(types.Panel):
         row = layout.row()
         row.label(text = "Select Ground:")
      #   row.prop(context.object.destruction, "groundSelector", text = "")
+     #   ops.valid_ground.remove()
+        
         row.prop_search(context.object.destruction, "groundSelector", 
-                        context.scene, "objects", icon = 'OBJECT_DATA', text = "")
+                        context.scene, "validGrounds", icon = 'OBJECT_DATA', text = "")
+        
+      #  ops.valid_ground.add()                 
         row.operator("ground.add", icon = 'ZOOMIN', text = "")
         row.active = context.object.destruction.groundConnectivity
         
@@ -99,16 +103,22 @@ class DestructabilityPanel(types.Panel):
         row.active = context.object.destruction.destructor
         
         row = layout.row()
+        
         row.template_list(context.object.destruction, "destructorTargets", 
                           context.object.destruction, "active_target" , rows = 2) 
+                        
         row.operator("target.remove", icon = 'ZOOMOUT', text = "") 
         row.active = context.object.destruction.destructor  
         
         row = layout.row()
         row.label(text = "Select Destroyable: ")
      #   row.prop(context.object.destruction, "targetSelector", text = "")
+     #   ops.valid_target.remove()
+        
         row.prop_search(context.object.destruction, "targetSelector", context.scene, 
-                       "objects", icon = 'OBJECT_DATA', text = "")
+                       "validTargets", icon = 'OBJECT_DATA', text = "")
+                       
+     #   ops.valid_target.add()               
         row.operator("target.add", icon = 'ZOOMIN', text = "")
         row.active = context.object.destruction.destructor 
         
@@ -135,14 +145,20 @@ class AddGroundOperator(types.Operator):
     bl_label = "add ground"
     
     def execute(self, context):
-        found = False
-        for prop in context.object.destruction.grounds:
-            if prop.name == context.object.destruction.groundSelector:
-                found = True
-                break
-        if not found:
-           propNew = context.object.destruction.grounds.add()
-           propNew.name = context.object.destruction.groundSelector
+#        found = False
+#        for prop in context.object.destruction.grounds:
+#            if prop.name == context.object.destruction.groundSelector:
+#                found = True
+#                break
+#        if not found:
+        propNew = context.object.destruction.grounds.add()
+        propNew.name = context.object.destruction.groundSelector
+        context.object.destruction.groundSelector = ""
+       
+       # ctx = context.copy()
+        context.scene.objects.active = context.scene.objects[propNew.name]
+        ops.valid_ground.remove()
+        context.scene.objects.active = context.object
                
         return {'FINISHED'}   
     
@@ -152,7 +168,13 @@ class RemoveGroundOperator(types.Operator):
     
     def execute(self, context):
         index = context.object.destruction.active_ground
+        name = context.object.destruction.grounds[index].name 
         context.object.destruction.grounds.remove(index)
+        
+        #ctx = context.copy()
+        context.scene.objects.active = context.scene.objects[name]
+        ops.valid_target.add()
+        context.scene.objects.active = context.object
         return {'FINISHED'}
        
         
@@ -161,14 +183,20 @@ class AddTargetOperator(types.Operator):
     bl_label = "add target"
     
     def execute(self, context):
-        found = False
-        for prop in context.object.destruction.destructorTargets:
-            if prop.name == context.object.destruction.targetSelector:
-                found = True
-                break
-        if not found:
-            propNew = context.object.destruction.destructorTargets.add()
-            propNew.name = context.object.destruction.targetSelector
+      #  found = False
+      #  for prop in context.object.destruction.destructorTargets:
+      #      if prop.name == context.object.destruction.targetSelector:
+      #          found = True
+      #          break
+      #  if not found:
+        propNew = context.object.destruction.destructorTargets.add()
+        propNew.name = context.object.destruction.targetSelector
+        context.object.destruction.targetSelector = ""
+        
+       # ctx = context.copy()
+        context.scene.objects.active = context.scene.objects[propNew.name]
+        ops.valid_target.remove()
+        context.scene.objects.active = context.object
         return {'FINISHED'}   
     
 class RemoveTargetOperator(types.Operator):
@@ -177,7 +205,13 @@ class RemoveTargetOperator(types.Operator):
     
     def execute(self, context):
         index = context.object.destruction.active_target
+        name = context.object.destruction.destructorTargets[index].name 
         context.object.destruction.destructorTargets.remove(index)
+        
+       # ctx = context.copy()
+        context.scene.objects.active = context.scene.objects[name]
+        ops.valid_target.add()
+        context.scene.objects.active = context.object
         return {'FINISHED'} 
     
 class SetupPlayer(types.Operator):
@@ -310,7 +344,14 @@ class SetupPlayer(types.Operator):
             if o.destruction.destroyable:
                 target = context.active_object.destruction.destructorTargets.add()
                 target.name = o.name
-        
+               #ctx = context.copy()
+               #ctx["object"] = o
+               #ops.valid_target.add(ctx)
+               #context.scene.objects.active = o
+               #context.object.destruction.selector
+               #ops.target.add()
+               
+        context.scene.objects.active = context.object
         #ground and cells
         context.object.destruction.groundConnectivity = True
         context.object.destruction.gridDim = (2, 2, 2)
@@ -319,13 +360,11 @@ class SetupPlayer(types.Operator):
         context.active_object.name = "Ground"
         context.active_object.destruction.isGround = True
         
-        for o in context.scene.objects:
-            if o.destruction.groundConnectivity:
-                ground = o.destruction.grounds.add()
-                ground.name = context.active_object.name
+        g = context.object.destruction.grounds.add()
+        g.name = "Ground"
         
        # context        
-        
+        context.scene.objects.active = context.object
         return {'FINISHED'}
     
 class ClearPlayer(types.Operator):
@@ -548,3 +587,49 @@ class UndestroyObject(types.Operator):
         for c in object.children:
             c.select = True
             self.selectShards(c)
+            
+class AddValidTarget(types.Operator):
+    bl_idname = "valid_target.add"
+    bl_label = "Add Valid Target"
+      
+    def execute(self, context):
+        propNew = context.scene.validTargets.add()
+        propNew.name = context.active_object.name
+        return {'FINISHED'}   
+    
+class RemoveValidTarget(types.Operator):
+    bl_idname = "valid_target.remove"
+    bl_label = "Remove Valid Target"
+    
+    def execute(self, context):
+        index = 0
+        for prop in context.scene.validTargets:
+            if prop.name == context.active_object.name:
+                break
+            index += 1
+       # index = context.object.destruction.validTargets.indexOf(context.object.name)
+        context.scene.validTargets.remove(index)
+        return {'FINISHED'} 
+    
+class AddValidGround(types.Operator):
+    bl_idname = "valid_ground.add"
+    bl_label = "Add Valid Ground"
+      
+    def execute(self, context):
+        propNew = context.scene.validGrounds.add()
+        propNew.name = context.active_object.name
+        return {'FINISHED'}   
+    
+class RemoveValidGround(types.Operator):
+    bl_idname = "valid_ground.remove"
+    bl_label = "Remove Valid Ground"
+    
+    def execute(self, context):
+      #  index = context.object.destruction.validGrounds.indexOf(context.object.name)
+        index = 0
+        for prop in context.scene.validTargets:
+            if prop.name == context.active_object.name:
+                break
+            index += 1
+        context.scene.validGrounds.remove(index)
+        return {'FINISHED'} 

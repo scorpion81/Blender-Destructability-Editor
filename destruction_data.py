@@ -7,6 +7,7 @@
 #each object has a destruction dataset in context, to get it to game engine store it externally or maybe all custom properties will be converted ? could even work like that
 #but for standalone mode no bpy may be used !
 #and here no bge may be used, need to be clean data objects
+from mathutils import geometry, Vector
 
 class Cell:
     
@@ -22,22 +23,22 @@ class Cell:
                       (self.center[1] - cellDim[1] / 2, self.center[1] + cellDim[1] / 2),
                       (self.center[2] - cellDim[2] / 2, self.center[2] + cellDim[2] / 2)] 
                                          
-        self.children = [c for c in grid.children if self.isInside(c)]
+        self.children = [c.name for c in grid.children if self.isInside(c.worldPosition)]
         self.count = len(self.children)
         print("Cell created: ", self.center, self.count)
         self.isGroundCell = False
     
     def integrity(self, intgr):
         if self.count == 0:
-            return 0
+            return False
         return len(self.children) / self.count > intgr     
             
-    def isInside(self, c):
+    def isInside(self, pos):
        # print("Child: ", c, c.worldPosition, self.range) 
         
-        if c.worldPosition[0] >= self.range[0][0] and c.worldPosition[0] <= self.range[0][1] and \
-           c.worldPosition[1] >= self.range[1][0] and c.worldPosition[1] <= self.range[1][1] and \
-           c.worldPosition[2] >= self.range[2][0] and c.worldPosition[2] <= self.range[2][1]:
+        if pos[0] >= self.range[0][0] and pos[0] <= self.range[0][1] and \
+           pos[1] >= self.range[1][0] and pos[1] <= self.range[1][1] and \
+           pos[2] >= self.range[2][0] and pos[2] <= self.range[2][1]:
                return True
            
         return False
@@ -69,14 +70,38 @@ class Cell:
             bottom = self.grid.cells[(self.gridPos[0], self.gridPos[1], self.gridPos[2] - 1)]
             
         self.neighbors = [back, front, left, right, top, bottom]
-                          
-         
-           
         
+    def testGroundCell(self):   
+        #test distance of closest point on poly to cell center,
+        #if it is in range, cell becomes groundcell
+        #if neighbors opposite to each other both are groundcells, cell itself
+        #becomes groundcell too
+        
+        #insert more complex checking logic here->what if is only one neighbor there...
+#        if self.neighbors[0] != None and self.neighbors[1] != None:
+#        if (self.neighbors[0].isGroundCell and self.neighbors[1].isGroundCell) or \
+#           (self.neighbors[2].isGroundCell and self.neighbors[3].isGroundCell) or \
+#           (self.neighbors[4].isGroundCell and self.neighbors[5].isGroundCell):
+#               self.isGroundCell = True
+#               return
+#        
+        if self.grid.grounds == None:
+            return
+               
+        for ground in self.grid.grounds:
+            for edge in ground.edges:
+                closest = geometry.intersect_point_line(Vector(self.center), Vector(edge[0]), Vector(edge[1]))
+                vec = closest[0] + ground.pos
+                if self.isInside(vec.to_tuple()):
+                    print("Found Ground Cell: ", self.center, closest[0].to_tuple(), closest[1])
+                    self.isGroundCell = True
+                    return
+                   
 class Grid:
     
-    def __init__(self, cellCounts, pos, dim, children):
+    def __init__(self, cellCounts, pos, dim, children, grounds):
         self.cells = {}
+        self.grounds = grounds
         #must start at upper left corner of bbox, that is the "origin" of the grid
         self.pos = (pos[0] - dim[0] / 2, pos[1] - dim[1] / 2, pos[2] - dim[2] / 2)
         self.dim = dim #from objects bbox
@@ -95,7 +120,7 @@ class Grid:
                    self.cells[(x,y,z)] = Cell((x,y,z), self)
                    
     #   self.buildNeighborhood()
-    #    self.children = None
+        self.children = None
     #    self.pos = None
     #    self.dim =  None
     
@@ -107,14 +132,19 @@ class Grid:
     #        c.gridPos = None
     #        c.grid = None
         
-    
+    def findGroundCells(self):
+        [c.testGroundCell() for c in self.cells.values()]    
+        
+            
     def __str__(self):
         return str(self.pos) + " " + str(self.dim) + " " + str(len(self.children))
 
 class DataStore:
-    backup = None
+    backups = {}
     grids = {}
 
+class Ground:
+    edges = []
 #def register():
 #   pass
 

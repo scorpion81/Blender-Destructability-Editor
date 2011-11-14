@@ -20,5 +20,23 @@ Changelog:
         piece by hand), a better automation is planned.
     -   setup for a default player and conversion to game parenting (using properties) added
     -   most gui elements functional now
-    -   checks added for registration of destructors / destroyability    
+    -   checks added for registration of destructors / destroyability
+    -   ground connectivity calculation works now, tested with scaled default cube
+        but TODO: take position/rotation of objects into account !
+        
+
+Setup for a basic destructable (hollow) Wall:
+    - Blender ->  File:New
+    - Scale Default Cube e.g. SY 9,  SZ 6
+    - Object->Destructability: check Destroyable, set: Parts = 200, Thickness = 0.1, Granularity = 40
+    - Set Destruction Mode to "Apply Explosion Modifier" and hit Destroy Object (wait a bit)
+    - Select new Parent Empty (P0_Cube.001) and hit Setup Player (button is near bottom)
+    - Move the now selected Ground Plane near the bottom of the scaled default cube, it must touch/intersect          the cube  
+    - Select X = 1, Y = 9, Z = 6 at Connectivity Grid
+    - Make sure P0_Cube.001 is still selected, then hit "To Game Parenting" button
+    - Move the player as desired
+    - Start the game engine
+    - Shoot balls with Left Mouse Button, move mouse to aim
+    - preferably shoot bottom parts of wall first and watch unconnected parts to collapse automatically!
     
+       

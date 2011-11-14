@@ -36,6 +36,14 @@ class Processor():
         
         print("previewExplo", parts, granularity, thickness)
         
+        ops.object.duplicate()
+        backup = context.active_object
+        backup.name = context.object.name
+        context.scene.objects.unlink(backup)
+        print("Backup created: ", backup)
+        
+        context.scene.objects.active = context.object
+        
         #granularity -> subdivision of object in editmode, + particle size enabled (set manually)
         if granularity > 0:
             ops.object.mode_set(mode = 'EDIT')
@@ -63,6 +71,7 @@ class Processor():
         
    #     context.active_object.destruction.previewDone = True
    #     context.active_object.destruction.applyDone = False
+        return backup
         
         
         
@@ -75,12 +84,14 @@ class Processor():
  #       if context.object.destruction.applyDone:
  #           return
         
-        self.previewExplo(context, parts, granularity, thickness)
+        backup = self.previewExplo(context, parts, granularity, thickness)
         context.object.destruction.applyDone = True
         context.object.destruction.previewDone = False
         
         context.object.destruction.pos = context.object.location.to_tuple()
         bbox = context.object.bound_box.data.dimensions.to_tuple()
+        
+        context.scene.objects.active = context.object
         
         split = context.object.name.split(".")
         parentName = ""
@@ -101,7 +112,7 @@ class Processor():
         #P_name = Parent of
         
     #    print(name, context.object.name)
-        children = data.objects
+        children = context.scene.objects
         largest = nameEnd
         print(context.object.parent)
         if context.object.parent != None:
@@ -180,6 +191,9 @@ class Processor():
         context.active_object.name = parentName   
         context.active_object.parent = context.object.parent
         context.active_object.destruction.gridBBox = bbox
+      #  context.active_object.destruction["backup"] = backup
+      #  print("Backup stored: ", context.active_object.destruction["backup"])
+        dd.DataStore.backups[context.active_object.name] = backup
         
       #  childs = []
       #  for c in context.object.children:

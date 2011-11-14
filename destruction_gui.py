@@ -50,7 +50,18 @@ class DestructabilityPanel(types.Panel):
         row.active = context.object.destruction.destroyable
         
         row = layout.row()
-        row.operator("object.destroy")
+        
+        #if hasattr(context.object.destruction, "backup") != 0:
+        #    print("Backup: ", context.object.destruction["backup"])
+        
+#        if hasattr(context.object.destruction, "backup") == 0:
+#            row.operator("object.destroy")    
+#        elif context.object.destruction["backup"] == None:
+#            row.operator("object.destroy")
+        if context.object.name in dd.DataStore.backups:
+            row.operator("object.undestroy")
+        else:
+            row.operator("object.destroy")
         row.active = context.object.destruction.destroyable
         
         layout.separator()
@@ -296,11 +307,25 @@ class SetupPlayer(types.Operator):
         #by default destroy all destroyable objects
         context.active_object.destruction.destructor = True
         
-        for o in data.objects:
+        for o in context.scene.objects:
             if o.destruction.destroyable:
                 target = context.active_object.destruction.destructorTargets.add()
                 target.name = o.name
-                
+        
+        #ground and cells
+        context.object.destruction.groundConnectivity = True
+        context.object.destruction.gridDim = (2, 2, 2)
+        
+        ops.mesh.primitive_plane_add(location = (0, 0, -0.9))
+        context.active_object.name = "Ground"
+        context.active_object.destruction.isGround = True
+        
+        for o in context.scene.objects:
+            if o.destruction.groundConnectivity:
+                ground = o.destruction.grounds.add()
+                ground.name = context.active_object.name
+        
+       # context        
         
         return {'FINISHED'}
     
@@ -325,6 +350,7 @@ class ClearPlayer(types.Operator):
         data.objects["Eye"].select = True
         data.objects["Launcher"].select = True
         data.objects["Ball"].select = True
+        data.objects["Ground"].select = True
      
         ops.object.delete()
         
@@ -353,11 +379,11 @@ class ConvertParenting(types.Operator):
         
     
     def convert(self, context):
-        for o in data.objects:
+        for o in context.scene.objects: #data.objects:
             
             if context.scene.player:
                 if o.name == "Player" or o.name == "Eye" or \
-                   o.name == "Launcher":
+                   o.name == "Launcher" or o.name == "Ground":
                        continue
             index = -1
             context.scene.objects.active = o
@@ -392,7 +418,7 @@ class ConvertParenting(types.Operator):
             ops.object.game_property_new(ctx)
             o.game.properties[index + 4].name = "grounds"
             o.game.properties[index + 4].type = 'STRING'
-            o.game.properties[index + 4].value = self.grounds(context)
+            o.game.properties[index + 4].value = self.grounds(context, o)
             
             ctx = dp.setObject(context, o)
             ops.object.game_property_new(ctx)
@@ -404,7 +430,7 @@ class ConvertParenting(types.Operator):
             ops.object.game_property_new(ctx)
             o.game.properties[index + 6].name = "destructorTargets"
             o.game.properties[index + 6].type = 'STRING'
-            o.game.properties[index + 6].value = self.targets(context)
+            o.game.properties[index + 6].value = self.targets(o)
             
 #            ctx = dp.setObject(context, o)
 #            ops.object.game_property_new(ctx)
@@ -420,7 +446,9 @@ class ConvertParenting(types.Operator):
             ops.object.game_property_new(ctx)
             o.game.properties[index + 7].name = "gridbbox"
             o.game.properties[index + 7].type = 'STRING'
-            o.game.properties[index + 7].value = str(bbox[0]) + " " + str(bbox[1]) + " " + str(bbox[2])
+            o.game.properties[index + 7].value = str(round(bbox[0], 2)) + " " + \
+                                                 str(round(bbox[1], 2)) + " " + \
+                                                 str(round(bbox[2], 2)) 
             
             ctx = dp.setObject(context, o)
             ops.object.game_property_new(ctx)
@@ -428,53 +456,69 @@ class ConvertParenting(types.Operator):
             o.game.properties[index + 8].type = 'STRING'
             o.game.properties[index + 8].value = str(dim[0]) + " " + str(dim[1]) + " " + str(dim[2])
             
+            
+            
   
         for o in data.objects: #restrict to P_ parents only ! no use all
             if context.scene.player:
                 if o.name == "Player" or o.name == "Eye" or \
-                   o.name == "Launcher":
+                   o.name == "Launcher" or o.name == "Ground":
                     continue
             o.parent = None
                        
     def unconvert(self, context):
-        for o in data.objects:
+        for o in context.scene.objects:
             
             if context.scene.player:
                 if o.name == "Player" or o.name == "Eye" or \
-                   o.name == "Launcher":
+                   o.name == "Launcher" or o.name == "Ground":
                        continue
             
             context.scene.objects.active = o
             if len(o.game.properties) > 8:
                 o.parent = data.objects[o.game.properties[0].value]
                 
-                while len(o.game.properties) > 0:
-                    ctx = dp.setObject(context, o)
-                    ops.object.game_property_remove(ctx)
+            while len(o.game.properties) > 0:
+                ctx = dp.setObject(context, o)
+                ops.object.game_property_remove(ctx)
     
-    def grounds(self, context):
+    def grounds(self, context, o):
        retVal = ""
-       for g in context.object.destruction.grounds:
-           retVal = retVal + g.name + " "
+       for g in o.destruction.grounds:
+           retVal = retVal + g.name + ";" + self.getVerts(context.scene.objects[g.name], context)
        return retVal
    
+    def getVerts(self,g, context):
+        #use bbox here first, maybe later exact shape -> bad performance!!
+        bboxMesh = g.bound_box.data.to_mesh(context.scene, False, 'PREVIEW')
+        retVal = ""
+        print(bboxMesh.edge_keys)
+        for key in bboxMesh.edge_keys:
+            vStart = bboxMesh.vertices[key[0]].co
+            vEnd = bboxMesh.vertices[key[1]].co
+            dataStr = str(round(vStart[0], 2)) + "," + str(round(vStart[1], 2)) + "," + \
+                      str(round(vStart[2], 2)) + "," + str(round(vEnd[0], 2)) + "," + \
+                      str(round(vEnd[1], 2)) + "," + str(round(vEnd[2], 2)) + "_"
+            retVal = retVal + dataStr
+        retVal = retVal.rstrip("_")
+        return retVal     
    
-    def targets(self, context):
+    def targets(self, o):
        retVal = ""
-       for t in context.object.destruction.destructorTargets:
+       for t in o.destruction.destructorTargets:
            retVal = retVal + t.name + " "
        return retVal
    
-    def pickleGrid(self, name):
-        print(name, dd.DataStore.grids, name in dd.DataStore.grids.keys())
-        if name not in dd.DataStore.grids.keys():
-            return ""
-        grid = dd.DataStore.grids[name]
-        print(inspect.getmembers(grid.cells[(0,0,0)]))
-        strObj = str(pickle.dumps(grid), 'ascii')
-        print("Pickled: ", strObj)
-        return strObj                 
-   
+#    def pickleGrid(self, name):
+#        print(name, dd.DataStore.grids, name in dd.DataStore.grids.keys())
+#        if name not in dd.DataStore.grids.keys():
+#            return ""
+#        grid = dd.DataStore.grids[name]
+#        print(inspect.getmembers(grid.cells[(0,0,0)]))
+#        strObj = str(pickle.dumps(grid), 'ascii')
+#        print("Pickled: ", strObj)
+#        return strObj                 
+#   
 class DestroyObject(types.Operator):
     bl_idname = "object.destroy"
     bl_label = "Destroy Object"
@@ -482,3 +526,26 @@ class DestroyObject(types.Operator):
     def execute(self, context):
         dd.DataStore.proc.processDestruction(context)
         return {'FINISHED'}
+
+class UndestroyObject(types.Operator):
+    bl_idname = "object.undestroy"
+    bl_label = "Undestroy Object"
+    
+    def execute(self, context):
+        #context.scene.objects.link(context.object.destruction["backup"])
+        context.scene.objects.link(dd.DataStore.backups[context.object.name])
+        del dd.DataStore.backups[context.object.name]
+        
+        for o in data.objects:
+            o.select = False
+            
+        context.object.select = True
+        self.selectShards(context.object)
+        ops.object.delete()
+       
+        return {'FINISHED'}
+    
+    def selectShards(self, object):
+        for c in object.children:
+            c.select = True
+            self.selectShards(c)

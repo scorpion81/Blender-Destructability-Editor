@@ -1,0 +1,48 @@
+Index: source/blender/blenlib/BLI_callbacks.h
+===================================================================
+--- source/blender/blenlib/BLI_callbacks.h	(revision 41872)
++++ source/blender/blenlib/BLI_callbacks.h	(working copy)
+@@ -49,6 +49,7 @@
+ 	BLI_CB_EVT_SAVE_POST,
+ 	BLI_CB_EVT_SCENE_UPDATE_PRE,
+ 	BLI_CB_EVT_SCENE_UPDATE_POST,
++	BLI_CB_EVT_OBJECT_ACTIVATION,
+ 	BLI_CB_EVT_TOT
+ } eCbEvent;
+ 
+Index: source/blender/editors/object/object_select.c
+===================================================================
+--- source/blender/editors/object/object_select.c	(revision 41872)
++++ source/blender/editors/object/object_select.c	(working copy)
+@@ -58,7 +58,10 @@
+ #include "BKE_scene.h"
+ #include "BKE_library.h"
+ #include "BKE_deform.h"
++#include "BKE_global.h"
+ 
++#include "BLI_callbacks.h"
++
+ #include "WM_api.h"
+ #include "WM_types.h"
+ 
+@@ -112,6 +115,8 @@
+ 		//		select_actionchannel_by_name(base->object->action, "Object", 1);
+ 		
+ 		WM_event_add_notifier(C, NC_SCENE|ND_OB_ACTIVE, scene);
++
++		BLI_exec_cb(G.main, &base->object->id, BLI_CB_EVT_OBJECT_ACTIVATION);
+ 	}
+ 	else
+ 		WM_event_add_notifier(C, NC_SCENE|ND_OB_ACTIVE, NULL);
+Index: source/blender/python/intern/bpy_app_handlers.c
+===================================================================
+--- source/blender/python/intern/bpy_app_handlers.c	(revision 41872)
++++ source/blender/python/intern/bpy_app_handlers.c	(working copy)
+@@ -53,6 +53,7 @@
+ 	{(char *)"save_post",         (char *)"Callback list - on saving a blend file (after)"},
+ 	{(char *)"scene_update_pre",  (char *)"Callback list - on updating the scenes data (before)"},
+ 	{(char *)"scene_update_post", (char *)"Callback list - on updating the scenes data (after)"},
++	{(char *)"object_activation", (char *)"Callback list - on activating the object"},
+ 
+ 	/* sets the permanent tag */
+ #   define APP_CB_OTHER_FIELDS 1

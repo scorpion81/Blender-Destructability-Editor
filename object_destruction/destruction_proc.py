@@ -4,6 +4,13 @@ from . import destruction_data as dd
 #import destruction_data as dd
 import bpy
 
+imported = True
+try: 
+    from bpy.app.handlers import persistent
+except ImportError:
+    imported = False
+
+
 #do the actual non-bge processing here
 
 class Processor():
@@ -356,19 +363,7 @@ def updatePieceGranularity(self, context):
     return None
 
 def updateIsGround(self, context):
-    
-    for g in context.scene.validGrounds:
-        if g.name == "":# hack to prevent side effects / errors
-            break
-        context.scene.objects.active = context.scene.objects[g.name]
-        ops.valid_ground.remove()
-    
-    for o in context.scene.objects:
-        if o.destruction.isGround and o != context.object:
-            context.scene.objects.active = o
-            ops.valid_ground.add()
-    
-    context.scene.objects.active = context.object
+    updateValidGrounds(context.object)       
     return None
 
 
@@ -397,45 +392,41 @@ def updateTransmitMode(self, context):
     return None 
 
 def updateDestroyable(self, context):
-    for t in context.scene.validTargets:
-        if t.name == "":# hack to prevent side effects / errors
-            break
-        context.scene.objects.active = context.scene.objects[t.name]
-        ops.valid_target.remove()
-    
-    for o in context.scene.objects:
-        if o.destruction.destroyable and o != context.object:
-            context.scene.objects.active = o
-            ops.valid_target.add()
-    context.scene.objects.active = context.object
+    updateValidTargets(context.object)
     return None 
 
-#def updateValidTargets(self, context):
-#    
-#    while len(context.object.destruction.validTargets) > 0:
-#        del context.object.destruction.validTargets[0]
-#        
-#    for o in data.objects:
-#        if o.type == 'MESH' and o.name != context.object.name: 
-#        # and o not in grounds
-#            context.object.destruction.validTargets.add()
-#            context.object.destruction.validTargets.name = o.name
-#   
-#    return None
-#
-#def updateValidGrounds(self, context):
-#    
-#    while len(context.object.destruction.validGrounds) > 0:
-#        del context.object.destruction.validGrounds[0]
-#        
-#    for o in data.objects:
-#        if o.type == 'MESH' and o.name != context.object.name: 
-#        # and o not in grounds
-#            context.object.destruction.validGrounds.add()
-#            context.object.destruction.validGrounds.name = o.name
-#            
-#    return None
-#        
+#disable decorator when persistence is not available
+def unchanged(func):
+    return func
+
+pers = unchanged
+if imported:
+    pers = persistent
+
+@pers
+def updateValidTargets(object):
+    #print("Current Object is: ", object)
+    for index in range(0, len(bpy.context.scene.validTargets)):
+        bpy.context.scene.validTargets.remove(index)
+    
+    for o in bpy.context.scene.objects:
+        if o.destruction.destroyable and o != object:
+           prop = bpy.context.scene.validTargets.add()
+           prop.name = o.name
+    return None 
+
+@pers
+def updateValidGrounds(object):
+    #print("Current Object is: ", object)
+    for index in range(0, len(bpy.context.scene.validGrounds)):
+        bpy.context.scene.validGrounds.remove(index)
+    
+    for o in bpy.context.scene.objects:
+        if o.destruction.isGround and o != object:
+           prop = bpy.context.scene.validGrounds.add()
+           prop.name = o.name
+           
+    return None
 
 class DestructionContext(types.PropertyGroup):
     
@@ -501,13 +492,46 @@ def initialize():
     dd.DataStore.proc = Processor()  
   #  updateValidTargets(None, bpy.context)
   #  updateValidGrounds(None, bpy.context)
-    
+  
+    if hasattr(bpy.app.handlers, "object_activation" ) != 0:
+        bpy.app.handlers.object_activation.append(updateValidTargets)
+        bpy.app.handlers.object_activation.append(updateValidGrounds)
+  
 def uninitialize():
     del Object.destruction
   #  utils.unregister_class(DestructionContext)
+    if hasattr(bpy.app.handlers, "object_activation" ) != 0:
+        bpy.app.handlers.object_activation.remove(updateValidTargets)
+        bpy.app.handlers.object_activation.remove(updateValidGrounds)
     
-def setObject(context, object):
-    copy = context.copy()
-    copy["object"] = object
-    return copy
-    
+#def setObject(context, object):
+#    copy = context.copy()
+#    copy["object"] = object
+#    copy["texture_user"] = None # TODO big hack 
+#    return copy
+#   
+   
+#class UpdateTargets(bpy.types.Operator):
+#    bl_idname = "targets.update"
+#    bl_label = "Update target list before redraw"
+#
+#    def modal(self, context, event):
+#        
+#        print("updating...")
+#        updateDestroyable(self, context)
+#        
+#        context.area.tag_redraw()
+#        return {'RUNNING_MODAL'}
+#
+#    def invoke(self, context, event):
+#        if context.area.type == 'VIEW_3D':
+#            context.window_manager.modal_handler_add(self)
+#
+#            # Add the region OpenGL drawing callback
+#            # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
+#           # self._handle = context.region.callback_add(draw_callback_px, (self, context), 'POST_PIXEL')
+#
+#           # self.mouse_path = []
+#
+#        return {'RUNNING_MODAL'}
+#        

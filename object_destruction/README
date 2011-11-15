@@ -23,6 +23,10 @@ Changelog:
     -   checks added for registration of destructors / destroyability
     -   ground connectivity calculation works now, tested with scaled default cube
         but TODO: take position/rotation of objects into account !
+    
+    -   a patch for blender is included which allows to respond to object activation with a callback
+        to apply use e.g. TortoiseSVN->Apply Patch at the blender directory below your blender SVN root directory.
+        e.g. C:\BlenderSVN\blender
         
 
 Setup for a basic destructable (hollow) Wall:

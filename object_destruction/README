@@ -27,6 +27,9 @@ Changelog:
     -   a patch for blender is included which allows to respond to object activation with a callback
         to apply use e.g. TortoiseSVN->Apply Patch at the blender directory below your blender SVN root directory.
         e.g. C:\BlenderSVN\blender
+    -   patch now includes preparation for knife tool too
+    -   boolean fracture script included, pre-cubify objects possible (bad performance for many parts)
+    -   bge neighborhood destruction performance improved
         
 
 Setup for a basic destructable (hollow) Wall:

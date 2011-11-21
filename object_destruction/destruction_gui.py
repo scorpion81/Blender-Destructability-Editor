@@ -15,17 +15,9 @@ class DestructabilityPanel(types.Panel):
     bl_context = "object"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
-   # bl_options = {'UNDO'}
     
     def register():
         dp.initialize()
-     #   print("Appending callback...")
-        #context.window_manager.modal_handler_add(self)
-     #   bpy.context.region.callback_add(dp.updateDestroyable, (None, bpy.context), 'POST_PIXEL')
-        
-   
-   # def execute(self, context):
-   #     return {'FINISHED'}
 
     def unregister():
         dp.uninitialize()
@@ -33,36 +25,35 @@ class DestructabilityPanel(types.Panel):
     def draw(self, context):        
         
         layout = self.layout
-      #  layout.active = context.object.useDestructability
         
-        row = layout.row()
-        row.label(text = "Apply this settings to:")
-        row.prop(context.active_object.destruction, "transmitMode",  text = "")
-        layout.separator()
+       # row = layout.row()
+       # row.label(text = "Apply this settings to:")
+       # row.prop(context.active_object.destruction, "transmitMode",  text = "")
+       # layout.separator()
         
         row = layout.row()
         row.prop(context.active_object.destruction, "destroyable", text = "Destroyable")
-
-        col = row.column()
-        col.prop(context.object.destruction, "partCount", text = "Parts")
-        col.prop(context.object.destruction, "wallThickness", text = "Thickness")
-        col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
-        col.active = context.object.destruction.destroyable
-
         
         row = layout.row()
-        row.prop(context.object.destruction, "destructionMode", text = "Destruction Mode")
+        row.prop(context.object.destruction, "destructionMode", text = "Mode")
         row.active = context.object.destruction.destroyable
+
+        col = layout.column()
+        col.prop(context.object.destruction, "partCount", text = "Parts")
+        
+        if context.object.destruction.destructionMode == 'DESTROY_F':
+            col.prop(context.object.destruction, "roughness", text = "Roughness")
+            col.prop(context.object.destruction, "crack_type", text = "Crack Type")
+        elif context.object.destruction.destructionMode == 'DESTROY_E':
+            col.prop(context.object.destruction, "wallThickness", text = "Thickness")
+            col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
+        elif context.object.destruction.destructionMode == 'DESTROY_K':
+            col.prop(context.object.destruction, "wallThickness", text = "Thickness")
+            col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
+            col.prop(context.object.destruction, "jitter", text = "Jitter")
+        col.active = context.object.destruction.destroyable
         
         row = layout.row()
-        
-        #if hasattr(context.object.destruction, "backup") != 0:
-        #    print("Backup: ", context.object.destruction["backup"])
-        
-#        if hasattr(context.object.destruction, "backup") == 0:
-#            row.operator("object.destroy")    
-#        elif context.object.destruction["backup"] == None:
-#            row.operator("object.destroy")
         if context.object.name in dd.DataStore.backups:
             row.operator("object.undestroy")
         else:
@@ -73,6 +64,8 @@ class DestructabilityPanel(types.Panel):
        
         layout.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
         layout.prop(context.object.destruction, "groundConnectivity", text = "Calculate Ground Connectivity")
+        layout.prop(context.object.destruction, "cubify", text = "Intersect with Grid")
+      #  layout.prop(context.object.destruction, "cascadeGround", text = "Cascade Ground")
         
         row = layout.row()
         row.label(text = "Connected Grounds")
@@ -100,6 +93,11 @@ class DestructabilityPanel(types.Panel):
         col = row.column()
         col.prop(context.object.destruction, "gridDim", text = "Connectivity Grid")
         col.active = context.object.destruction.groundConnectivity
+        
+       # col = row.column()
+       # col.prop(context.object.destruction, "subgridDim", text = "Cubify Sub Grid")
+       # col.active = context.object.destruction.cubify
+        
         layout.separator()
          
         layout.prop(context.object.destruction, "destructor", text = "Destructor")
@@ -270,13 +268,13 @@ class SetupPlayer(types.Operator):
         context.active_object.game.physics_type = 'RIGID_BODY'
         context.active_object.game.collision_bounds_type = 'SPHERE'                                          
         
-        #internalize bge scripts
+        #load bge scripts
         print(__file__)
         currentDir = path.abspath(os.path.split(__file__)[0])
         
        # print(path.abspath(data.texts
-        print(ops.text.open(filepath = currentDir + "\destruction_bge.py", internal = True))
-        print(ops.text.open(filepath = currentDir + "\player.py", internal = True))
+        print(ops.text.open(filepath = currentDir + "\destruction_bge.py", internal = False))
+        print(ops.text.open(filepath = currentDir + "\player.py", internal = False))
         print(ops.text.open(filepath = currentDir + "\destruction_data.py", internal = False))
         
         

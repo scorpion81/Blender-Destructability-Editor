@@ -1,9 +1,26 @@
-from bpy import types, props, utils, ops, data
+from bpy import types, props, utils, ops, data, path
 from bpy.types import Object, Scene
 from . import destruction_data as dd
-#import destruction_data as dd
 import bpy
+import os
+import random
+from bpy_extras import mesh_utils
+from operator import indexOf
+from mathutils import Vector
+import imp
 
+#currentDir = path.abspath(os.path.split(__file__)[0])
+#filepath = currentDir + "\\..\\object_fracture"
+#file, path, desc = imp.find_module("fracture_ops", [filepath])
+#fo = None
+#try:
+#   fo = imp.load_module("fo", file, path, desc)
+#finally:
+#    file.close()
+#
+
+#since a modification of fracture_ops is necessary, redistribute it
+from . import fracture_ops as fo
 imported = True
 try: 
     from bpy.app.handlers import persistent
@@ -18,9 +35,9 @@ class Processor():
     def processDestruction(self, context):
        # self.context = context
       
-        modes = {DestructionContext.destModes[0][0]: "self.applyFracture(parts)",
-                 DestructionContext.destModes[1][0]: "self.applyExplo(context, parts, granularity, thickness)"}
-               #  DestructionContext.destModes[2][0]: "self.previewExplo(context, parts, granularity, thickness)" } 
+        modes = {DestructionContext.destModes[0][0]: "self.applyFracture(context, parts, roughness, crack_type)",
+                 DestructionContext.destModes[1][0]: "self.applyExplo(context, parts, granularity, thickness)",
+                 DestructionContext.destModes[2][0]: "self.applyKnife(context, parts, jitter, granularity, thickness)" } 
         #make an object backup if necessary (if undo doesnt handle this)
         #according to mode call correct method
         mode = context.object.destruction.destructionMode
@@ -28,20 +45,21 @@ class Processor():
         granularity = context.object.destruction.pieceGranularity
         thickness = context.object.destruction.wallThickness
         destroyable = context.object.destruction.destroyable
+        roughness = context.object.destruction.roughness
+        crack_type = context.object.destruction.crack_type
+        groundConnectivity = context.object.destruction.groundConnectivity
+        cubify = context.object.destruction.cubify
+        jitter = context.object.destruction.jitter
         
-        if (parts > 1) and destroyable:
+        #context.scene.objects.active = context.object
+        if (parts > 1) and destroyable or \
+           (parts == 1) and groundConnectivity and cubify and mode == 'DESTROY_F': 
             print(mode, modes[mode])
             eval(modes[mode])
         
         return None
     
-    
-    def previewExplo(self, context, parts, granularity, thickness):
-        #create modifiers if not there 
-      #  if context.active_object.destruction.previewDone: 
-      #      return
-        
-        print("previewExplo", parts, granularity, thickness)
+    def createBackup(self, context):
         
         ops.object.duplicate()
         backup = context.active_object
@@ -49,6 +67,14 @@ class Processor():
         context.scene.objects.unlink(backup)
         print("Backup created: ", backup)
         
+        return backup
+        
+    def previewExplo(self, context, parts, granularity, thickness):
+        #create modifiers if not there 
+      #  if context.active_object.destruction.previewDone: 
+      #      return
+        
+        print("previewExplo", parts, granularity, thickness)
         context.scene.objects.active = context.object
         
         #granularity -> subdivision of object in editmode, + particle size enabled (set manually)
@@ -78,8 +104,6 @@ class Processor():
         
    #     context.active_object.destruction.previewDone = True
    #     context.active_object.destruction.applyDone = False
-        return backup
-        
         
         
     def applyExplo(self, context, parts, granularity, thickness):
@@ -91,9 +115,88 @@ class Processor():
  #       if context.object.destruction.applyDone:
  #           return
         
-        backup = self.previewExplo(context, parts, granularity, thickness)
-        context.object.destruction.applyDone = True
-        context.object.destruction.previewDone = False
+        
+       # context.object.destruction.applyDone = True
+       # context.object.destruction.previewDone = False
+        
+        #prepare parenting
+        parentName, nameStart, largest, bbox = self.prepareParenting(context)
+        backup = self.createBackup(context)
+            
+        #explosion modifier specific    
+        self.previewExplo(context, parts, granularity, thickness)
+        explode = context.object.modifiers[len(context.active_object.modifiers)-2]
+        solidify = context.object.modifiers[len(context.active_object.modifiers)-1]
+        
+        #if object shall stay together
+        settings = context.object.particle_systems[0].settings  
+        settings.physics_type = 'NO'
+        settings.normal_factor = 0.0
+        
+        context.scene.frame_current = 2
+       
+        ops.object.modifier_apply(modifier = explode.name)
+        ops.object.modifier_apply(modifier = solidify.name)
+        
+        #must select particle system before somehow
+        ops.object.particle_system_remove() 
+        ops.object.mode_set(mode = 'EDIT')
+        ops.mesh.select_all(action = 'DESELECT')
+        #omit loose vertices, otherwise they form an own object!
+        ops.mesh.select_by_number_vertices(type='OTHER')
+        ops.mesh.delete(type = 'VERT')
+        ops.mesh.select_all(action = 'SELECT')
+        ops.mesh.separate(type = 'LOOSE')
+        ops.object.mode_set()
+        print("separated")
+                    
+        
+        #do the parenting
+        self.doParenting(context, parentName, nameStart, bbox, backup, largest) 
+       
+             
+    
+    def doParenting(self, context, parentName, nameStart, bbox, backup, largest):
+        print("Largest: ", largest)    
+            
+        ops.object.add(type = 'EMPTY') 
+        context.active_object.game.physics_type = 'RIGID_BODY'            
+        context.active_object.game.radius = 0.01  
+        context.active_object.game.use_ghost = True        
+        context.active_object.name = parentName   
+        context.active_object.parent = context.object.parent
+        context.active_object.destruction.gridBBox = bbox
+  
+        dd.DataStore.backups[context.active_object.name] = backup
+        
+        parent = context.active_object
+        parent.destruction.pos = context.object.destruction.pos
+        parent.destruction.destroyable = True
+        parent.destruction.partCount = context.object.destruction.partCount
+        parent.destruction.wallThickness = context.object.destruction.wallThickness
+        parent.destruction.pieceGranularity = context.object.destruction.pieceGranularity
+        parent.destruction.destructionMode = context.object.destruction.destructionMode
+        parent.destruction.roughness = context.object.destruction.roughness
+        parent.destruction.crack_type = context.object.destruction.crack_type
+        
+     #   parent.destruction.grounds = context.object.destruction.grounds
+        parent.destruction.gridDim = context.object.destruction.gridDim
+     #   parent.destruction.destructorTargets = context.object.destruction.destructorTargets
+        parent.destruction.isGround = context.object.destruction.isGround
+        parent.destruction.destructor = context.object.destruction.destructor
+        parent.destruction.cubify = context.object.destruction.cubify
+        
+        
+        
+        context.scene.objects.active = context.object
+        [self.applyDataSet(context, c, largest, parentName) for c in context.scene.objects if 
+         self.isRelated(context, c, nameStart)]   
+         
+        ops.object.origin_set(type = 'ORIGIN_GEOMETRY') 
+        
+        return parent
+        
+    def prepareParenting(self, context):
         
         context.object.destruction.pos = context.object.location.to_tuple()
         bbox = context.object.bound_box.data.dimensions.to_tuple()
@@ -134,120 +237,11 @@ class Processor():
             
             #get the largest child index number, hopefully it is the last one and hopefully
             #this scheme will not change in future releases !
-            largest = context.object.parent.children[length - 1].name.split(".")[1]
-          #  nr = int(largest) + 1
-          #  largest = self.endStr(nr)
-            
-            
-        
-        #context.scene.objects.active = context.object
-       # destruction = context.object.destruction
-        explode = context.object.modifiers[len(context.active_object.modifiers)-2]
-        solidify = context.object.modifiers[len(context.active_object.modifiers)-1]
-        
-        #if object shall stay together
-        settings = context.object.particle_systems[0].settings  
-        settings.physics_type = 'NO'
-        settings.normal_factor = 0.0
-        
-        context.scene.frame_current = 2
-       
-        ops.object.modifier_apply(modifier = explode.name)
-        ops.object.modifier_apply(modifier = solidify.name)
-        
-        #must select particle system before somehow
-        ops.object.particle_system_remove() 
-        ops.object.mode_set(mode = 'EDIT')
-        ops.mesh.select_all(action = 'DESELECT')
-        #omit loose vertices, otherwise they form an own object!
-        ops.mesh.select_by_number_vertices(type='OTHER')
-        ops.mesh.delete(type = 'VERT')
-        ops.mesh.select_all(action = 'SELECT')
-        ops.mesh.separate(type = 'LOOSE')
-        ops.object.mode_set()
-        print("separated")
-        
-        
-        
-#        children = data.objects
-#        largest = nameEnd
-#        print(context.object.parent)
-#        if context.object.parent != None:
-#            pLevel = context.object.parent.name.split("_")[0]
-#            level = int(pLevel.lstrip("P"))
-#            level += 1
-#            #get child with lowest number, must search for it if its not child[0]
-#            parentName = "P" + str(level) + "_" + context.object.parent.children[0].name
-#       #     children = context.active_object.parent.children
-#            print("Subparenting...", children)
-#            length = len(context.object.parent.children)
-#            
-#            #get the largest child index number, hopefully it is the last one and hopefully
-#            #this scheme will not change in future releases !
-#            largest = context.active_object.parent.children[length - 1].name.split(".")[1]
-#          #  nr = int(largest) + 1
-#          #  largest = self.endStr(nr)
-#            
-        
-        print("Largest: ", largest)    
-            
-        ops.object.add(type = 'EMPTY') 
-        context.active_object.game.physics_type = 'RIGID_BODY'            
-        context.active_object.game.radius = 0.01  
-        context.active_object.game.use_ghost = True        
-        context.active_object.name = parentName   
-        context.active_object.parent = context.object.parent
-        context.active_object.destruction.gridBBox = bbox
-      #  context.active_object.destruction["backup"] = backup
-      #  print("Backup stored: ", context.active_object.destruction["backup"])
-        dd.DataStore.backups[context.active_object.name] = backup
-        
-      #  childs = []
-      #  for c in context.object.children:
-      #      childs.append(c)
-      #      c.parent = None
-            
-      #  context.active_object.location = context.object.location
-        context.active_object.destruction.pos = context.object.destruction.pos
-        
-        context.active_object.destruction.destroyable = True
-       # copyDataSet(context.object, context.active_object)
-        
-        context.scene.objects.active = context.object
-        [self.applyDataSet(context, c, largest, parentName) for c in children if 
-         self.isRelated(context, c, nameStart)]   
+            largest = context.object.parent.children[length - 1].name.split(".")[1]   
          
-        ops.object.origin_set(type = 'ORIGIN_GEOMETRY') 
+        return parentName, nameStart, largest, bbox    
         
-     
         
-     #   context.scene.active_objects = dd.DataStore.backupChild
-        
-      #  print(context.active_object.name, context.active_object.children)
-             
-    
-    def applyFracture(self,parts):
-        #make fracture gui available as sublayout in panel
-        #simply call the operator and parent the context
-        #children with same Name and different number
-        #when applying hierarchical fracturing, append hierarchy level number to part number
-        #_1, _2 and so on
-      #  print("applyFracture", parts)  
-      #  data.objects["Cube"].select = True
-      #  ops.object.duplicate()
-        
-        #data.objects["Cube"].select = True
-        #data.objects["Cube.001"].select = True
-      #  ops.object.modifier_add(type = 'EXPLODE')
-       # ops.object.modifier_apply()
-        #ops.object.editmode_toggle()
-        #ops.object.editmode_toggle()
-        
-       # ops.object.add()
-       # data.objects["Cube"].select = True
-       # data.objects["Cube.001"].select = True
-       # ops.object.parent_set()
-       return None
     
     def valid(self,context, child):
         return child.name.startswith(context.object.name) #and \
@@ -279,43 +273,187 @@ class Processor():
         c.destruction.destructionMode = 'DESTROY_F'
     
     def isBeingSplit(self, c, parentName):
-        #if context.object.parent == None:
-        #    return True
-        #parent and child have the same index number->this child was being split
         if parentName.split(".")[1] == c.name.split(".")[1]:
-            #context.scene.objects.unlink(data.objects[child.name])
             return True
         return False
+   
+        
+    def applyFracture(self, context, parts, roughness, crack_type):
+        
+        parentName, nameStart, largest, bbox = self.prepareParenting(context)
+        backup = self.createBackup(context) 
+        
+        #fracture the sub objects if cubify is selected
+       
+        if context.object.destruction.cubify and context.object.destruction.groundConnectivity:
+            self.cubify(context, bbox, parts, crack_type, roughness)
+        else:
+            fo.fracture_basic(context, [context.object], parts, crack_type, roughness)
+        
+        parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest)
+        
+        for c in parent.children:
+            c.destruction.groundConnectivity = False
+            c.destruction.cubify = False
+            c.destruction.gridDim = (1,1,1)
+        
+#        current = []
+#        for i in range(0, parts - 1):
+#            
+#            #pick an object, make it active
+#            if len(current) == 0:
+#                obj = context.object
+#            else:    
+#                index = random.randint(0, len(current)- 1)
+#                obj = current[index]
+#                
+#            context.scene.objects.active = obj
+#            
+#            ops.object.duplicate()
+#            dup = context.active_object
+#           
+#            
+#            #create a cutter
+#            #using code from Fracture Tools
+#            size = fo.getsizefrommesh(obj)
+#            scale = max(size) * 1.3
+#
+#            fo.create_cutter(context, crack_type, scale, roughness)
+#            cutter = context.active_object
+#            cutter.location = obj.location
+#
+#            cutter.location[0] += random.random() * size[0] * 0.1
+#            cutter.location[1] += random.random() * size[1] * 0.1
+#            cutter.location[2] += random.random() * size[2] * 0.1
+#            cutter.rotation_euler = [
+#                random.random() * 5000.0,
+#                random.random() * 5000.0,
+#                random.random() * 5000.0]
+#            #end using code from Fracture Tools
+#            
+#            if not "Intersect" in obj.modifiers:        
+#                intersect = obj.modifiers.new("Intersect", 'BOOLEAN')
+#                intersect.object = cutter
+#                intersect.operation = 'INTERSECT'
+#            
+#            if not "Difference" in dup.modifiers:
+#                difference = dup.modifiers.new("Difference", 'BOOLEAN')
+#                difference.object = cutter
+#                difference.operation = 'DIFFERENCE'
+#            
+#            context.scene.objects.active = obj
+#            copy = context.copy()
+#            copy["object"] = obj
+#            copy["modifier"] = intersect
+#            ops.object.modifier_apply(copy, modifier = "Intersect")
+#           
+#            context.scene.objects.active = dup
+#            copy = context.copy()
+#            copy["object"] = dup
+#            copy["modifier"] = difference
+#            ops.object.modifier_apply(copy,modifier = "Difference")
+#            #dup.modifiers.remove(difference)
+#            
+#            self.cleanNonManifolds(obj, context)
+#            self.cleanNonManifolds(dup, context)
+#            
+#            context.scene.objects.unlink(cutter)
+#            
+#            for o in context.scene.objects:
+#                o.select = False
+#                
+#            obj.select = True
+#            dup.select = True    
+#            ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+#            
+#            if obj in current:
+#                current.remove(obj)
+#            current.append(obj)
+#            
+#            if dup in current:
+#                current.remove(dup)
+#            current.append(dup)
+#            
+#            print(current)
+#            
+#            objs = list(context.scene.objects)
+#            for o in objs:
+#                if o not in current and o.name in context.scene.objects:
+#                        context.scene.objects.unlink(o)              
+#            
+        return None
     
-  #  def copyDataSet(oldObj, newObj):
-  #      newObj.destruction.partCount = oldObj.destruction.partCount
-  #      newObj.destruction.wallThickness = oldObj.destruction.wallThickness
-  #      newObj.destruction.pieceGranularity = oldObj.destruction.pieceGranularity
-  #      newObj.destruction.groundConnectivity = oldObj.groundConnectivity...
+    def edgeCount(self, vertex, mesh):
+        occurrence = 0
+        for key in mesh.edge_keys:
+            if vertex == mesh.vertices[key[0]] or vertex == mesh.vertices[key[1]]:
+                occurrence += 1
+        print("Vertex has ", occurrence, " edges ")        
+        return occurrence
         
        
-    def applyKnife(self, context, parts, jitter, thickness):
-        pass
+    def applyKnife(self, context, parts, jitter, granularity, thickness):
         
         #create an empty as parent
+        currentParts = [context.object.name]
+        
+        ops.object.mode_set(mode = 'EDIT')
+        #subdivide the object once, say 10 cuts (let the user choose this)
+        ops.mesh.subdivide(number_cuts = granularity)
+        ops.object.mode_set(mode = 'OBJECT')
+        
+        area = None
+        for a in context.screen.areas:
+            if a.type == 'VIEW_3D':
+                area = a          
+        
         
         #for 1 ... parts
+        while (len(currentParts) < parts):
+            
+             #pick a random part
+            index = random.randint(0, len(currentParts) - 1)
+            tocut = context.scene.objects[currentParts[index]]
+            path = tocut.destruction.currentKnifePath
+            #clear old path
+            while (len(path)) > 0:
+                path.remove(path[0])
+            
+            #make a random OperatorMousePath Collection to define cut path, the higher the jitter
+            #the more deviation from path
+            #opmousepath is in screen coordinates, assume 0.0 -> 1.0 since 0.5 centers it ?
+            point = path.add()
+            point.loc = (0.0, 0.0)
+            
+            point = path.add()
+            point.loc = (1.0, 1.0)
+            
+            #apply the cut, exact cut
+            ops.object.mode_set(mode = 'EDIT')
+            
+            ctx = context.copy()
+            ctx["area"] = area
+            ctx["edit_object"] = context.edit_object
+            ctx["space_data"] = area.spaces[0]
+            ctx["window"] = context.window
+            ctx["screen"] = context.screen
+            ops.mesh.knife_cut(ctx, type = 'EXACT', path = path)
         
-        #make a random OperatorMousePath Collection to define cut path, the higher the jitter
-        #the more deviation from path
-        
-        #pick a random part
-        
-        #apply the cut, exact cut
-        
-        #select loop-to-region to get a half (the smaller one ?)
-        
-        #separate object
+            #select loop-to-region to get a half (the smaller one ?)
+            ops.mesh.loop_to_region()
+       
+            #separate object by selection
+            ops.mesh.separate(type = 'SELECTED')
+            ops.object.mode_set(mode = 'OBJECT')
+            
+            print("new object: ", context.active_object.name)
+            currentParts.append(context.active_object.name)
+            
         
         #parent object to empty
     
     def isRelated(self, context, c, nameStart):
-        return (c.name.startswith(nameStart) and not self.isChild(context,c)) or self.isChild(context, c)    
+        return (c.name.startswith(nameStart)) # and not self.isChild(context,c)) or self.isChild(context, c)    
         
     def isChild(self, context, child):
         return context.active_object.destruction.transmitMode == 'T_CHILDREN' and \
@@ -327,39 +465,93 @@ class Processor():
         if nr < 100:
             return "0" + str(nr)
         return str(nr)
-    
-
+        
+    def cubify(self, context, bbox, parts, crack_type, roughness):
+        #create a cube with dim of cell size, (rotate/position it accordingly)
+        #intersect with pos of cells[0], go through all cells, set cube to pos, intersect again
+        #repeat always with original object
+        
+        grid = dd.Grid(context.object.destruction.gridDim, 
+                       context.object.destruction.pos,
+                       bbox, 
+                       [], 
+                       context.object.destruction.grounds)
+            
+        ops.mesh.primitive_cube_add()
+        cutter = context.active_object
+        cutter.name = "Cutter"
+        cutter.select = False
+     
+        cubes = []
+        for cell in grid.cells.values():
+            ob = self.cubifyCell(cell,cutter, context)
+            cubes.append(ob)
+        
+        if parts > 1: 
+            fo.fracture_basic(context, cubes, parts, crack_type, roughness)
+              
+        context.scene.objects.unlink(context.object) 
+        context.scene.objects.unlink(cutter) 
+                  
+      
+    def cubifyCell(self, cell, cutter, context):
+        context.object.select = True #maybe link it before...
+        context.scene.objects.active = context.object
+        
+        ops.object.duplicate()
+        context.object.select = False
+        ob = context.active_object
+        print(ob, context.selected_objects)
+        
+       # print(cell, cell.center)
+        cutter.location = Vector(cell.center)
+        cutter.dimensions = Vector(cell.dim) * 1.01
+        context.scene.update()
+        
+        bool = ob.modifiers.new("Boolean", 'BOOLEAN')
+        bool.object = cutter
+        bool.operation = 'INTERSECT'
+        
+       # copy = context.copy()
+       # copy["object"] = ob
+       # ops.object.modifier_apply(copy)
+        mesh = ob.to_mesh(context.scene, 
+                          apply_modifiers=True, 
+                          settings='PREVIEW')
+        print(mesh)                  
+        old_mesh = ob.data
+        ob.data = None
+        old_mesh.user_clear()
+        
+        if (old_mesh.users == 0):
+            bpy.data.meshes.remove(old_mesh)  
+            
+        ob.data = mesh 
+        ob.select = False
+        ob.modifiers.remove(bool)
+        
+        ob.select = True
+        ops.object.origin_set(type = 'ORIGIN_GEOMETRY') 
+        ob.select = False
+        
+        context.scene.objects.active = context.object 
+        
+        return ob
+                        
+                    
 def updateGrid(self, context):
-#    obj = context.object
-#    dim = obj.bound_box.data.dimensions.to_tuple()
-#    grid = dd.Grid(self.gridDim, obj.location.to_tuple(), dim, obj.children)
-#    grid.buildNeighborhood()
-#    dd.DataStore.grids[obj.name] = grid
-    #context.object.grid = grid
-    #print(obj.name, context.object.grid)
     return None
 
 def updateDestructionMode(self, context):
-   # dd.DataStore.proc.processDestruction(context)
-    #p = Processor()
-    #p.processDestruction(context)
     return None
 
 def updatePartCount(self, context):
-   # print(bpy.context, context)
-   # print(bpy.context.active_object, context.active_object)
-   # print(bpy.context.object, context.object)
-    #p = Processor()
-    #p.processDestruction(context)
-#    dd.DataStore.proc.processDestruction(context)
     return None
 
 def updateWallThickness(self, context):
-#    dd.DataStore.proc.processDestruction(context)
     return None
 
 def updatePieceGranularity(self, context):
-  #  dd.DataStore.proc.processDestruction(context)
     return None
 
 def updateIsGround(self, context):
@@ -370,25 +562,14 @@ def updateIsGround(self, context):
 def updateGroundConnectivity(self, context):
     return None
 
-#def updateGrounds(self, context)
-#   pass
-#template_list -> Operators
-
 def updateDestructor(self, context):
     return None
 
-#def updateTargets(self, context)
-#   pass
-#template_list -> Operators
 
 def updateTransmitMode(self, context):
-    #re apply to children -> process
-#    dd.DataStore.proc.processDestruction(context)
     return None 
 
 def updateTransmitMode(self, context):
-    #re apply to children -> process
-#    dd.DataStore.proc.processDestruction(context)
     return None 
 
 def updateDestroyable(self, context):
@@ -430,9 +611,9 @@ def updateValidGrounds(object):
 
 class DestructionContext(types.PropertyGroup):
     
-    destModes = [('DESTROY_F', 'Apply Fracture Addon', 'Destroy this object using the fracture addon', 0 ), 
-             ('DESTROY_E', 'Apply Explosion Modifier', 'Destroy this object using the explosion modifier', 1)]
-            # ('DESTROY_P', 'Preview Explosion Modifier', 'Preview destruction with explosion modifier', 2)] 
+    destModes = [('DESTROY_F', 'Boolean Fracture', 'Destroy this object using boolean fracturing', 0 ), 
+             ('DESTROY_E', 'Explosion Modifier', 'Destroy this object using the explosion modifier', 1),
+             ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 2)] 
     
     transModes = [('T_SELF', 'This Object Only', 'Apply settings to this object only', 0), 
              ('T_CHILDREN', 'Direct Children', 'Apply settings to direct children as well', 1),
@@ -441,7 +622,6 @@ class DestructionContext(types.PropertyGroup):
              ('T_LAYERS', 'Active Layers', 'Apply settings to all objects on active layers as well', 4), 
              ('T_ALL', 'All Objects', 'Apply settings to all objects as well', 5) ]
     
-   # nested = props.FloatProperty(name="Nested", default=0.0)
     destroyable = props.BoolProperty(name = "destroyable",
                          description = "This object can be destroyed, according to parent relations", 
                          update = updateDestroyable)
@@ -464,8 +644,7 @@ class DestructionContext(types.PropertyGroup):
     transmitMode = props.EnumProperty(items = transModes, name = "Transmit Mode", update = updateTransmitMode)
     active_target = props.IntProperty(name = "active_target", default = 0)
     active_ground = props.IntProperty(name = "active_ground", default = 0)
-    #active_valid_target = props.IntProperty(name = "active_valid_target", default = 0)
-    #active_valid_ground = props.IntProperty(name = "active_valid_ground", default = 0)
+ 
     groundSelector = props.StringProperty(name = "groundSelector")
     targetSelector = props.StringProperty(name = "targetSelector")
 
@@ -478,20 +657,40 @@ class DestructionContext(types.PropertyGroup):
     
    
     pos = props.FloatVectorProperty(name = "pos" , default = (0, 0, 0))
- #   grid = None
+    currentKnifePath = props.CollectionProperty(type = types.OperatorMousePath, name = "currentKnifePath")
+    
+    # From pildanovak, fracture script
+    crack_type = props.EnumProperty(name='Crack type',
+        items=(
+            ('FLAT', 'Flat', 'a'),
+            ('FLAT_ROUGH', 'Flat rough', 'a'),
+            ('SPHERE', 'Spherical', 'a'),
+            ('SPHERE_ROUGH', 'Spherical rough', 'a')),
+        description='Look of the fracture surface',
+        default='FLAT')
+
+    roughness = props.FloatProperty(name="Roughness",
+        description="Roughness of the fracture surface",
+        min=0.0,
+        max=3.0,
+        default=0.5)
+   # End from        
+
+    grid = None
+    jitter = props.FloatProperty(name = "jitter", default = 0.0, min = 0.0, max = 2.0) 
+    
+    cubify = props.BoolProperty(name = "cubify")
+    subgridDim = props.IntVectorProperty(name = "subgridDim", default = (1, 1, 1), min = 1, max = 100, 
+                                          subtype ='XYZ')
+    cascadeGround = props.BoolProperty(name = "cascadeGround")
     
 def initialize():
-#    print("HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
-#    utils.register_class(DestructionContext)
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")
     Scene.player = props.BoolProperty(name = "player")
     Scene.converted = props.BoolProperty(name = "converted")
     Scene.validTargets = props.CollectionProperty(name = "validTargets", type = types.PropertyGroup)
     Scene.validGrounds = props.CollectionProperty(name = "validGrounds", type = types.PropertyGroup)
-  #  Scene.backup = props.PointerProperty(name = "backup", type = Object)
     dd.DataStore.proc = Processor()  
-  #  updateValidTargets(None, bpy.context)
-  #  updateValidGrounds(None, bpy.context)
   
     if hasattr(bpy.app.handlers, "object_activation" ) != 0:
         bpy.app.handlers.object_activation.append(updateValidTargets)
@@ -499,39 +698,8 @@ def initialize():
   
 def uninitialize():
     del Object.destruction
-  #  utils.unregister_class(DestructionContext)
+    
     if hasattr(bpy.app.handlers, "object_activation" ) != 0:
         bpy.app.handlers.object_activation.remove(updateValidTargets)
         bpy.app.handlers.object_activation.remove(updateValidGrounds)
     
-#def setObject(context, object):
-#    copy = context.copy()
-#    copy["object"] = object
-#    copy["texture_user"] = None # TODO big hack 
-#    return copy
-#   
-   
-#class UpdateTargets(bpy.types.Operator):
-#    bl_idname = "targets.update"
-#    bl_label = "Update target list before redraw"
-#
-#    def modal(self, context, event):
-#        
-#        print("updating...")
-#        updateDestroyable(self, context)
-#        
-#        context.area.tag_redraw()
-#        return {'RUNNING_MODAL'}
-#
-#    def invoke(self, context, event):
-#        if context.area.type == 'VIEW_3D':
-#            context.window_manager.modal_handler_add(self)
-#
-#            # Add the region OpenGL drawing callback
-#            # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
-#           # self._handle = context.region.callback_add(draw_callback_px, (self, context), 'POST_PIXEL')
-#
-#           # self.mouse_path = []
-#
-#        return {'RUNNING_MODAL'}
-#        

@@ -15,6 +15,10 @@ class Cell:
         self.gridPos = gridPos
         self.grid = grid
         cellDim = grid.cellDim
+        self.dim = cellDim
+      #  self.maxVisit = 0
+    #    self.visit = False
+      #  print("CELL DIM: ",self.dim, cellDim)
         self.center = ((gridPos[0] + 0.5) * cellDim[0] + grid.pos[0], 
                        (gridPos[1] + 0.5) * cellDim[1] + grid.pos[1], 
                        (gridPos[2] + 0.5) * cellDim[2] + grid.pos[2]) 
@@ -24,9 +28,13 @@ class Cell:
                       (self.center[2] - cellDim[2] / 2, self.center[2] + cellDim[2] / 2)] 
                                          
         self.children = [c.name for c in grid.children if self.isInside(c.worldPosition)]
+        [self.assign(grid.cellCoord, c, self.gridPos) for c in self.children]
         self.count = len(self.children)
         print("Cell created: ", self.center, self.count)
         self.isGroundCell = False
+    
+    def assign(self, dict, name, coord):
+        dict[name] = coord
     
     def integrity(self, intgr):
         if self.count == 0:
@@ -44,7 +52,12 @@ class Cell:
         return False
     
     def findNeighbors(self):
-    
+        
+        
+        #  2---3
+        #0-+-1 |
+        #| 6-+-7
+        #4---5
         back = None
         if self.gridPos[1] < self.grid.cellCounts[1] - 1:
             back = self.grid.cells[(self.gridPos[0], self.gridPos[1] + 1, self.gridPos[2])]
@@ -68,8 +81,120 @@ class Cell:
         bottom = None
         if self.gridPos[2] > 0:
             bottom = self.grid.cells[(self.gridPos[0], self.gridPos[1], self.gridPos[2] - 1)]
+       
+        #corners 
+        c0 = None
+        if self.gridPos[0] > 0 and self.gridPos[1] > 0 and self.gridPos[2] < self.grid.cellCounts[2] - 1:
+            c0 = self.grid.cells[(self.gridPos[0] - 1, self.gridPos[1] - 1, self.gridPos[2] + 1)]
+        
+        c1 = None
+        if self.gridPos[0] < self.grid.cellCounts[0] - 1 and self.gridPos[1] > 0 and \
+           self.gridPos[2] < self.grid.cellCounts[2] - 1:
+            c1 = self.grid.cells[(self.gridPos[0] + 1, self.gridPos[1] - 1, self.gridPos[2] + 1)]
             
-        self.neighbors = [back, front, left, right, top, bottom]
+        c2 = None
+        if self.gridPos[0] > 0 and self.gridPos[1] < self.grid.cellCounts[1] - 1 and \
+           self.gridPos[2] < self.grid.cellCounts[2] - 1:
+            c2 = self.grid.cells[(self.gridPos[0] - 1, self.gridPos[1] + 1, self.gridPos[2] + 1)]
+            
+        c3 = None
+        if self.gridPos[0] < self.grid.cellCounts[0] - 1  and self.gridPos[1] < self.grid.cellCounts[1] - 1 and \
+           self.gridPos[2] < self.grid.cellCounts[2] - 1:
+            c3 = self.grid.cells[(self.gridPos[0] + 1, self.gridPos[1] + 1, self.gridPos[2] + 1)]
+         
+        c4 = None
+        if self.gridPos[0] > 0 and self.gridPos[1] > 0 and self.gridPos[2] > 0:
+            c4 = self.grid.cells[(self.gridPos[0] - 1, self.gridPos[1] - 1, self.gridPos[2] - 1)]
+         
+        c5 = None
+        if self.gridPos[0] < self.grid.cellCounts[0] - 1 and self.gridPos[1] > 0 and self.gridPos[2] > 0:
+            c5 = self.grid.cells[(self.gridPos[0] + 1 , self.gridPos[1] - 1, self.gridPos[2] - 1)]
+            
+        c6 = None
+        if self.gridPos[0] > 0 and self.gridPos[1] < self.grid.cellCounts[1] - 1 and \
+           self.gridPos[2] > 0:
+            c6 = self.grid.cells[(self.gridPos[0] - 1, self.gridPos[1] + 1, self.gridPos[2] - 1)]
+         
+        c7 = None
+        if self.gridPos[0] < self.grid.cellCounts[0] - 1 and self.gridPos[1] < self.grid.cellCounts[1] - 1 and \
+           self.gridPos[2] > 0:
+            c7 = self.grid.cells[(self.gridPos[0] + 1 , self.gridPos[1] + 1, self.gridPos[2] - 1)]
+       
+       
+        #between corners 
+        #b01
+        #b02
+        #b13
+        #b23
+        
+        b01 = None
+        if self.gridPos[1] > 0 and self.gridPos[2] < self.grid.cellCounts[2] - 1:
+            b01 = self.grid.cells[(self.gridPos[0], self.gridPos[1] - 1, self.gridPos[2] + 1)]
+            
+        b02 = None
+        if self.gridPos[0] > 0 and self.gridPos[2] < self.grid.cellCounts[2] - 1:
+            b02 = self.grid.cells[(self.gridPos[0] - 1 , self.gridPos[1], self.gridPos[2] + 1)]
+         
+        b13 = None
+        if self.gridPos[0] < self.grid.cellCounts[0] - 1 and self.gridPos[2] < self.grid.cellCounts[2] - 1:
+            b13 = self.grid.cells[(self.gridPos[0] + 1 , self.gridPos[1], self.gridPos[2] + 1)]
+          
+        b23 = None
+        if self.gridPos[1] < self.grid.cellCounts[1] - 1 and self.gridPos[2] < self.grid.cellCounts[2] - 1:
+           b23 = self.grid.cells[(self.gridPos[0] , self.gridPos[1] + 1, self.gridPos[2] + 1)]
+        
+      #  b45
+      #  b46
+      #  b57
+      #  b67
+        
+        b45 = None
+        if self.gridPos[1] > 0 and self.gridPos[2] > 0:
+            b45 = self.grid.cells[(self.gridPos[0] , self.gridPos[1] - 1, self.gridPos[2] - 1)]
+            
+        b46 = None
+        if self.gridPos[0] > 0 and self.gridPos[2] > 0:
+            b46 = self.grid.cells[(self.gridPos[0] - 1 , self.gridPos[1], self.gridPos[2] - 1)]
+            
+        b57 = None
+        if self.gridPos[0] < self.grid.cellCounts[0] - 1 and self.gridPos[2] > 0:
+            b57 = self.grid.cells[(self.gridPos[0] + 1 , self.gridPos[1], self.gridPos[2] - 1)]
+            
+        b67 = None
+        if self.gridPos[1] < self.grid.cellCounts[1] - 1 and self.gridPos[2] > 0:
+            b67 = self.grid.cells[(self.gridPos[0], self.gridPos[1] + 1, self.gridPos[2] - 1)]
+        
+    #    b04
+    #    b15
+    #    b26
+    #    b37 
+        
+        b04 = None
+        if self.gridPos[0] > 0 and self.gridPos[1] > 0:
+            b04 = self.grid.cells[(self.gridPos[0] - 1 , self.gridPos[1] - 1, self.gridPos[2])]
+            
+        b15 = None
+        if self.gridPos[0] < self.grid.cellCounts[0] - 1 and self.gridPos[1] > 0:
+            b15 = self.grid.cells[(self.gridPos[0] + 1 , self.gridPos[1] - 1, self.gridPos[2])]
+            
+        b26 = None
+        if self.gridPos[0] > 0 and self.gridPos[1] < self.grid.cellCounts[1] - 1:
+            b26 = self.grid.cells[(self.gridPos[0] - 1 , self.gridPos[1] + 1, self.gridPos[2])]
+            
+        b37 = None
+        if self.gridPos[0] < self.grid.cellCounts[0] - 1 and self.gridPos[1] < self.grid.cellCounts[1] - 1:
+            b37 = self.grid.cells[(self.gridPos[0] + 1 , self.gridPos[1] + 1, self.gridPos[2])]
+            
+        self.neighbors = [back, front, left, right, top, bottom, c0, c1, c2, c3, c4, c5, c6, c7,
+                          b01, b02, b13, b23, b45, b46, b57, b67, b04, b15, b26, b37]
+#        self.updateMaxVisit()
+    
+#    def updateMaxVisit(self):
+#        
+#        self.maxVisit = 0
+#        for n in self.neighbors:
+#            if n != None:
+#                self.maxVisit += 1   
         
     def testGroundCell(self):   
         #test distance of closest point on poly to cell center,
@@ -98,6 +223,8 @@ class Cell:
                     return
                    
 class Grid:
+    
+    cellCoord = {}
     
     def __init__(self, cellCounts, pos, dim, children, grounds):
         self.cells = {}
@@ -138,6 +265,10 @@ class Grid:
             
     def __str__(self):
         return str(self.pos) + " " + str(self.dim) + " " + str(len(self.children))
+    
+    def getCellByName(self, name):
+        return self.cellCoord[name]
+        
 
 class DataStore:
     backups = {}

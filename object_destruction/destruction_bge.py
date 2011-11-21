@@ -26,7 +26,7 @@ hierarchyDepth = 1 # this must be stored per destructor, how deep destruction sh
 #otherwise 1 level each collision with destroyer / ground
 #maxDepth = 10  #this must be stored in scene
 doReturn = False
-integrity = 0.25
+integrity = 0.5
 
 def setup():
     
@@ -75,12 +75,12 @@ def dissolve(obj, depth, maxdepth, owner):
         if obj.parent.name in dd.DataStore.grids.keys():
             grid = dd.DataStore.grids[obj.parent.name]
                  
-        if isGroundConnectivity(obj.parent) and not isGround(obj.parent):
-            if grid != None:
-                cells = [c for c in grid.cells.values()]
-                for c in cells:
-                    destroyNeighborhood(c)
-                     
+#        if isGroundConnectivity(obj.parent) and not isGround(obj.parent):
+#            if grid != None:
+#                cells = [c for c in grid.cells.values()]
+#                for c in cells:
+#                    destroyNeighborhood(c)
+#                     
         if depth < maxdepth: 
             [dissolve(c, depth + 1, maxdepth, owner) for c in obj.parent.children]
             [activate(c, owner, grid) for c in obj.parent.children]
@@ -90,24 +90,40 @@ def activate(child, owner, grid):
  #   if child.getDistanceTo(owner.worldPosition) < defaultRadius:         
     # print("activated: ", child)
      global integrity
-     
+     if isGroundConnectivity(child.parent) and not isGround(child.parent):
+         if grid != None:
+             cells = dict(grid.cells)
+             gridPos = grid.getCellByName(child.name)
+             cell = cells[gridPos]
+             
+             if (child.name in cell.children):
+                cell.children.remove(child.name)
+            
+             #if not cell.integrity(integrity):
+             #print("Low Integrity, destroying cell!")
+             destroyCell(cell, cells)
+             destroyNeighborhood(cell)
+             
+             
+             #for c in cells.values():
+              #  c.visit = False
+               #c.updateMaxVisit()
+             
+           #  grid.cells = cells
+    #         for cell in grid.cells.values():
+    #            childs = [c for c in cell.children] 
+    #            for shard in cell.children:
+    #                if shard == child.name:
+    #                   # print("removing from cell :", cell, " shard: ", child)
+    #                    childs.remove(shard)
+    #                    cell.children = childs
+    #                    
+    #                    #if not cell.integrity(integrity):
+    #                       # print("Low Integrity, destroying cell!")
+    #                    destroyCell(cell, cells)   
+    #                    return
      child.removeParent()
      child.restoreDynamics() 
-     
-     if grid != None:
-         cells = dict(grid.cells)
-         for cell in grid.cells.values():
-            childs = [c for c in cell.children] 
-            for shard in cell.children:
-                if shard == child.name:
-                   # print("removing from cell :", cell, " shard: ", child)
-                    childs.remove(shard)
-                    cell.children = childs
-                    
-                    #if not cell.integrity(integrity):
-                       # print("Low Integrity, destroying cell!")
-                    destroyCell(cell, cells)   
-                    return
 
 def isGroundConnectivity(obj):
     if "groundConnectivity" not in obj.getPropertyNames():
@@ -154,6 +170,8 @@ def getGrounds(obj):
     parts = obj["grounds"].split(" ")
     for part in parts:
         p = part.split(";")
+        if p[0] == "" or p[0] == " ":
+            continue
         ground = dd.Ground()
         ground.name = p[0]
         ground.pos = logic.getCurrentScene().objects[ground.name].worldPosition
@@ -187,19 +205,20 @@ def destroyNeighborhood(cell):
     
     for c in destlist:
         if c.isGroundCell and c.integrity(integrity): 
- #           print("GroundCell Found:", c.center)
+            print("GroundCell Found:", c.center)
             return
         
     #destroy unconnected cells -> enable physics within radius -> fuzzy
  #   print("Destruction List(no ground)", len(destlist))
-    cells = dict(cell.grid.cells)
+   # cells = dict(cell.grid.cells)
+    cells = cell.grid.cells
     
     for c in destlist:
         destroyCell(c, cells)  
      
     
 def destroyCell(cell, cells):
-    for item in cell.grid.cells.items():
+    for item in cells.items():
         if cell == item[1] and item[0] in cells:
             del cells[item[0]]
             break
@@ -214,7 +233,7 @@ def destroyCell(cell, cells):
         childs.remove(child)
             
     cell.children = childs      
-    cell.grid.cells = cells
+  #  cell.grid.cells = cells
     
 
 def destructionList(cell, destList):
@@ -224,18 +243,22 @@ def destructionList(cell, destList):
     
     if doReturn:
         return
+ #   if cell.visit:
+   #     return
+ 
+   # cell.visit = True
     
     if cell.isGroundCell and cell.integrity(integrity):
         destList.append(cell)
         doReturn = True
         return
     
-    for i in range(0,6):
-        neighbor = cell.neighbors[i]
-        if neighbor != None and not neighbor in destList:
-            destList.append(neighbor)
-            if neighbor.integrity(integrity):
-                destructionList(neighbor, destList)
+    for neighbor in cell.neighbors:
+        if neighbor != None:
+            if not neighbor in destList:
+                destList.append(neighbor)
+                if neighbor.integrity(integrity):
+                    destructionList(neighbor, destList)
     
     #append self to destlist ALWAYS (if not already there)          
     if cell not in destList:         

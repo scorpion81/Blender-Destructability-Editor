@@ -44,13 +44,13 @@ class DestructabilityPanel(types.Panel):
         if context.object.destruction.destructionMode == 'DESTROY_F':
             col.prop(context.object.destruction, "roughness", text = "Roughness")
             col.prop(context.object.destruction, "crack_type", text = "Crack Type")
-        elif context.object.destruction.destructionMode == 'DESTROY_E':
+        elif context.object.destruction.destructionMode.startswith('DESTROY_E'):
             col.prop(context.object.destruction, "wallThickness", text = "Thickness")
             col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
         elif context.object.destruction.destructionMode == 'DESTROY_K':
-            col.prop(context.object.destruction, "wallThickness", text = "Thickness")
-            col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
+            #col.prop(context.object.destruction, "wallThickness", text = "Thickness")
             col.prop(context.object.destruction, "jitter", text = "Jitter")
+            col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
         col.active = context.object.destruction.destroyable
         
         row = layout.row()

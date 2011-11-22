@@ -36,9 +36,17 @@ class Processor():
     def processDestruction(self, context):
        # self.context = context
       
-        modes = {DestructionContext.destModes[0][0]: "self.applyFracture(context, parts, roughness, crack_type)",
-                 DestructionContext.destModes[1][0]: "self.applyExplo(context, parts, granularity, thickness)",
-                 DestructionContext.destModes[2][0]: "self.applyKnife(context, parts, jitter, granularity, thickness)" } 
+        modes = {DestructionContext.destModes[0][0]: 
+                    "self.applyFracture(context, parts, roughness, crack_type)",
+                 DestructionContext.destModes[1][0]: 
+                     "self.applyExplo(context, parts, granularity, thickness, False, False)",
+                 DestructionContext.destModes[2][0]: 
+                     "self.applyExplo(context, parts, granularity, thickness, True, True)",
+                 DestructionContext.destModes[3][0]: 
+                     "self.applyExplo(context, parts, granularity, thickness, True, False)",
+                 DestructionContext.destModes[4][0]: 
+                     "self.applyKnife(context, parts, jitter, granularity, thickness)" } 
+                     
         #make an object backup if necessary (if undo doesnt handle this)
         #according to mode call correct method
         mode = context.object.destruction.destructionMode
@@ -107,7 +115,7 @@ class Processor():
    #     context.active_object.destruction.applyDone = False
         
         
-    def applyExplo(self, context, parts, granularity, thickness):
+    def applyExplo(self, context, parts, granularity, thickness, massive, pairwise):
         #create objects from explo by applying it(or by loose parts)
         #check modifier sequence before applying it 
         #(if all are there; for now no other modifiers allowed in between)
@@ -123,6 +131,10 @@ class Processor():
         #prepare parenting
         parentName, nameStart, largest, bbox = self.prepareParenting(context)
         backup = self.createBackup(context)
+        
+        #if massive -> select all, region to loop, create faces, use self intersect
+        #if massive and pairwise, apply a 2 piece particle system to random object
+        #like knife
             
         #explosion modifier specific    
         self.previewExplo(context, parts, granularity, thickness)
@@ -316,7 +328,13 @@ class Processor():
         print("Vertex has ", occurrence, " edges ")        
         return occurrence
         
-       
+    def getSize(self, obj):
+        areas = [f.area for f in obj.data.faces]
+        return sum(areas)
+    
+    def dictItem(self, dict, key, value):
+        dict[key] = value
+           
     def applyKnife(self, context, parts, jitter, granularity, thickness):
         
         #create an empty as parent
@@ -330,6 +348,8 @@ class Processor():
         ops.mesh.subdivide(number_cuts = granularity)
         ops.object.mode_set(mode = 'OBJECT')
         
+        zero = Vector((0, 0, 0))
+        
         area = None
         region = None
         for a in context.screen.areas:
@@ -339,21 +359,47 @@ class Processor():
                 region = reg[0]
         
         #for 1 ... parts
+        tries = 0
         while (len(currentParts) < parts):
+                    
+            #give up when always invalid objects result from operation
+            if tries > 50:
+                break
             
              #pick a random part
             oldnames = [o.name for o in context.scene.objects]
-            index = random.randint(0, len(currentParts) - 1)
-            print(index, currentParts[index])
-            tocut = context.scene.objects[currentParts[index]]
+            #index = random.randint(0, len(currentParts) - 1)
+            #pick always the largest object to subdivide
+            sizes = {}
+            [self.dictItem(sizes, self.getSize(o), o.name) for o in context.scene.objects if                    o.name in currentParts]
             
-          
-            parent = tocut.parent
-            if parent != None:
-                context.scene.objects.active = parent
-                ops.transform.rotate(value = [math.radians(45.0)], axis = (0.0, 0.0, 1.0)) 
+            maxSize = max(sizes.keys())
+            name = sizes[maxSize]
+       #     print(maxSize, name)
+            tocut = context.scene.objects[name]
+            
+            parent = context.active_object.parent
+            anglex = random.randint(10, 80)
+            anglex = math.radians(anglex)
+            
+            angley = random.randint(10, 80)
+            angley = math.radians(angley)
+            
+            anglez = random.randint(10, 80)
+            anglez = math.radians(anglez)
             
             context.scene.objects.active = tocut
+            
+            loc = Vector(context.active_object.location)
+        #    print("Location: ", loc)
+            context.active_object.location = zero
+            context.scene.update()
+            
+        #    print("Rotating...")
+            context.active_object.rotation_euler = (anglex, angley, anglez)
+            context.scene.update()
+            
+            #context.scene.objects.active = tocut
             #make a random OperatorMousePath Collection to define cut path, the higher the jitter
             #the more deviation from path
             #opmousepath is in screen coordinates, assume 0.0 -> 1.0 since 0.5 centers it ?
@@ -366,18 +412,18 @@ class Processor():
             endx = width
             endy = height
             
-#            rnd = random.randint(0,1)
-#            if rnd == 1:
-#                startx = random.randint(0, width)
-#                starty = 0
-#                endx = random.randint(0, width)
-#                endy = height
-#            
-#            else:
-#                startx = 0
-#                starty = random.randint(0, height)
-#                endx = width
-#                endy = random.randint(0, height)
+            rnd = random.randint(0,1)
+            if rnd == 1:
+                startx = random.randint(0, width)
+                starty = 0
+                endx = width - startx
+                endy = height
+            
+            else:
+                startx = 0
+                starty = random.randint(0, height)
+                endx = width
+                endy = height - starty
             
             path = []
             path.append(self.entry(startx,starty))
@@ -391,6 +437,15 @@ class Processor():
             ctx["area"] = area
             ctx["region"] = region
             ops.mesh.knife_cut(ctx, type = 'EXACT', path = path)
+            ops.object.mode_set(mode = 'OBJECT')
+            
+            context.active_object.rotation_euler = (0, 0, 0)
+            context.scene.update()
+     
+            context.active_object.location = loc
+        #    print(context.active_object.location, context.active_object.rotation_euler)
+            context.scene.update()
+            ops.object.mode_set(mode = 'EDIT')
            
             #select loop-to-region to get a half (the smaller one ?)
             ops.mesh.loop_to_region()
@@ -398,25 +453,59 @@ class Processor():
             #separate object by selection
             ops.mesh.separate(type = 'SELECTED')
             part = self.findNew(context, oldnames)
-            currentParts.append(part)
-            
+           # print("PART", part)
+             
             ops.mesh.select_all(action = 'SELECT')
             ops.mesh.region_to_loop()
             ops.mesh.fill()
+            ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.normals_make_consistent()
             ops.object.mode_set(mode = 'OBJECT')
-           # ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+            tocut.select = True
+            ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+            tocut.select = False
+           
+           # print("Rotating back 1...")
+        #    context.active_object.rotation_euler = (0, 0, 0)
             
+             #missed the object, retry with different values until success   
+            if part == None:
+            #    print("Undo (missed object)...")
+                #context.active_object.rotation_euler = (0, 0, 0)
+                tries += 1
+                continue
+            
+      
             context.scene.objects.active = context.scene.objects[part]
             ops.object.mode_set(mode = 'EDIT')
             ops.mesh.select_all(action = 'SELECT')
             ops.mesh.region_to_loop()
             ops.mesh.fill()
+            ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.normals_make_consistent()
             ops.object.mode_set(mode = 'OBJECT')
-        #    ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+            context.active_object.select = True
+            ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+            context.active_object.select = False
+            
+            obj = context.active_object
+            manifold = min(mesh_utils.edge_face_count(obj.data))
+            
+            if manifold < 2:
+              #  print("Undo (non-manifold)...")
+                context.scene.objects.active = tocut
+                context.scene.objects.unlink(obj)
+                tries += 1
+                continue
+                      
+            currentParts.append(part)
+        
+           # print("Rotating back 2...")
+        #    context.active_object.rotation_euler = (0, 0, 0)
             
             #context.object seems to disappear so store parent in active object
             context.active_object.parent = parent
-            
+            tries = 0
                     
         parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest)
         
@@ -424,12 +513,10 @@ class Processor():
             c.destruction.groundConnectivity = False
             c.destruction.cubify = False
             c.destruction.gridDim = (1,1,1)
-            context.scene.objects.active = c
-        #    ops.object.origin_set(type = 'ORIGIN_GEOMETRY')    
+           # context.scene.objects.active = c
+           # ops.object.origin_set(type = 'ORIGIN_GEOMETRY')    
             
-         
-        
-        #parent object to empty
+
     def entry(self, x, y):
         return {"name":"", "loc":(x, y), "time":0}
     
@@ -600,8 +687,13 @@ def updateValidGrounds(object):
 class DestructionContext(types.PropertyGroup):
     
     destModes = [('DESTROY_F', 'Boolean Fracture', 'Destroy this object using boolean fracturing', 0 ), 
-             ('DESTROY_E', 'Explosion Modifier', 'Destroy this object using the explosion modifier', 1),
-             ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 2)] 
+             ('DESTROY_E_H', 'Explosion Modifier (Hollow)', 
+              'Destroy this object using the explosion modifier, forming a hollow shape', 1),
+             ('DESTROY_E_M', 'Explosion Modifier (Massive)', 
+               'Destroy this object using the explosion modifier, forming a massive shape', 2),
+             ('DESTROY_E_P', 'Explosion Modifier (Small Pieces)', 
+               'Destroy this object using the explosion modifier, forming small pieces', 3),
+             ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 4)] 
     
     transModes = [('T_SELF', 'This Object Only', 'Apply settings to this object only', 0), 
              ('T_CHILDREN', 'Direct Children', 'Apply settings to direct children as well', 1),

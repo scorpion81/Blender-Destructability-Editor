@@ -7,7 +7,8 @@ import random
 from bpy_extras import mesh_utils
 from operator import indexOf
 from mathutils import Vector
-import imp
+#import imp
+import math
 
 #currentDir = path.abspath(os.path.split(__file__)[0])
 #filepath = currentDir + "\\..\\object_fracture"
@@ -136,7 +137,7 @@ class Processor():
         context.scene.frame_current = 2
        
         ops.object.modifier_apply(modifier = explode.name)
-        ops.object.modifier_apply(modifier = solidify.name)
+     #   ops.object.modifier_apply(modifier = solidify.name)
         
         #must select particle system before somehow
         ops.object.particle_system_remove() 
@@ -158,13 +159,21 @@ class Processor():
     
     def doParenting(self, context, parentName, nameStart, bbox, backup, largest):
         print("Largest: ", largest)    
-            
+        
+        parent = context.active_object.parent    
         ops.object.add(type = 'EMPTY') 
         context.active_object.game.physics_type = 'RIGID_BODY'            
         context.active_object.game.radius = 0.01  
         context.active_object.game.use_ghost = True        
         context.active_object.name = parentName   
-        context.active_object.parent = context.object.parent
+        
+        #clear parent and keep transform
+      #  ctx = context.copy()
+    #    ctx["object"] = context.active_object
+    #    parent = context.object.parent
+        print("PARENT: ", parent)
+    #    ops.object.parent_clear(ctx, type = 'CLEAR_KEEP_TRANSFORM')
+        context.active_object.parent = parent
         context.active_object.destruction.gridBBox = bbox
   
         dd.DataStore.backups[context.active_object.name] = backup
@@ -192,7 +201,7 @@ class Processor():
         [self.applyDataSet(context, c, largest, parentName) for c in context.scene.objects if 
          self.isRelated(context, c, nameStart)]   
          
-        ops.object.origin_set(type = 'ORIGIN_GEOMETRY') 
+      #  ops.object.origin_set(type = 'ORIGIN_GEOMETRY') 
         
         return parent
         
@@ -296,91 +305,7 @@ class Processor():
             c.destruction.groundConnectivity = False
             c.destruction.cubify = False
             c.destruction.gridDim = (1,1,1)
-        
-#        current = []
-#        for i in range(0, parts - 1):
-#            
-#            #pick an object, make it active
-#            if len(current) == 0:
-#                obj = context.object
-#            else:    
-#                index = random.randint(0, len(current)- 1)
-#                obj = current[index]
-#                
-#            context.scene.objects.active = obj
-#            
-#            ops.object.duplicate()
-#            dup = context.active_object
-#           
-#            
-#            #create a cutter
-#            #using code from Fracture Tools
-#            size = fo.getsizefrommesh(obj)
-#            scale = max(size) * 1.3
-#
-#            fo.create_cutter(context, crack_type, scale, roughness)
-#            cutter = context.active_object
-#            cutter.location = obj.location
-#
-#            cutter.location[0] += random.random() * size[0] * 0.1
-#            cutter.location[1] += random.random() * size[1] * 0.1
-#            cutter.location[2] += random.random() * size[2] * 0.1
-#            cutter.rotation_euler = [
-#                random.random() * 5000.0,
-#                random.random() * 5000.0,
-#                random.random() * 5000.0]
-#            #end using code from Fracture Tools
-#            
-#            if not "Intersect" in obj.modifiers:        
-#                intersect = obj.modifiers.new("Intersect", 'BOOLEAN')
-#                intersect.object = cutter
-#                intersect.operation = 'INTERSECT'
-#            
-#            if not "Difference" in dup.modifiers:
-#                difference = dup.modifiers.new("Difference", 'BOOLEAN')
-#                difference.object = cutter
-#                difference.operation = 'DIFFERENCE'
-#            
-#            context.scene.objects.active = obj
-#            copy = context.copy()
-#            copy["object"] = obj
-#            copy["modifier"] = intersect
-#            ops.object.modifier_apply(copy, modifier = "Intersect")
-#           
-#            context.scene.objects.active = dup
-#            copy = context.copy()
-#            copy["object"] = dup
-#            copy["modifier"] = difference
-#            ops.object.modifier_apply(copy,modifier = "Difference")
-#            #dup.modifiers.remove(difference)
-#            
-#            self.cleanNonManifolds(obj, context)
-#            self.cleanNonManifolds(dup, context)
-#            
-#            context.scene.objects.unlink(cutter)
-#            
-#            for o in context.scene.objects:
-#                o.select = False
-#                
-#            obj.select = True
-#            dup.select = True    
-#            ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
-#            
-#            if obj in current:
-#                current.remove(obj)
-#            current.append(obj)
-#            
-#            if dup in current:
-#                current.remove(dup)
-#            current.append(dup)
-#            
-#            print(current)
-#            
-#            objs = list(context.scene.objects)
-#            for o in objs:
-#                if o not in current and o.name in context.scene.objects:
-#                        context.scene.objects.unlink(o)              
-#            
+                         
         return None
     
     def edgeCount(self, vertex, mesh):
@@ -395,62 +320,125 @@ class Processor():
     def applyKnife(self, context, parts, jitter, granularity, thickness):
         
         #create an empty as parent
+        parentName, nameStart, largest, bbox = self.prepareParenting(context)
+        backup = self.createBackup(context) 
         currentParts = [context.object.name]
         
+        context.scene.objects.active = context.object
         ops.object.mode_set(mode = 'EDIT')
         #subdivide the object once, say 10 cuts (let the user choose this)
         ops.mesh.subdivide(number_cuts = granularity)
         ops.object.mode_set(mode = 'OBJECT')
         
         area = None
+        region = None
         for a in context.screen.areas:
             if a.type == 'VIEW_3D':
-                area = a          
-        
+                area = a
+                reg = [r for r in area.regions if r.type == 'WINDOW']          
+                region = reg[0]
         
         #for 1 ... parts
         while (len(currentParts) < parts):
             
              #pick a random part
+            oldnames = [o.name for o in context.scene.objects]
             index = random.randint(0, len(currentParts) - 1)
+            print(index, currentParts[index])
             tocut = context.scene.objects[currentParts[index]]
-            path = tocut.destruction.currentKnifePath
-            #clear old path
-            while (len(path)) > 0:
-                path.remove(path[0])
             
+          
+            parent = tocut.parent
+            if parent != None:
+                context.scene.objects.active = parent
+                ops.transform.rotate(value = [math.radians(45.0)], axis = (0.0, 0.0, 1.0)) 
+            
+            context.scene.objects.active = tocut
             #make a random OperatorMousePath Collection to define cut path, the higher the jitter
             #the more deviation from path
             #opmousepath is in screen coordinates, assume 0.0 -> 1.0 since 0.5 centers it ?
-            point = path.add()
-            point.loc = (0.0, 0.0)
+            #[{"name":"", "loc":(x,y), "time":0},{...}, ...]
             
-            point = path.add()
-            point.loc = (1.0, 1.0)
+            width = region.width
+            height = region.height
+            startx = 0;
+            starty = 0
+            endx = width
+            endy = height
+            
+#            rnd = random.randint(0,1)
+#            if rnd == 1:
+#                startx = random.randint(0, width)
+#                starty = 0
+#                endx = random.randint(0, width)
+#                endy = height
+#            
+#            else:
+#                startx = 0
+#                starty = random.randint(0, height)
+#                endx = width
+#                endy = random.randint(0, height)
+            
+            path = []
+            path.append(self.entry(startx,starty))
+            path.append(self.entry(endx, endy))
             
             #apply the cut, exact cut
             ops.object.mode_set(mode = 'EDIT')
+            ops.mesh.select_all(action = 'SELECT')
             
             ctx = context.copy()
             ctx["area"] = area
-            ctx["edit_object"] = context.edit_object
-            ctx["space_data"] = area.spaces[0]
-            ctx["window"] = context.window
-            ctx["screen"] = context.screen
+            ctx["region"] = region
             ops.mesh.knife_cut(ctx, type = 'EXACT', path = path)
-        
+           
             #select loop-to-region to get a half (the smaller one ?)
             ops.mesh.loop_to_region()
        
             #separate object by selection
             ops.mesh.separate(type = 'SELECTED')
+            part = self.findNew(context, oldnames)
+            currentParts.append(part)
+            
+            ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.region_to_loop()
+            ops.mesh.fill()
             ops.object.mode_set(mode = 'OBJECT')
+           # ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
             
-            print("new object: ", context.active_object.name)
-            currentParts.append(context.active_object.name)
+            context.scene.objects.active = context.scene.objects[part]
+            ops.object.mode_set(mode = 'EDIT')
+            ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.region_to_loop()
+            ops.mesh.fill()
+            ops.object.mode_set(mode = 'OBJECT')
+        #    ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
             
+            #context.object seems to disappear so store parent in active object
+            context.active_object.parent = parent
+            
+                    
+        parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest)
+        
+        for c in parent.children:
+            c.destruction.groundConnectivity = False
+            c.destruction.cubify = False
+            c.destruction.gridDim = (1,1,1)
+            context.scene.objects.active = c
+        #    ops.object.origin_set(type = 'ORIGIN_GEOMETRY')    
+            
+         
         
         #parent object to empty
+    def entry(self, x, y):
+        return {"name":"", "loc":(x, y), "time":0}
+    
+    def findNew(self, context, oldnames):
+        for o in context.scene.objects:
+            if o.name not in oldnames:
+                print("new object: ", o.name)
+                return o.name
+            
     
     def isRelated(self, context, c, nameStart):
         return (c.name.startswith(nameStart)) # and not self.isChild(context,c)) or self.isChild(context, c)    
@@ -657,7 +645,7 @@ class DestructionContext(types.PropertyGroup):
     
    
     pos = props.FloatVectorProperty(name = "pos" , default = (0, 0, 0))
-    currentKnifePath = props.CollectionProperty(type = types.OperatorMousePath, name = "currentKnifePath")
+ #   currentKnifePath = props.CollectionProperty(type = types.OperatorMousePath, name = "currentKnifePath")
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',

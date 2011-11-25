@@ -99,29 +99,17 @@ def activate(child, owner, grid):
              if (child.name in cell.children):
                 cell.children.remove(child.name)
             
-             #if not cell.integrity(integrity):
-             #print("Low Integrity, destroying cell!")
-             destroyCell(cell, cells)
-             destroyNeighborhood(cell)
+             if not cell.integrity(integrity):
+                print("Low Integrity, destroying cell!")
+                destroyCell(cell, cells)
+                
+                
+             for c in cells.values():
+                destroyNeighborhood(c)
              
-             
-             #for c in cells.values():
-              #  c.visit = False
-               #c.updateMaxVisit()
-             
-           #  grid.cells = cells
-    #         for cell in grid.cells.values():
-    #            childs = [c for c in cell.children] 
-    #            for shard in cell.children:
-    #                if shard == child.name:
-    #                   # print("removing from cell :", cell, " shard: ", child)
-    #                    childs.remove(shard)
-    #                    cell.children = childs
-    #                    
-    #                    #if not cell.integrity(integrity):
-    #                       # print("Low Integrity, destroying cell!")
-    #                    destroyCell(cell, cells)   
-    #                    return
+             for c in cells.values():
+                c.visit = False
+                
      child.removeParent()
      child.restoreDynamics() 
 
@@ -195,18 +183,15 @@ def destroyNeighborhood(cell):
     
     global doReturn
     global integrity
-    
+#
+    doReturn = False
     destlist = []
     destructionList(cell, destlist)
-    doReturn = False
     
- #   print("Destruction List", len(destlist))
- #   print("Cells left: ",len(cell.grid.cells)) 
-    
-    for c in destlist:
-        if c.isGroundCell and c.integrity(integrity): 
-            print("GroundCell Found:", c.center)
-            return
+#    for c in destlist:
+#       if c.isGroundCell and c.integrity(integrity): 
+#           print("GroundCell Found:", c.center)
+#           return
         
     #destroy unconnected cells -> enable physics within radius -> fuzzy
  #   print("Destruction List(no ground)", len(destlist))
@@ -215,7 +200,7 @@ def destroyNeighborhood(cell):
     
     for c in destlist:
         destroyCell(c, cells)  
-     
+   
     
 def destroyCell(cell, cells):
     for item in cells.items():
@@ -241,31 +226,31 @@ def destructionList(cell, destList):
     global doReturn
     global integrity  
     
-    if doReturn:
-        return
- #   if cell.visit:
-   #     return
- 
-   # cell.visit = True
+#   if cell.visit:
+#        return
+#    cell.visit = True
     
-    if cell.isGroundCell and cell.integrity(integrity):
-        destList.append(cell)
-        doReturn = True
+    if (cell.isGroundCell and cell.integrity(integrity)) or cell.visit:
+        #print("GroundCell Found:", cell.gridPos)
+        while len(destList) > 0:
+            c = destList.pop()
+            c.visit = True
+        doReturn = True    
         return
     
     for neighbor in cell.neighbors:
-        if neighbor != None:
+        if doReturn:
+            return    
+        if neighbor != None: 
             if not neighbor in destList:
                 destList.append(neighbor)
                 if neighbor.integrity(integrity):
                     destructionList(neighbor, destList)
-    
+                        
     #append self to destlist ALWAYS (if not already there)          
     if cell not in destList:         
         destList.append(cell)
        
-    
-    
     #in a radius around collision check whether this are shards of a destructible /or 
     #whether it is a destructible at all if it is activate cell children and reduce integrity of
     #cells if ground connectivity is taken care of

@@ -48,7 +48,7 @@ class DestructabilityPanel(types.Panel):
             col.prop(context.object.destruction, "wallThickness", text = "Thickness")
             col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
         elif context.object.destruction.destructionMode == 'DESTROY_K':
-            #col.prop(context.object.destruction, "wallThickness", text = "Thickness")
+            col.prop(context.object.destruction, "cut_type", text = "Cut type")
             col.prop(context.object.destruction, "jitter", text = "Jitter")
             col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
         col.active = context.object.destruction.destroyable

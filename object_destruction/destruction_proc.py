@@ -45,7 +45,7 @@ class Processor():
                  DestructionContext.destModes[3][0]: 
                      "self.applyExplo(context, parts, granularity, thickness, True, False)",
                  DestructionContext.destModes[4][0]: 
-                     "self.applyKnife(context, parts, jitter, granularity, thickness)" } 
+                     "self.applyKnife(context, parts, jitter, granularity, cut_type)" } 
                      
         #make an object backup if necessary (if undo doesnt handle this)
         #according to mode call correct method
@@ -59,10 +59,11 @@ class Processor():
         groundConnectivity = context.object.destruction.groundConnectivity
         cubify = context.object.destruction.cubify
         jitter = context.object.destruction.jitter
+        cut_type = context.object.destruction.cut_type
         
         #context.scene.objects.active = context.object
         if (parts > 1) and destroyable or \
-           (parts == 1) and groundConnectivity and cubify and mode == 'DESTROY_F': 
+           (parts == 1) and groundConnectivity and cubify and (mode == 'DESTROY_F' or mode == 'DESTROY_K'):
             print(mode, modes[mode])
             eval(modes[mode])
         
@@ -78,38 +79,45 @@ class Processor():
         
         return backup
         
-    def previewExplo(self, context, parts, granularity, thickness):
+    def previewExplo(self, context, parts, thickness):
         #create modifiers if not there 
       #  if context.active_object.destruction.previewDone: 
       #      return
         
-        print("previewExplo", parts, granularity, thickness)
-        context.scene.objects.active = context.object
+        print("previewExplo", parts, thickness)
+       # context.scene.objects.active = context.object
         
         #granularity -> subdivision of object in editmode, + particle size enabled (set manually)
-        if granularity > 0:
-            ops.object.mode_set(mode = 'EDIT')
-            ops.mesh.subdivide(number_cuts = granularity)
-            ops.object.mode_set()
+#        if granularity > 0:
+#            ops.object.mode_set(mode = 'EDIT')
+#            ops.mesh.subdivide(number_cuts = granularity)
+#            ops.object.mode_set()
+#        
+      #  ops.object.particle_system_add()
+    #    ops.object.modifier_add(type = 'EXPLODE')
+        context.active_object.modifiers.new("Particle", 'PARTICLE_SYSTEM')
+        context.active_object.modifiers.new("Explode", 'EXPLODE')
         
-        ops.object.particle_system_add()
-        ops.object.modifier_add(type = 'EXPLODE')
-        ops.object.modifier_add(type = 'SOLIDIFY')
+        if thickness > 0:
+            #ops.object.modifier_add(type = 'SOLIDIFY')
+            context.active_object.modifiers.new("Solidify", 'SOLIDIFY')
+            explode = context.active_object.modifiers[len(context.active_object.modifiers)-2]
+            solidify = context.active_object.modifiers[len(context.active_object.modifiers)-1]
         
-        explode = context.object.modifiers[len(context.active_object.modifiers)-2]
-        solidify = context.object.modifiers[len(context.active_object.modifiers)-1]
+        else:
+            explode = context.active_object.modifiers[len(context.active_object.modifiers)-1]
         
         #get modifier stackindex later, for now use a given order.
-        settings = context.object.particle_systems[0].settings        
+        settings = context.active_object.particle_systems[0].settings        
         settings.count = parts
-        settings.frame_start = 2
-        settings.frame_end = 2
+        settings.frame_start = 2.0
+        settings.frame_end = 2.0
         settings.distribution = 'RAND'
-        
-        explode = context.object.modifiers[len(context.active_object.modifiers)-2]
+       
         explode.use_edge_cut = True
        
-        solidify.thickness = thickness
+        if thickness > 0:
+            solidify.thickness = thickness
         
    #     context.active_object.destruction.previewDone = True
    #     context.active_object.destruction.applyDone = False
@@ -135,24 +143,126 @@ class Processor():
         #if massive -> select all, region to loop, create faces, use self intersect
         #if massive and pairwise, apply a 2 piece particle system to random object
         #like knife
+        
+        context.scene.objects.active = context.object
+        currentParts = [context.object.name]
+        
+        if granularity > 0:
+            ops.object.mode_set(mode = 'EDIT')
+            ops.mesh.subdivide(number_cuts = granularity)
+            ops.object.mode_set()
+        
+        
+        if massive and pairwise:
+            while (len(currentParts) < parts):
+                oldnames = [o.name for o in context.scene.objects]
+                  #pick always the largest object to subdivide
+                sizes = {}
+                [self.dictItem(sizes, self.getSize(o), o.name) for o in context.scene.objects if                                  o.name in currentParts]
+                    
+                maxSize = max(sizes.keys())
+                name = sizes[maxSize]
+           #     print(maxSize, name)
+                tocut = context.scene.objects[name]
+                context.scene.objects.active = tocut
+                parent = context.active_object.parent
+                
+                self.previewExplo(context, 2, 0) 
+                self.separateExplo(context, 0)   
+                
+                #print(currentParts, part)
+                part = self.findNew(context, oldnames)
+                print(currentParts, part)
+                
+                ops.object.mode_set(mode = 'EDIT')
+                ops.mesh.select_all(action = 'SELECT')
+                ops.mesh.region_to_loop()
+                ops.mesh.fill()
+                ops.mesh.select_all(action = 'SELECT')
+                ops.mesh.normals_make_consistent()
+                ops.object.mode_set(mode = 'OBJECT')
+                tocut.select = True
+                ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+                tocut.select = False
             
-        #explosion modifier specific    
-        self.previewExplo(context, parts, granularity, thickness)
-        explode = context.object.modifiers[len(context.active_object.modifiers)-2]
-        solidify = context.object.modifiers[len(context.active_object.modifiers)-1]
+                context.scene.objects.active = context.scene.objects[part]
+                ops.object.mode_set(mode = 'EDIT')
+                ops.mesh.select_all(action = 'SELECT')
+                ops.mesh.region_to_loop()
+                ops.mesh.fill()
+                ops.mesh.select_all(action = 'SELECT')
+                ops.mesh.normals_make_consistent()
+                ops.object.mode_set(mode = 'OBJECT')
+                context.active_object.select = True
+                ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+                context.active_object.select = False
+                
+                
+                currentParts.append(part)
+        
+        #    context.active_object.parent = parent
+                 
+        else:
+            #explosion modifier specific    
+            self.previewExplo(context, parts, thickness)
+            self.separateExplo(context, thickness)
+#        explode = context.object.modifiers[len(context.active_object.modifiers)-2]
+#        solidify = context.object.modifiers[len(context.active_object.modifiers)-1]
+#        
+#        #if object shall stay together
+#        settings = context.object.particle_systems[0].settings  
+#        settings.physics_type = 'NO'
+#        settings.normal_factor = 0.0
+#        
+#        context.scene.frame_current = 2
+#       
+#        ops.object.modifier_apply(modifier = explode.name)
+#     #   ops.object.modifier_apply(modifier = solidify.name)
+#        
+#        #must select particle system before somehow
+#        ops.object.particle_system_remove() 
+#        ops.object.mode_set(mode = 'EDIT')
+#        ops.mesh.select_all(action = 'DESELECT')
+#        #omit loose vertices, otherwise they form an own object!
+#        ops.mesh.select_by_number_vertices(type='OTHER')
+#        ops.mesh.delete(type = 'VERT')
+#        ops.mesh.select_all(action = 'SELECT')
+#        ops.mesh.separate(type = 'LOOSE')
+#        ops.object.mode_set()
+#        print("separated")
+#                    
+        
+        #do the parenting
+        self.doParenting(context, parentName, nameStart, bbox, backup, largest) 
+       
+    
+    def separateExplo(self, context, thickness): 
+        
+        explode = context.active_object.modifiers[len(context.active_object.modifiers)-1]
+        if thickness > 0:
+            explode = context.active_object.modifiers[len(context.active_object.modifiers)-2]
+            solidify = context.active_object.modifiers[len(context.active_object.modifiers)-1]
         
         #if object shall stay together
-        settings = context.object.particle_systems[0].settings  
+        settings = context.active_object.particle_systems[0].settings  
         settings.physics_type = 'NO'
         settings.normal_factor = 0.0
         
         context.scene.frame_current = 2
        
-        ops.object.modifier_apply(modifier = explode.name)
-     #   ops.object.modifier_apply(modifier = solidify.name)
+        ctx = context.copy()
+        ctx["object"] = context.active_object
+        ops.object.modifier_apply(ctx, modifier = explode.name)
+        
+        if thickness > 0:
+            ctx = context.copy()
+            ctx["object"] = context.active_object
+            ops.object.modifier_apply(ctx, modifier = solidify.name)
         
         #must select particle system before somehow
-        ops.object.particle_system_remove() 
+        ctx = context.copy()
+        ctx["object"] = context.active_object
+        ops.object.particle_system_remove(ctx) 
         ops.object.mode_set(mode = 'EDIT')
         ops.mesh.select_all(action = 'DESELECT')
         #omit loose vertices, otherwise they form an own object!
@@ -161,18 +271,17 @@ class Processor():
         ops.mesh.select_all(action = 'SELECT')
         ops.mesh.separate(type = 'LOOSE')
         ops.object.mode_set()
-        print("separated")
-                    
-        
-        #do the parenting
-        self.doParenting(context, parentName, nameStart, bbox, backup, largest) 
-       
-             
+        print("separated")        
     
     def doParenting(self, context, parentName, nameStart, bbox, backup, largest):
         print("Largest: ", largest)    
         
-        parent = context.active_object.parent    
+        parent = None
+        if context.active_object == None:
+            parent = backup.parent
+        else:
+            parent = context.active_object.parent
+                
         ops.object.add(type = 'EMPTY') 
         context.active_object.game.physics_type = 'RIGID_BODY'            
         context.active_object.game.radius = 0.01  
@@ -307,7 +416,7 @@ class Processor():
         #fracture the sub objects if cubify is selected
        
         if context.object.destruction.cubify and context.object.destruction.groundConnectivity:
-            self.cubify(context, bbox, parts, crack_type, roughness)
+            self.cubify(context, bbox, parts)
         else:
             fo.fracture_basic(context, [context.object], parts, crack_type, roughness)
         
@@ -334,15 +443,31 @@ class Processor():
     
     def dictItem(self, dict, key, value):
         dict[key] = value
-           
-    def applyKnife(self, context, parts, jitter, granularity, thickness):
         
-        #create an empty as parent
+    def applyKnife(self, context, parts, jitter, granularity, cut_type):
         parentName, nameStart, largest, bbox = self.prepareParenting(context)
         backup = self.createBackup(context) 
-        currentParts = [context.object.name]
         
-        context.scene.objects.active = context.object
+        if context.object.destruction.cubify and context.object.destruction.groundConnectivity:
+            self.cubify(context, bbox, parts)
+        else:
+            self.knife(context, context.object, parts, jitter, granularity, cut_type)
+           
+        parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest)
+        
+        for c in parent.children:
+            c.destruction.groundConnectivity = False
+            c.destruction.cubify = False
+            c.destruction.gridDim = (1,1,1)
+           
+    def knife(self, context, ob, parts, jitter, granularity, cut_type):
+        
+        #create an empty as parent
+       # parentName, nameStart, largest, bbox = self.prepareParenting(context)
+    #    backup = self.createBackup(context) 
+        currentParts = [ob.name]
+        
+        context.scene.objects.active = ob
         ops.object.mode_set(mode = 'EDIT')
         #subdivide the object once, say 10 cuts (let the user choose this)
         ops.mesh.subdivide(number_cuts = granularity)
@@ -360,12 +485,16 @@ class Processor():
         
         #for 1 ... parts
         tries = 0
+        isHorizontal = False
         while (len(currentParts) < parts):
                     
             #give up when always invalid objects result from operation
-            if tries > 50:
+            if tries > 10:
                 break
             
+            for o in context.scene.objects:
+                o.select = False
+                 
              #pick a random part
             oldnames = [o.name for o in context.scene.objects]
             #index = random.randint(0, len(currentParts) - 1)
@@ -375,8 +504,20 @@ class Processor():
             
             maxSize = max(sizes.keys())
             name = sizes[maxSize]
-       #     print(maxSize, name)
+            [print(item) for item in sizes.items()]
             tocut = context.scene.objects[name]
+            
+            tocut.select = True
+            ops.object.duplicate()
+            tocut.select = False
+            backupName = self.findNew(context, oldnames)
+            
+            backup = context.scene.objects[backupName]
+            backup.name = "KnifeBackup"
+            context.scene.objects.unlink(backup)
+            
+            context.scene.objects.active = tocut
+            
             
             parent = context.active_object.parent
             anglex = random.randint(10, 80)
@@ -388,7 +529,7 @@ class Processor():
             anglez = random.randint(10, 80)
             anglez = math.radians(anglez)
             
-            context.scene.objects.active = tocut
+        #    context.scene.objects.active = tocut
             
             loc = Vector(context.active_object.location)
         #    print("Location: ", loc)
@@ -407,32 +548,18 @@ class Processor():
             
             width = region.width
             height = region.height
-            startx = 0;
-            starty = 0
-            endx = width
-            endy = height
-            
-            rnd = random.randint(0,1)
-            if rnd == 1:
-                startx = random.randint(0, width)
-                starty = 0
-                endx = width - startx
-                endy = height
-            
-            else:
-                startx = 0
-                starty = random.randint(0, height)
-                endx = width
-                endy = height - starty
-            
             path = []
-            path.append(self.entry(startx,starty))
-            path.append(self.entry(endx, endy))
-            
+            if cut_type == 'LINEAR':
+                isHorizontal = not isHorizontal
+                path = self.linearPath(jitter, width, height, isHorizontal)
+            elif cut_type == 'ROUND':
+                path = self.spheroidPath(jitter, width, height)
+                
             #apply the cut, exact cut
             ops.object.mode_set(mode = 'EDIT')
             ops.mesh.select_all(action = 'SELECT')
             
+            print("ACTIVE: ", context.active_object)
             ctx = context.copy()
             ctx["area"] = area
             ctx["region"] = region
@@ -445,15 +572,30 @@ class Processor():
             context.active_object.location = loc
         #    print(context.active_object.location, context.active_object.rotation_euler)
             context.scene.update()
+            
+ 
+            #remove unwanted faces from selection (vertex group)
+#            knifeCut = context.active_object.vertex_groups.new(name = "knifeCut")
+   
+#            cut = [v.index for v in context.active_object.data.vertices if v.select]
+#            knifeCut.add(cut, 1, 'ADD')        
+            
             ops.object.mode_set(mode = 'EDIT')
+#           ops.mesh.region_to_loop()
+#            [knifeCut.remove(v.index) for v in context.active_object.data.vertices if v.select and 
+#             v.index not in cut]
+            
+#            bpy.ops.object.vertex_group_set_active(group='knifeCut')
+#            bpy.ops.object.vertex_group_select()
            
             #select loop-to-region to get a half (the smaller one ?)
             ops.mesh.loop_to_region()
-       
+            
+    #        context.active_object.vertex_groups.remove(knifeCut)    
             #separate object by selection
             ops.mesh.separate(type = 'SELECTED')
             part = self.findNew(context, oldnames)
-           # print("PART", part)
+            print("PART", part)
              
             ops.mesh.select_all(action = 'SELECT')
             ops.mesh.region_to_loop()
@@ -470,8 +612,11 @@ class Processor():
             
              #missed the object, retry with different values until success   
             if part == None:
-            #    print("Undo (missed object)...")
+                print("Undo (missed object)...")
                 #context.active_object.rotation_euler = (0, 0, 0)
+                context.scene.objects.unlink(tocut)
+                backup.name = tocut.name
+                context.scene.objects.link(backup)
                 tries += 1
                 continue
             
@@ -489,16 +634,34 @@ class Processor():
             context.active_object.select = False
             
             obj = context.active_object
-            manifold = min(mesh_utils.edge_face_count(obj.data))
+            
+           # print("VERTS: ", obj.data.vertices, dup.data.vertices)
+            if len(obj.data.vertices) == 0 or len(tocut.data.vertices) == 0:
+                print("Undo (no vertices)...")
+                context.scene.objects.unlink(tocut)
+                context.scene.objects.unlink(obj)
+                backup.name = tocut.name
+                context.scene.objects.link(backup)
+                tries += 1
+                continue
+            
+            manifold1 = min(mesh_utils.edge_face_count(obj.data))
+            manifold2 = min(mesh_utils.edge_face_count(tocut.data))
+            manifold = min(manifold1, manifold2)
             
             if manifold < 2:
-              #  print("Undo (non-manifold)...")
-                context.scene.objects.active = tocut
+                print("Undo (non-manifold)...")
+                context.scene.objects.unlink(tocut)
                 context.scene.objects.unlink(obj)
+                backup.name = tocut.name
+                context.scene.objects.link(backup)
                 tries += 1
                 continue
                       
             currentParts.append(part)
+        #    currentParts.append(dup.name)
+        #    currentParts.remove(tocut.name)
+        #    context.scene.objects.unlink(backup)
         
            # print("Rotating back 2...")
         #    context.active_object.rotation_euler = (0, 0, 0)
@@ -507,16 +670,95 @@ class Processor():
             context.active_object.parent = parent
             tries = 0
                     
-        parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest)
-        
-        for c in parent.children:
-            c.destruction.groundConnectivity = False
-            c.destruction.cubify = False
-            c.destruction.gridDim = (1,1,1)
+#        parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest)
+#        
+#        for c in parent.children:
+#            c.destruction.groundConnectivity = False
+#            c.destruction.cubify = False
+#            c.destruction.gridDim = (1,1,1)
            # context.scene.objects.active = c
            # ops.object.origin_set(type = 'ORIGIN_GEOMETRY')    
-            
 
+    def linearPath(self, jitter, width, height, isHorizontal):
+        startx = 0;
+        starty = 0
+        endx = width
+        endy = height
+        
+        
+        steps = 1
+        if jitter > 0.01:
+           steps = random.randint(1, 20)
+        
+        if isHorizontal:
+            startx = random.randint(0, width)
+            starty = 0
+            endx = width - startx
+            endy = height
+        
+        else:
+            startx = 0
+            starty = random.randint(0, height)
+            endx = width
+            endy = height - starty
+            
+            
+        deltaX = (endx - startx) / steps
+        deltaY = (endy - starty) / steps
+        
+        delta = math.sqrt(deltaX * deltaX + deltaY * deltaY)
+        sine = deltaX / delta
+        cosine = deltaY / delta
+        if isHorizontal:
+             sine = deltaY / delta
+             cosine = deltaX / delta
+        
+        path = [] 
+        path.append(self.entry(startx, starty))
+        
+        for i in range(1, steps + 1):
+            x = startx + i * deltaX
+            y = starty + i * deltaY
+            
+            if jitter > 0.01:
+                jit = random.uniform(-jitter, jitter) 
+                if isHorizontal:
+                    x += (cosine * jit)
+                    y -= (sine * jit)
+                else:
+                    x -= (sine * jit)
+                    y += (cosine * jit)
+                    
+            path.append(self.entry(x,y))
+  
+        return path        
+    
+    def spheroidPath(self, jitter, width, height):
+        midx = random.randint(0, width)
+        midy = random.randint(0, height)
+        maxrad = height / 4
+        if height > width:
+            maxrad = width / 4
+        radius = random.uniform(1, maxrad)
+        steps = random.randint(32, 64)
+        
+        deltaAngle = 360 / steps
+        
+        angle = 0
+        path = []
+        for i in range(0, steps):
+            x = midx + math.cos(math.radians(angle)) * radius
+            y = midy + math.sin(math.radians(angle)) * radius
+            
+            #if jitter > 0:
+            #   x += random.uniform(-jitter, jitter)
+            #   y += random.uniform(-jitter, jitter)
+            
+            path.append(self.entry(x,y))  
+            angle += deltaAngle  
+        
+        return path  
+           
     def entry(self, x, y):
         return {"name":"", "loc":(x, y), "time":0}
     
@@ -541,7 +783,7 @@ class Processor():
             return "0" + str(nr)
         return str(nr)
         
-    def cubify(self, context, bbox, parts, crack_type, roughness):
+    def cubify(self, context, bbox, parts):
         #create a cube with dim of cell size, (rotate/position it accordingly)
         #intersect with pos of cells[0], go through all cells, set cube to pos, intersect again
         #repeat always with original object
@@ -561,14 +803,29 @@ class Processor():
         for cell in grid.cells.values():
             ob = self.cubifyCell(cell,cutter, context)
             cubes.append(ob)
+           
+       
+        context.scene.objects.unlink(cutter)
         
         if parts > 1: 
-            fo.fracture_basic(context, cubes, parts, crack_type, roughness)
+            if context.object.destruction.destructionMode == 'DESTROY_F':
+                crack_type = context.object.destruction.crack_type
+                roughness = context.object.destruction.roughness
+                context.scene.objects.unlink(context.object) 
+                
+                fo.fracture_basic(context, cubes, parts, crack_type, roughness)
+                
+            elif context.object.destruction.destructionMode == 'DESTROY_K':
+                jitter = context.object.destruction.jitter
+                granularity = context.object.destruction.pieceGranularity
+                cut_type = context.object.destruction.cut_type 
+                context.scene.objects.unlink(context.object) 
+                 
+                for cube in cubes:
+                    self.knife(context, cube, parts, jitter, granularity, cut_type)
+        else:
+             context.scene.objects.unlink(context.object)   
               
-        context.scene.objects.unlink(context.object) 
-        context.scene.objects.unlink(cutter) 
-                  
-      
     def cubifyCell(self, cell, cutter, context):
         context.object.select = True #maybe link it before...
         context.scene.objects.active = context.object
@@ -604,6 +861,11 @@ class Processor():
         ob.data = mesh 
         ob.select = False
         ob.modifiers.remove(bool)
+        
+        ops.object.mode_set(mode = 'EDIT')  
+        ops.mesh.select_all(action = 'SELECT')
+        ops.mesh.remove_doubles(limit = 0.01)
+        ops.object.mode_set(mode = 'OBJECT') 
         
         ob.select = True
         ops.object.origin_set(type = 'ORIGIN_GEOMETRY') 
@@ -757,12 +1019,18 @@ class DestructionContext(types.PropertyGroup):
    # End from        
 
     grid = None
-    jitter = props.FloatProperty(name = "jitter", default = 0.0, min = 0.0, max = 2.0) 
+    jitter = props.FloatProperty(name = "jitter", default = 0.0, min = 0.0, max = 100.0) 
     
     cubify = props.BoolProperty(name = "cubify")
-    subgridDim = props.IntVectorProperty(name = "subgridDim", default = (1, 1, 1), min = 1, max = 100, 
-                                          subtype ='XYZ')
-    cascadeGround = props.BoolProperty(name = "cascadeGround")
+ #   subgridDim = props.IntVectorProperty(name = "subgridDim", default = (1, 1, 1), min = 1, max = 100, 
+  #                                        subtype ='XYZ')
+  #  cascadeGround = props.BoolProperty(name = "cascadeGround")
+    cut_type = props.EnumProperty(name = 'Cut type', 
+                items = (
+                        ('LINEAR', 'Linear', 'a'),
+                        ('ROUND', 'Round', 'a')),
+                default = 'LINEAR') 
+            
     
 def initialize():
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")

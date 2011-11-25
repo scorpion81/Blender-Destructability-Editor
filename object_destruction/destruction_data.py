@@ -17,7 +17,7 @@ class Cell:
         cellDim = grid.cellDim
         self.dim = cellDim
       #  self.maxVisit = 0
-    #    self.visit = False
+        self.visit = False
       #  print("CELL DIM: ",self.dim, cellDim)
         self.center = ((gridPos[0] + 0.5) * cellDim[0] + grid.pos[0], 
                        (gridPos[1] + 0.5) * cellDim[1] + grid.pos[1], 

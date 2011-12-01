@@ -421,6 +421,41 @@ class ConvertParenting(types.Operator):
         
     
     def convert(self, context):
+        
+        #temporarily parent all grounds to the parent object
+        #rotate back, unparent with keep transform
+        parent = None
+        groundNames = None
+        oldRot = None
+        for o in context.scene.objects:
+            if o.name.startswith("P0"):
+                parent = o
+                groundNames = self.grounds(context, o, True)
+                gNames = groundNames.split(" ")
+                grounds = [g for g in gNames if g != ""]
+                for g in grounds:
+                    if g != "":
+                        ground = context.scene.objects[g]
+                        #ground.parent = parent
+                        ground.select = True
+                        ctx = context.copy()
+                        ctx["object"] = parent
+                        ops.object.parent_set(ctx)
+                        ground.select = False
+                       # print("Ground: ", ground.name)
+               
+                #clear rotation and drag ground with me
+                oldRot = tuple(parent.rotation_euler)    
+                parent.rotation_euler = (0, 0, 0)  
+                
+                for g in grounds:
+                    ground = context.scene.objects[g]
+                    ground.select = True
+                    ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+                    ops.object.transform_apply(rotation = True)
+                    ground.select = False
+                break
+                  
         for o in context.scene.objects: #data.objects:
             
             if context.scene.player:
@@ -500,13 +535,38 @@ class ConvertParenting(types.Operator):
             
             
             
+        #parent again , rotate to rotation, clear parent with keeptransform    
+        for g in grounds:
+            ground = context.scene.objects[g]
+            ground.select = True
+            ctx = context.copy()
+            ctx["object"] = parent
+            ops.object.parent_set(ctx)
+            ground.select = False
+            #ground.parent = parent
+       
+        #restore rotation
+        parent.rotation_euler = oldRot  
+        
+        for g in grounds:
+            ground = context.scene.objects[g]
+            ground.select = True
+            ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+            ops.object.transform_apply(rotation = True)
+            ground.select = False
+        
   
         for o in data.objects: #restrict to P_ parents only ! no use all
             if context.scene.player:
                 if o.name == "Player" or o.name == "Eye" or \
                    o.name == "Launcher" or o.name == "Ground":
                     continue
-            o.parent = None
+            #o.parent = None
+           # ctx = context.copy()
+        #    ctx["object"] = o
+            o.select = True
+            ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+            o.select = False
                        
     def unconvert(self, context):
         for o in context.scene.objects:
@@ -524,10 +584,13 @@ class ConvertParenting(types.Operator):
                 #ctx = dp.setObject(context, o)
                 ops.object.game_property_remove()
     
-    def grounds(self, context, o):
+    def grounds(self, context, o, namesOnly = False):
        retVal = ""
        for g in o.destruction.grounds:
-           retVal = retVal + g.name + ";" + self.getVerts(context.scene.objects[g.name], context)
+           if not namesOnly:
+               retVal = retVal + g.name + ";" + self.getVerts(context.scene.objects[g.name], context)
+           else:
+               retVal = retVal + g.name + " " 
        return retVal
    
     def getVerts(self,g, context):
@@ -538,9 +601,12 @@ class ConvertParenting(types.Operator):
         for key in bboxMesh.edge_keys:
             vStart = bboxMesh.vertices[key[0]].co
             vEnd = bboxMesh.vertices[key[1]].co
-            dataStr = str(round(vStart[0], 2)) + "," + str(round(vStart[1], 2)) + "," + \
-                      str(round(vStart[2], 2)) + "," + str(round(vEnd[0], 2)) + "," + \
-                      str(round(vEnd[1], 2)) + "," + str(round(vEnd[2], 2)) + "_"
+           # dataStr = str(round(vStart[0], 1)) + "," + str(round(vStart[1], 1)) + "," + \
+        #              str(round(vStart[2], 1)) + "," + str(round(vEnd[0], 1)) + "," + \
+         #             str(round(vEnd[1], 1)) + "," + str(round(vEnd[2], 1)) + "_"
+            dataStr = str(round(vStart[0], 1)) + "," + str(round(vEnd[0], 1)) + "," + \
+                      str(round(vStart[1], 1)) + "," + str(round(vEnd[1], 1)) + "," + \
+                      str(round(vStart[2], 1)) + "," + str(round(vEnd[2], 1)) + "_"
             retVal = retVal + dataStr
         retVal = retVal.rstrip("_")
         return retVal     

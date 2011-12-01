@@ -206,6 +206,13 @@ class Processor():
             #explosion modifier specific    
             self.previewExplo(context, parts, thickness)
             self.separateExplo(context, thickness)
+            
+            for o in context.scene.objects:
+                o.select = True
+            ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+            for o in context.scene.objects:
+                o.select = False    
+                
 #        explode = context.object.modifiers[len(context.active_object.modifiers)-2]
 #        solidify = context.object.modifiers[len(context.active_object.modifiers)-1]
 #        

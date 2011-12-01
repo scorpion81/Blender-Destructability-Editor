@@ -1,5 +1,7 @@
 from bge import logic
 import destruction_data as dd
+import math
+from mathutils import Vector, Matrix
 
 #this is the bge part of the destructability editor.
 #it actually executes the destruction according to its definition.
@@ -34,23 +36,47 @@ def setup():
     scene = logic.getCurrentScene()
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():
-            o.setParent(o["myParent"], False, False)
+            parent = o["myParent"]
+            if parent.startswith("P0"):
+                firstparent = scene.objects[parent]
+            o.setParent(parent, False, False)
             print(o.parent)
         o.suspendDynamics() 
     
+    #rotate parent HERE by 45 degrees, X Axis (testwise)
+   # firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
+    #oldOrientation = Matrix(firstparent.worldOrientation)
     
     for o in scene.objects:
         if isGroundConnectivity(o):
             bbox = getFloats(o["gridbbox"])
             dim = getInts(o["griddim"])
+            
             grounds = getGrounds(o)
+            groundObjs = [logic.getCurrentScene().objects[g.name] for g in grounds]
+            [g.setParent(firstparent, False, False) for g in groundObjs]
+            oldRot = Matrix(firstparent.worldOrientation)
+            firstparent.worldOrientation = Vector((0, 0, 0))
+            for g in grounds:
+                g.pos = Vector(logic.getCurrentScene().objects[g.name].worldPosition)
+                print(g.pos)
+                
+          #  firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
+        #    [g.removeParent() for g in groundObjs]
             
             grid = dd.Grid(dim, o.worldPosition, bbox, o.children, grounds)
             grid.buildNeighborhood()
-            grid.findGroundCells()
-            dd.DataStore.grids[o.name] = grid    
+            grid.findGroundCells() 
+            dd.DataStore.grids[o.name] = grid
+            
+           # firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
+            firstparent.worldOrientation = oldRot
+            [g.removeParent() for g in groundObjs]
         
-    print("Grids: ", dd.DataStore.grids)   
+    print("Grids: ", dd.DataStore.grids)  
+    
+    #rotate parent HERE by 45 degrees, X Axis (testwise)
+    #firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
 
 def collide():
     
@@ -58,11 +84,13 @@ def collide():
     
     #first the script controller brick, its sensor and owner are needed
     control = logic.getCurrentController()
+    scene = logic.getCurrentScene()
     sensor = control.sensors["Collision"]
     owner = sensor.owner
     #treat each hit object, check hierarchy
   #  print(sensor.hitObjectList)
     for obj in sensor.hitObjectList:
+    #for obj in scene.objects:
         dissolve(obj, 1, hierarchyDepth, owner)
                  
 #recursively destroy parent relationships    
@@ -162,7 +190,7 @@ def getGrounds(obj):
             continue
         ground = dd.Ground()
         ground.name = p[0]
-        ground.pos = logic.getCurrentScene().objects[ground.name].worldPosition
+       # ground.pos = logic.getCurrentScene().objects[ground.name].worldPosition
         vert = p[1]
         verts = vert.split("_")
         for coords in verts:

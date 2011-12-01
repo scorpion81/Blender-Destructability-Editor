@@ -8,6 +8,7 @@
 #but for standalone mode no bpy may be used !
 #and here no bge may be used, need to be clean data objects
 from mathutils import geometry, Vector
+import math
 
 class Cell:
     
@@ -27,10 +28,11 @@ class Cell:
                       (self.center[1] - cellDim[1] / 2, self.center[1] + cellDim[1] / 2),
                       (self.center[2] - cellDim[2] / 2, self.center[2] + cellDim[2] / 2)] 
                                          
-        self.children = [c.name for c in grid.children if self.isInside(c.worldPosition)]
+        self.children = [c.name for c in grid.children if self.isInside(c.localPosition)]
         [self.assign(grid.cellCoord, c, self.gridPos) for c in self.children]
         self.count = len(self.children)
-        print("Cell created: ", self.center, self.count)
+    #    print("Cell created: ", self.center, self.count)
+    #    print("W/L Orientation: " self.worldOrientation)
         self.isGroundCell = False
     
     def assign(self, dict, name, coord):
@@ -211,16 +213,18 @@ class Cell:
 #               return
 #        
         if self.grid.grounds == None:
-            return
+            return None
                
         for ground in self.grid.grounds:
             for edge in ground.edges:
-                closest = geometry.intersect_point_line(Vector(self.center), Vector(edge[0]), Vector(edge[1]))
-                vec = closest[0] + ground.pos
+                closest = geometry.intersect_point_line(Vector(self.center), 
+                          Vector(edge[0]), Vector(edge[1]))
+                vec = closest[0]
+              #  print(vec.to_tuple(), self.center, self.gridPos)
                 if self.isInside(vec.to_tuple()):
-                    print("Found Ground Cell: ", self.center, closest[0].to_tuple(), closest[1])
+                    print("Found Ground Cell: ", self.gridPos, vec, closest[1])
                     self.isGroundCell = True
-                    return
+                    
                    
 class Grid:
     
@@ -230,6 +234,7 @@ class Grid:
         self.cells = {}
         self.grounds = grounds
         #must start at upper left corner of bbox, that is the "origin" of the grid
+        self.center = pos
         self.pos = (pos[0] - dim[0] / 2, pos[1] - dim[1] / 2, pos[2] - dim[2] / 2)
         self.dim = dim #from objects bbox
         self.children = children
@@ -260,8 +265,13 @@ class Grid:
     #        c.grid = None
         
     def findGroundCells(self):
-        [c.testGroundCell() for c in self.cells.values()]    
+        gcells = [c.testGroundCell() for c in self.cells.values()]
+        gcellsPos = [c.gridPos for c in gcells if c != None]
+        return gcellsPos    
         
+    def setGroundCells(self, gcellsPos):
+        for pos in gcellsPos:
+            self.cells[pos].isGroundCell = True
             
     def __str__(self):
         return str(self.pos) + " " + str(self.dim) + " " + str(len(self.children))

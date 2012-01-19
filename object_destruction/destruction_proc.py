@@ -960,9 +960,9 @@ class DestructionContext(types.PropertyGroup):
               'Destroy this object using the explosion modifier, forming a hollow shape', 1),
              ('DESTROY_E_M', 'Explosion Modifier (Massive)', 
                'Destroy this object using the explosion modifier, forming a massive shape', 2),
-             ('DESTROY_E_P', 'Explosion Modifier (Small Pieces)', 
-               'Destroy this object using the explosion modifier, forming small pieces', 3),
-             ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 4)] 
+           #('DESTROY_E_P', 'Explosion Modifier (Small Pieces)', 
+            #   'Destroy this object using the explosion modifier, forming small pieces', 3),
+             ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 3)] 
     
     transModes = [('T_SELF', 'This Object Only', 'Apply settings to this object only', 0), 
              ('T_CHILDREN', 'Direct Children', 'Apply settings to direct children as well', 1),

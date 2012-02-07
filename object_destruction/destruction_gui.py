@@ -280,8 +280,9 @@ class SetupPlayer(types.Operator):
         
         #setup logic bricks -player
         context.scene.objects.active = data.objects["Player"]
-        
-        ops.logic.controller_add(type = 'AND', object = "Player")
+              
+        #mouse aim and destruction setup
+        ops.logic.controller_add(type = 'LOGIC_AND', object = "Player")
         ops.logic.controller_add(type = 'PYTHON', object = "Player")
         ops.logic.controller_add(type = 'PYTHON', object = "Player")
         
@@ -308,7 +309,26 @@ class SetupPlayer(types.Operator):
             context.active_object.game.sensors[1])
         
         context.active_object.game.controllers[2].link(
-            context.active_object.game.sensors[0])    
+            context.active_object.game.sensors[0]) 
+                     
+        #keyboard movement -> 6 directions, WSADYX as keys
+        
+        motionkeys = [ 'W', 'S', 'A',  'D' , 'Y', 'X' ]
+        offsets  =  [[0.0, 0.1, 0.0],[0.0, -0.1, 0.0], [-0.1, 0.0, 0.0],
+                     [0.1, 0.0, 0.0],[0.0, 0.0, -0.1], [0.0, 0.0, 0.1] ] 
+        
+        for i in range(0, 6):
+            ops.logic.controller_add(type = 'LOGIC_AND', object = "Player")
+            ops.logic.sensor_add(type = 'KEYBOARD', object = "Player")
+            ops.logic.actuator_add(type = 'MOTION', object = "Player")
+            
+            context.active_object.game.sensors[i+2].key = motionkeys[i]
+            context.active_object.game.actuators[i+1].offset_location = offsets[i]
+            
+            context.active_object.game.controllers[i+3].link(
+            context.active_object.game.sensors[i+2],
+            context.active_object.game.actuators[i+1])
+                     
             
         #launcher
         context.scene.objects.active = data.objects["Launcher"]

@@ -64,7 +64,7 @@ class Processor():
         #context.scene.objects.active = context.object
         if (parts > 1) and destroyable or \
            (parts == 1) and groundConnectivity and cubify and (mode == 'DESTROY_F' or mode == 'DESTROY_K'):
-            print(mode, modes[mode])
+         #   print(mode, modes[mode])
             eval(modes[mode])
         
         return None
@@ -172,7 +172,7 @@ class Processor():
                 
                 #print(currentParts, part)
                 part = self.findNew(context, oldnames)
-                print(currentParts, part)
+                #print(currentParts, part)
                 
                 ops.object.mode_set(mode = 'EDIT')
                 ops.mesh.select_all(action = 'SELECT')
@@ -473,6 +473,8 @@ class Processor():
        # parentName, nameStart, largest, bbox = self.prepareParenting(context)
     #    backup = self.createBackup(context) 
         currentParts = [ob.name]
+       # chosen = {}
+        #doublette = False
         
         context.scene.objects.active = ob
         ops.object.mode_set(mode = 'EDIT')
@@ -496,7 +498,7 @@ class Processor():
         while (len(currentParts) < parts):
                     
             #give up when always invalid objects result from operation
-            if tries > 10:
+            if tries > 50:
                 break
             
             for o in context.scene.objects:
@@ -511,9 +513,13 @@ class Processor():
             
             maxSize = max(sizes.keys())
             name = sizes[maxSize]
-            [print(item) for item in sizes.items()]
+           # [print(item) for item in sizes.items()]
             tocut = context.scene.objects[name]
-            
+#           if name not in chosen:
+#                chosen[name] = True
+#            else:
+#                chosen[name] =  not chosen[name]
+#            
             tocut.select = True
             ops.object.duplicate()
             tocut.select = False
@@ -566,7 +572,7 @@ class Processor():
             ops.object.mode_set(mode = 'EDIT')
             ops.mesh.select_all(action = 'SELECT')
             
-            print("ACTIVE: ", context.active_object)
+           # print("ACTIVE: ", context.active_object)
             ctx = context.copy()
             ctx["area"] = area
             ctx["region"] = region
@@ -602,17 +608,22 @@ class Processor():
             #separate object by selection
             ops.mesh.separate(type = 'SELECTED')
             part = self.findNew(context, oldnames)
-            print("PART", part)
+           # print("PART", part)
              
             ops.mesh.select_all(action = 'SELECT')
             ops.mesh.region_to_loop()
             ops.mesh.fill()
-            ops.mesh.select_all(action = 'SELECT')
-            ops.mesh.normals_make_consistent()
+                
             ops.object.mode_set(mode = 'OBJECT')
             tocut.select = True
             ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
             tocut.select = False
+            
+            ops.object.mode_set(mode = 'EDIT')
+           # ops.mesh.select_all(action = 'DESELECT')
+            #ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.normals_make_consistent(inside = False)
+            ops.object.mode_set(mode = 'OBJECT')
            
            # print("Rotating back 1...")
         #    context.active_object.rotation_euler = (0, 0, 0)
@@ -625,6 +636,8 @@ class Processor():
                 backup.name = tocut.name
                 context.scene.objects.link(backup)
                 tries += 1
+               # if name in chosen.keys():
+            #        chosen[name] = not chosen[name]
                 continue
             
       
@@ -633,12 +646,17 @@ class Processor():
             ops.mesh.select_all(action = 'SELECT')
             ops.mesh.region_to_loop()
             ops.mesh.fill()
-            ops.mesh.select_all(action = 'SELECT')
-            ops.mesh.normals_make_consistent()
+                    
             ops.object.mode_set(mode = 'OBJECT')
             context.active_object.select = True
             ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
             context.active_object.select = False
+            
+            ops.object.mode_set(mode = 'EDIT')
+          # ops.mesh.select_all(action = 'DESELECT')
+         #    ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.normals_make_consistent(inside = False)
+            ops.object.mode_set(mode = 'OBJECT')
             
             obj = context.active_object
             
@@ -650,6 +668,8 @@ class Processor():
                 backup.name = tocut.name
                 context.scene.objects.link(backup)
                 tries += 1
+            #    if name in chosen:
+            #        chosen[name] = not chosen[name]
                 continue
             
             manifold1 = min(mesh_utils.edge_face_count(obj.data))
@@ -663,6 +683,8 @@ class Processor():
                 backup.name = tocut.name
                 context.scene.objects.link(backup)
                 tries += 1
+               # if name in chosen:
+            #        chosen[name] = not chosen[name]
                 continue
                       
             currentParts.append(part)
@@ -676,6 +698,7 @@ class Processor():
             #context.object seems to disappear so store parent in active object
             context.active_object.parent = parent
             tries = 0
+            print("Split :", tocut.name, part)
                     
 #        parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest)
 #        
@@ -772,7 +795,7 @@ class Processor():
     def findNew(self, context, oldnames):
         for o in context.scene.objects:
             if o.name not in oldnames:
-                print("new object: ", o.name)
+     #           print("new object: ", o.name)
                 return o.name
             
     

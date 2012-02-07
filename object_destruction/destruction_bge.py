@@ -90,7 +90,8 @@ def collide():
     #treat each hit object, check hierarchy
   #  print(sensor.hitObjectList)
     for obj in sensor.hitObjectList:
-    #for obj in scene.objects:
+   #for obj in scene.objects:
+    #    if obj.getDistanceTo(owner) < 2.0:
         dissolve(obj, 1, hierarchyDepth, owner)
                  
 #recursively destroy parent relationships    

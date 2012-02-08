@@ -211,16 +211,18 @@ class Cell:
 #           (self.neighbors[4].isGroundCell and self.neighbors[5].isGroundCell):
 #               self.isGroundCell = True
 #               return
-#        
+#       
+        #print ("In testGroundCell") 
         if self.grid.grounds == None:
             return None
                
         for ground in self.grid.grounds:
+           # print ("GROUND/EDGE: ", ground, ground.edges)
             for edge in ground.edges:
                 closest = geometry.intersect_point_line(Vector(self.center), 
                           Vector(edge[0]), Vector(edge[1]))
                 vec = closest[0]
-              #  print(vec.to_tuple(), self.center, self.gridPos)
+                print(vec.to_tuple(), self.center, self.gridPos)
                 if self.isInside(vec.to_tuple()):
                     print("Found Ground Cell: ", self.gridPos, vec, closest[1])
                     self.isGroundCell = True

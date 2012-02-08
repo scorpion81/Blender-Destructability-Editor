@@ -47,8 +47,10 @@ def setup():
    # firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
     #oldOrientation = Matrix(firstparent.worldOrientation)
     
+    print("In Setup")
     for o in scene.objects:
         if isGroundConnectivity(o):
+            print("ISGROUNDCONN")
             bbox = getFloats(o["gridbbox"])
             dim = getInts(o["griddim"])
             

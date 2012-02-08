@@ -288,7 +288,7 @@ class Processor():
             parent = backup.parent
         else:
             parent = context.active_object.parent
-                
+        
         ops.object.add(type = 'EMPTY') 
         context.active_object.game.physics_type = 'RIGID_BODY'            
         context.active_object.game.radius = 0.01  
@@ -305,6 +305,14 @@ class Processor():
         context.active_object.destruction.gridBBox = bbox
   
         dd.DataStore.backups[context.active_object.name] = backup
+        
+        #get the first backup, need that position
+        if parent == None:
+            pos = dd.DataStore.backups["P0_" + nameStart + ".000"].location
+            print("EMPTY Pos: ", pos)
+            context.active_object.location = pos
+        else:
+            pos = Vector((0.0, 0.0, 0.0)) 
         
         parent = context.active_object
         parent.destruction.pos = context.object.destruction.pos
@@ -326,7 +334,7 @@ class Processor():
         
         
         context.scene.objects.active = context.object
-        [self.applyDataSet(context, c, largest, parentName) for c in context.scene.objects if 
+        [self.applyDataSet(context, c, largest, parentName, pos) for c in context.scene.objects if 
          self.isRelated(context, c, nameStart)]   
          
       #  ops.object.origin_set(type = 'ORIGIN_GEOMETRY') 
@@ -384,15 +392,18 @@ class Processor():
         return child.name.startswith(context.object.name) #and \
 #               len(child.data.vertices) > 1)
 
-    def applyDataSet(self, context, c, nameEnd, parentName):
+    def applyDataSet(self, context, c, nameEnd, parentName, pos):
         split = c.name.split(".")
         end = split[1]
         
         if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName):
             print(int(end) > int(nameEnd), self.isBeingSplit(c, parentName))
-            self.assign(c, parentName)  
+            self.assign(c, parentName, pos)  
         
-    def assign(self, c, parentName):
+    def assign(self, c, parentName, pos):
+         
+        #correct a parenting "error": the parts are moved pos too far
+        c.location -= pos
          
         c.parent = data.objects[parentName]
         c.game.physics_type = 'RIGID_BODY'
@@ -466,6 +477,38 @@ class Processor():
             c.destruction.groundConnectivity = False
             c.destruction.cubify = False
             c.destruction.gridDim = (1,1,1)
+        
+        
+    def testNormalInside(self, ob):
+        #get orthogonal projection of Vector between face(need center) and object.location AND
+        #normal vector
+        #pick the first face (since ALL faces should be consistent by now)
+        if len(ob.data.faces) == 0:
+            #hmm when getting an invalid object this may occur, so catch it
+            return False
+        
+        #find one selected face
+        face = None
+        for f in ob.data.faces:
+            if f.select:
+                face = f
+                break
+            
+        if face == None:
+            return False
+        
+        normal = face.normal
+        center = face.center
+        vecCL = center - ob.location
+        vecProj = vecCL.project(normal)
+        
+        dot = round(normal.dot(vecProj), 2)
+        length = round(vecProj.length, 2)
+        
+        #if vecProj and vecCL point to same direction (dot > 0) -> normal points inside, do flip
+        print("Dot/Length: ", dot , length)
+        return dot == length 
+        
            
     def knife(self, context, ob, parts, jitter, granularity, cut_type):
         
@@ -498,6 +541,8 @@ class Processor():
         while (len(currentParts) < parts):
                     
             #give up when always invalid objects result from operation
+            partFlipped = False
+            tocutFlipped = False
             if tries > 50:
                 break
             
@@ -621,8 +666,13 @@ class Processor():
             
             ops.object.mode_set(mode = 'EDIT')
            # ops.mesh.select_all(action = 'DESELECT')
-            #ops.mesh.select_all(action = 'SELECT')
+        #    ops.mesh.select_all(action = 'SELECT')
             ops.mesh.normals_make_consistent(inside = False)
+            
+#            if self.testNormalInside(tocut):
+#                ops.mesh.normals_make_consistent(inside = False)
+#                tocutFlipped = True
+            
             ops.object.mode_set(mode = 'OBJECT')
            
            # print("Rotating back 1...")
@@ -653,9 +703,14 @@ class Processor():
             context.active_object.select = False
             
             ops.object.mode_set(mode = 'EDIT')
-          # ops.mesh.select_all(action = 'DESELECT')
-         #    ops.mesh.select_all(action = 'SELECT')
+            #ops.mesh.select_all(action = 'DESELECT')
+            #ops.mesh.select_all(action = 'SELECT')
             ops.mesh.normals_make_consistent(inside = False)
+            
+            #if self.testNormalInside(context.active_object):
+            #   ops.mesh.normals_make_consistent(inside = False)
+            #   partFlipped = True
+            
             ops.object.mode_set(mode = 'OBJECT')
             
             obj = context.active_object
@@ -698,7 +753,7 @@ class Processor():
             #context.object seems to disappear so store parent in active object
             context.active_object.parent = parent
             tries = 0
-            print("Split :", tocut.name, part)
+            print("Split :", tocut.name, tocutFlipped,  part, partFlipped)
                     
 #        parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest)
 #        
@@ -958,7 +1013,8 @@ def updateValidTargets(object):
         bpy.context.scene.validTargets.remove(index)
     
     for o in bpy.context.scene.objects:
-        if o.destruction.destroyable and o != object:
+        if o.destruction.destroyable and o != object and \
+        o.name not in object.destruction.destructorTargets:
            prop = bpy.context.scene.validTargets.add()
            prop.name = o.name
     return None 
@@ -970,7 +1026,8 @@ def updateValidGrounds(object):
         bpy.context.scene.validGrounds.remove(index)
     
     for o in bpy.context.scene.objects:
-        if o.destruction.isGround and o != object:
+        if o.destruction.isGround and o != object and \
+        o.name not in object.destruction.grounds:
            prop = bpy.context.scene.validGrounds.add()
            prop.name = o.name
            

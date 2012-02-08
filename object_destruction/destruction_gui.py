@@ -5,6 +5,7 @@ from . import destruction_data as dd
 import math
 import os
 import bpy
+from mathutils import Vector
 #import pickle
 #import inspect
 
@@ -149,21 +150,27 @@ class AddGroundOperator(types.Operator):
     bl_label = "add ground"
     
     def execute(self, context):
-#        found = False
-#        for prop in context.object.destruction.grounds:
-#            if prop.name == context.object.destruction.groundSelector:
-#                found = True
-#                break
-#        if not found:
-        propNew = context.object.destruction.grounds.add()
-        propNew.name = context.object.destruction.groundSelector
-        context.object.destruction.groundSelector = ""
-       
-        for prop in context.scene.validTargets:
-            if prop.name == propNew.name:
+        found = False
+        for prop in context.object.destruction.grounds:
+            if prop.name == context.object.destruction.groundSelector:
+                found = True
                 break
-            index += 1
-        context.scene.validGrounds.remove(index)
+        if not found:
+            propNew = context.object.destruction.grounds.add()
+            propNew.name = context.object.destruction.groundSelector
+            context.object.destruction.groundSelector = ""
+            
+            if propNew.name == "" or propNew.name == None:
+                index = len(context.object.destruction.grounds) - 1
+                context.object.destruction.grounds.remove(index)
+                return {'CANCELLED'}
+           
+            index = 0
+            for prop in context.scene.validTargets:
+                if prop.name == propNew.name:
+                    break
+                index += 1
+            context.scene.validGrounds.remove(index)
                 
         return {'FINISHED'}   
     
@@ -172,6 +179,10 @@ class RemoveGroundOperator(types.Operator):
     bl_label = "remove ground"
     
     def execute(self, context):
+        
+        if len(context.object.destruction.grounds) == 0:
+            return {'CANCELLED'}
+        
         index = context.object.destruction.active_ground
         name = context.object.destruction.grounds[index].name 
         context.object.destruction.grounds.remove(index)
@@ -187,22 +198,27 @@ class AddTargetOperator(types.Operator):
     bl_label = "add target"
     
     def execute(self, context):
-      #  found = False
-      #  for prop in context.object.destruction.destructorTargets:
-      #      if prop.name == context.object.destruction.targetSelector:
-      #          found = True
-      #          break
-      #  if not found:
-        propNew = context.object.destruction.destructorTargets.add()
-        propNew.name = context.object.destruction.targetSelector
-        context.object.destruction.targetSelector = ""
-        
-        index = 0
-        for prop in context.scene.validTargets:
-            if prop.name == propNew.name:
+        found = False
+        for prop in context.object.destruction.destructorTargets:
+            if prop.name == context.object.destruction.targetSelector:
+                found = True
                 break
-            index += 1
-        context.scene.validTargets.remove(index)
+        if not found:
+            propNew = context.object.destruction.destructorTargets.add()
+            propNew.name = context.object.destruction.targetSelector
+            context.object.destruction.targetSelector = ""
+            
+            if propNew.name == "" or propNew.name == None:
+                index = len(context.object.destruction.destructorTargets) - 1
+                context.object.destruction.destructorTargets.remove(index)
+                return {'CANCELLED'}
+            
+            index = 0
+            for prop in context.scene.validTargets:
+                if prop.name == propNew.name:
+                    break
+                index += 1
+            context.scene.validTargets.remove(index)
         return {'FINISHED'}   
     
 class RemoveTargetOperator(types.Operator):
@@ -210,6 +226,10 @@ class RemoveTargetOperator(types.Operator):
     bl_label = "remove target"
     
     def execute(self, context):
+        
+        if len(context.object.destruction.destructorTargets) == 0:
+            return {'CANCELLED'}
+        
         index = context.object.destruction.active_target
         name = context.object.destruction.destructorTargets[index].name 
         context.object.destruction.destructorTargets.remove(index)
@@ -236,7 +256,7 @@ class SetupPlayer(types.Operator):
         ops.object.add(type = 'CAMERA')
         context.active_object.name = "Eye"
          
-        ops.object.add()
+        ops.object.add(type = 'EMPTY')
         context.active_object.name = "Launcher"
         ops.transform.translate(value = (0.5, 0.8, -0.8))
       
@@ -378,11 +398,12 @@ class SetupPlayer(types.Operator):
         context.scene.objects.active = context.object
         #ground and cells
         context.object.destruction.groundConnectivity = True
-        context.object.destruction.gridDim = (2, 2, 2)
+     #   context.object.destruction.gridDim = (2, 2, 2)
         
         ops.mesh.primitive_plane_add(location = (0, 0, -0.9))
         context.active_object.name = "Ground"
         context.active_object.destruction.isGround = True
+        dp.updateValidGrounds(context.active_object)
         
         g = context.object.destruction.grounds.add()
         g.name = "Ground"
@@ -447,6 +468,7 @@ class ConvertParenting(types.Operator):
         parent = None
         groundNames = None
         oldRot = None
+        grounds = []
         for o in context.scene.objects:
             if o.name.startswith("P0"):
                 parent = o
@@ -566,7 +588,8 @@ class ConvertParenting(types.Operator):
             #ground.parent = parent
        
         #restore rotation
-        parent.rotation_euler = oldRot  
+        if parent != None:
+            parent.rotation_euler = oldRot  
         
         for g in grounds:
             ground = context.scene.objects[g]
@@ -589,6 +612,12 @@ class ConvertParenting(types.Operator):
             o.select = False
                        
     def unconvert(self, context):
+        pos = Vector((0.0, 0.0, 0.0))
+        for o in context.scene.objects:
+             if o.name.startswith("P0"):
+                 pos = dd.DataStore.backups[o.name].location
+                 break
+        
         for o in context.scene.objects:
             
             if context.scene.player:
@@ -598,7 +627,11 @@ class ConvertParenting(types.Operator):
             
             context.scene.objects.active = o
             if len(o.game.properties) > 8:
-                o.parent = data.objects[o.game.properties[0].value]
+                #correct some parenting error -> children at wrong position
+                par = data.objects[o.game.properties[0].value]
+                if par.name.startswith("P0"):
+                    o.location -= pos
+                o.parent = par
                 
             while len(o.game.properties) > 0:
                 #ctx = dp.setObject(context, o)
@@ -617,7 +650,7 @@ class ConvertParenting(types.Operator):
         #use bbox here first, maybe later exact shape -> bad performance!!
         bboxMesh = g.bound_box.data.to_mesh(context.scene, False, 'PREVIEW')
         retVal = ""
-        print(bboxMesh.edge_keys)
+        print("GETVERTS:", bboxMesh.edge_keys)
         for key in bboxMesh.edge_keys:
             vStart = bboxMesh.vertices[key[0]].co
             vEnd = bboxMesh.vertices[key[1]].co

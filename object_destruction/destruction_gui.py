@@ -52,6 +52,15 @@ class DestructabilityPanel(types.Panel):
             col.prop(context.object.destruction, "cut_type", text = "Cut type")
             col.prop(context.object.destruction, "jitter", text = "Jitter")
             col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
+            
+            row = col.row()
+            row.prop(context.object.destruction, "rot_start", text = "ObjRot Start")
+            row.prop(context.object.destruction, "rot_end", text = "ObjRot End")
+            
+            row = col.row()
+            row.prop(context.object.destruction, "line_start", text = "CutLine Start")
+            row.prop(context.object.destruction, "line_end", text = "CutLine End")
+            
         col.active = context.object.destruction.destroyable
         
         row = layout.row()
@@ -286,7 +295,8 @@ class SetupPlayer(types.Operator):
         context.active_object.name = "Ball"   
         
         context.active_object.game.physics_type = 'RIGID_BODY'
-        context.active_object.game.collision_bounds_type = 'SPHERE'                                          
+        context.active_object.game.collision_bounds_type = 'SPHERE' 
+        context.active_object.game.mass = 100.0                                         
         
         #load bge scripts
         print(__file__)
@@ -469,8 +479,12 @@ class ConvertParenting(types.Operator):
         groundNames = None
         oldRot = None
         grounds = []
+        #pos = Vector((0.0, 0.0, 0.0))
         for o in context.scene.objects:
             if o.name.startswith("P0"):
+                
+               # pos = dd.DataStore.backups[o.name].location
+                
                 parent = o
                 groundNames = self.grounds(context, o, True)
                 gNames = groundNames.split(" ")
@@ -479,6 +493,11 @@ class ConvertParenting(types.Operator):
                     if g != "":
                         ground = context.scene.objects[g]
                         #ground.parent = parent
+                        
+                      #  print("GroundBBox0: ", ground.bound_box.data.dimensions)
+                        #correct parenting error ??
+                        #ground.location -= pos
+                        
                         ground.select = True
                         ctx = context.copy()
                         ctx["object"] = parent
@@ -492,9 +511,16 @@ class ConvertParenting(types.Operator):
                 
                 for g in grounds:
                     ground = context.scene.objects[g]
+                  #  print("GroundBBox1: ", ground.bound_box.data.dimensions)
                     ground.select = True
                     ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
                     ops.object.transform_apply(rotation = True)
+                    
+                    #apply scale and location also, AFTER rotation
+                    ops.object.transform_apply(scale = True)
+                    ops.object.transform_apply(location = True)
+                 # NOT the scale!  ops.object.transform_apply(scale = True)
+                     
                     ground.select = False
                 break
                   
@@ -580,6 +606,11 @@ class ConvertParenting(types.Operator):
         #parent again , rotate to rotation, clear parent with keeptransform    
         for g in grounds:
             ground = context.scene.objects[g]
+            
+           # print("GroundBBox2: ", ground.bound_box.data.dimensions)
+            #correct parenting error ??
+            #ground.location -= pos
+            
             ground.select = True
             ctx = context.copy()
             ctx["object"] = parent
@@ -593,6 +624,8 @@ class ConvertParenting(types.Operator):
         
         for g in grounds:
             ground = context.scene.objects[g]
+            
+           # print("GroundBBox3: ", ground.bound_box.data.dimensions)
             ground.select = True
             ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
             ops.object.transform_apply(rotation = True)
@@ -650,16 +683,17 @@ class ConvertParenting(types.Operator):
         #use bbox here first, maybe later exact shape -> bad performance!!
         bboxMesh = g.bound_box.data.to_mesh(context.scene, False, 'PREVIEW')
         retVal = ""
-        print("GETVERTS:", bboxMesh.edge_keys)
+        print("GETVERTS:", bboxMesh.edge_keys, g.bound_box.data.dimensions)
         for key in bboxMesh.edge_keys:
             vStart = bboxMesh.vertices[key[0]].co
             vEnd = bboxMesh.vertices[key[1]].co
-           # dataStr = str(round(vStart[0], 1)) + "," + str(round(vStart[1], 1)) + "," + \
-        #              str(round(vStart[2], 1)) + "," + str(round(vEnd[0], 1)) + "," + \
-         #             str(round(vEnd[1], 1)) + "," + str(round(vEnd[2], 1)) + "_"
-            dataStr = str(round(vStart[0], 1)) + "," + str(round(vEnd[0], 1)) + "," + \
-                      str(round(vStart[1], 1)) + "," + str(round(vEnd[1], 1)) + "," + \
-                      str(round(vStart[2], 1)) + "," + str(round(vEnd[2], 1)) + "_"
+            #print(vStart, vEnd)
+            dataStr = str(round(vStart[0], 1)) + "," + str(round(vStart[1], 1)) + "," + \
+                      str(round(vStart[2], 1)) + "," + str(round(vEnd[0], 1)) + "," + \
+                      str(round(vEnd[1], 1)) + "," + str(round(vEnd[2], 1)) + "_"
+           # dataStr = str(round(vStart[0], 1)) + "," + str(round(vEnd[0], 1)) + "," + \
+            #          str(round(vStart[1], 1)) + "," + str(round(vEnd[1], 1)) + "," + \
+            #          str(round(vStart[2], 1)) + "," + str(round(vEnd[2], 1)) + "_"
             retVal = retVal + dataStr
         retVal = retVal.rstrip("_")
         return retVal     

@@ -1,49 +1,88 @@
-This is an addon under construction. Loading destruction_gui.py manually with "Run Script" works, but loading 
-as addon not yet. Then a gui is displayed under Object->Destructability but a few is done yet with it.
+This is an addon under construction. It is licensed as GPL. (or will be, if its
+done and stable ;-)
 
-To decompose an object(tested with default cube scene only) to many by explode modifier choose
-Parts, Thickness and Granularity(the higher the value, the smaller the pieces may be when many pieces are to be 
-created) and select "Apply Explosion Modifier" as destruction mode. The rest of the GUI is still not functional
+Its purpose is the definition of object decomposition in blender and its 
+execution in the blender game engine. The Boolean decomposition method is
+in fracture_ops.py which is a slightly modified version of the one distributed
+with the "Object fracture addon" by pildanovak.
 
-Furthermore you can apply destruction to pieces of the previously destroyed object by hand.
-With "Setup Player" create a simple mouseview and shoot player, "Clear Player" removes it.
+working: -Decomposition with different methods (Boolean, Explosion Modifier, 
+		  Knife tool (only basic with jitter and round cuts)
+         -Hierarchical decomposition is possible to
+		 -Connectivity Calculation (collapses unconnected parts automatically in
+          relation to ground objects.
+         -Rotated Ground Objects
+         -simple undo of decomposition (must be in "editor parenting" mode)
+not working yet:
+		 -complete evaluation of parenting hierarchy in game engine (uses one 
+          level by now only) 
+         -movement of object before decomposition causes errors in game engine 
+          afterwards (parts not found -> key errors)
+          workaround: leave object to be decomposed at (0,0,0) for now
+         -normal calculation of parts created by knife tool 
+          ->missing surfaces in game engine
+          workaround: disable backface culling in material settings after
+          enabling "Blender Game" as renderer
+		 -hierarchical undo of decomposition
+         -re-use of decomposed object's backups (undo and new decomposition 
+          works basically but has problems with connectivity grid creation
+          workaround: new decomposition -> new file (by now)
+ 
+untested: -rotation of objects before decomposition 
+          -multiple grounds, multiple destructors
+          -complexer shapes than cubes(!)
 
-To apply destructable parenting for the gameengine, hit "To Game Parenting" prior to starting the gameengine
-To convert back, hit "To Editor Parenting" (same button)
+to be done additionally: 
+		  - maybe change from name based system to object ids
+		  - allow custom child objects in parenting hierarchy
+            to build complex shapes which decompose to those 
+		    objects defined by hand
+          - with pre-cubification: use same decomposition of one cube for all
+            cubes (with instances)
+          - useful integration in blender game engine projects (now done via
+            "player" object and logic bricks and destruction_bge.py
 
 
+BASIC/TESTING USAGE:
 
-Changelog:
-    -   loading the GUI as addon works now, manual loading no more but that is obsolete by now
-    -   basic object decomposition with explode modifier, parenting not correctly functional yet.
-    -   destruction of objects includes parenting, and can be hierarchical (if you reapply destruction at each
-        piece by hand), a better automation is planned.
-    -   setup for a default player and conversion to game parenting (using properties) added
-    -   most gui elements functional now
-    -   checks added for registration of destructors / destroyability
-    -   ground connectivity calculation works now, tested with scaled default cube
-        but TODO: take position/rotation of objects into account !
-    
-    -   a patch for blender is included which allows to respond to object activation with a callback
-        to apply use e.g. TortoiseSVN->Apply Patch at the blender directory below your blender SVN root directory.
-        e.g. C:\BlenderSVN\blender
-    -   patch now includes preparation for knife tool too
-    -   boolean fracture script included, pre-cubify objects possible (bad performance for many parts)
-    -   bge neighborhood destruction performance improved
-        
+         - it involves patching the blender sources, tested with 2.61.3 (r43527)
+         - apply "handlerAndKnife.patch" with patch -p0 < handlerAndKnife.patch
+           to directory above "blender" directory" in SVN tree 
+		   e.g. /home/username/BlenderSVN/blender/....
+							   ^^^^^^^^^^
+		 - compile .... ;-)
+		 - insert line 41 ( " if hasattr(self, attr) != 0:") from provided
+           bpy_types.py into the one delivered with blender (or replace it, but
+           last thing might NOT work!)
+		 - move the "object_destruction" directory below Blender's 
+		   "addons_contrib" directory
+		 - when starting your compiled version of blender, under testing there
+           should be an addon "Object->Destructability Editor", enable it
+         - under Object tab you should now find a section "Destructability"
+		 - to decompose: best use the default cube, check "Destroyable"
+           choose a method and part count and hit "Destroy Object"
+		   for pre-cubification: choose "Calculate Ground Connectivity" and 
+		   "Intersect with Grid": this creates x*y*z cubes, each one will be
+           further decomposed to the given part count
+         - this may take a while depending on part count and method
+         - then hit "Setup Player" (at the bottom") 
+         - if desired choose "Calculate Ground Connectivity" and determine a
+		   grid size , used for automatic collapse. 
+         - when using connectivity: 
+		   move the "Ground" object to the bottom of the cube, scale it to the 
+           EXACT bottom size, and (IMPORTANT) the UNIFORMLY a bit larger, so it
+           roughly intersects the cube's bottom
+ 		 - AFTER all has been arranged, hit: "To Game Parenting", this will undo
+	       parenting and store the parent relation(s) in game properties
+           so the game engine can re-parent all (otherwise decomposition in game
+           engine would NOT work
+         - this takes a while depending on part count and grid size
+         - when done: optionally move the "Player" object a little away from 
+           the cube
+         - start game engine, aim with mouse, move camera with WASD and YX (for 
+           up/down), hold left mouse button to increase the fired ball's speed
+           and release left mouse button to FIRE! (a ball at the cube)
+         - it should be damaged by now ;-)
+ 
 
-Setup for a basic destructable (hollow) Wall:
-    - Blender ->  File:New
-    - Scale Default Cube e.g. SY 9,  SZ 6
-    - Object->Destructability: check Destroyable, set: Parts = 200, Thickness = 0.1, Granularity = 40
-    - Set Destruction Mode to "Apply Explosion Modifier" and hit Destroy Object (wait a bit)
-    - Select new Parent Empty (P0_Cube.001) and hit Setup Player (button is near bottom)
-    - Move the now selected Ground Plane near the bottom of the scaled default cube, it must touch/intersect          the cube  
-    - Select X = 1, Y = 9, Z = 6 at Connectivity Grid
-    - Make sure P0_Cube.001 is still selected, then hit "To Game Parenting" button
-    - Move the player as desired
-    - Start the game engine
-    - Shoot balls with Left Mouse Button, move mouse to aim
-    - preferably shoot bottom parts of wall first and watch unconnected parts to collapse automatically!
-    
-       
+																										

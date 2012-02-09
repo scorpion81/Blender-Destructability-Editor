@@ -397,7 +397,7 @@ class Processor():
         end = split[1]
         
         if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName):
-            print(int(end) > int(nameEnd), self.isBeingSplit(c, parentName))
+          #  print(int(end) > int(nameEnd), self.isBeingSplit(c, parentName))
             self.assign(c, parentName, pos)  
         
     def assign(self, c, parentName, pos):
@@ -408,7 +408,7 @@ class Processor():
         c.parent = data.objects[parentName]
         c.game.physics_type = 'RIGID_BODY'
         c.game.collision_bounds_type = 'CONVEX_HULL'
-        c.game.collision_margin = 0.00 
+        c.game.collision_margin = 0.0 
         c.game.radius = 0.01
         c.game.use_collision_bounds = True 
         c.select = True   
@@ -576,16 +576,24 @@ class Processor():
             
             context.scene.objects.active = tocut
             
-            
+            rotStart = context.active_object.destruction.rot_start
+            rotEnd = context.active_object.destruction.rot_end
+             
             parent = context.active_object.parent
-            anglex = random.randint(10, 80)
+            anglex = random.randint(rotStart, rotEnd)
             anglex = math.radians(anglex)
             
-            angley = random.randint(10, 80)
+            angley = random.randint(rotStart, rotEnd)
             angley = math.radians(angley)
             
-            anglez = random.randint(10, 80)
+            anglez = random.randint(rotStart, rotEnd)
             anglez = math.radians(anglez)
+            
+            if isHorizontal:
+                anglex += math.radians(90)
+                angley += math.radians(90)
+                anglez += math.radians(90)
+                
             
         #    context.scene.objects.active = tocut
             
@@ -606,10 +614,14 @@ class Processor():
             
             width = region.width
             height = region.height
+            
+            lineStart = context.active_object.destruction.line_start
+            lineEnd = context.active_object.destruction.line_end
+            
             path = []
             if cut_type == 'LINEAR':
                 isHorizontal = not isHorizontal
-                path = self.linearPath(jitter, width, height, isHorizontal)
+                path = self.linearPath(jitter, width, height, isHorizontal, lineStart, lineEnd)
             elif cut_type == 'ROUND':
                 path = self.spheroidPath(jitter, width, height)
                 
@@ -764,7 +776,7 @@ class Processor():
            # context.scene.objects.active = c
            # ops.object.origin_set(type = 'ORIGIN_GEOMETRY')    
 
-    def linearPath(self, jitter, width, height, isHorizontal):
+    def linearPath(self, jitter, width, height, isHorizontal, lineStart, lineEnd):
         startx = 0;
         starty = 0
         endx = width
@@ -773,17 +785,21 @@ class Processor():
         
         steps = 1
         if jitter > 0.01:
-           steps = random.randint(1, 20)
+           steps = random.randint(20, 100)
         
         if isHorizontal:
-            startx = random.randint(0, width)
+            startPercentage = round((lineStart / 100 * width), 0)
+            endPercentage = round((width - (lineEnd / 100 * width)), 0)
+            startx = random.randint(startPercentage, endPercentage)
             starty = 0
             endx = width - startx
             endy = height
         
         else:
+            startPercentage = round((lineStart / 100 * height), 0)
+            endPercentage = round((height - (lineEnd / 100 * height)),0)
             startx = 0
-            starty = random.randint(0, height)
+            starty = random.randint(startPercentage, endPercentage)
             endx = width
             endy = height - starty
             
@@ -808,11 +824,11 @@ class Processor():
             if jitter > 0.01:
                 jit = random.uniform(-jitter, jitter) 
                 if isHorizontal:
-                    x += (cosine * jit)
-                    y -= (sine * jit)
+                    x += (cosine * jit * width / 100)
+                    y -= (sine * jit * height / 100)
                 else:
-                    x -= (sine * jit)
-                    y += (cosine * jit)
+                    x -= (sine * jit * width / 100)
+                    y += (cosine * jit * height / 100)
                     
             path.append(self.entry(x,y))
   
@@ -1087,6 +1103,12 @@ class DestructionContext(types.PropertyGroup):
    
     pos = props.FloatVectorProperty(name = "pos" , default = (0, 0, 0))
  #   currentKnifePath = props.CollectionProperty(type = types.OperatorMousePath, name = "currentKnifePath")
+    rot_start = props.IntProperty(name = "rot_start", default = 10, min = 0, max = 90)
+    rot_end = props.IntProperty(name = "rot_end", default = 80, min = 0, max = 90)
+    
+    line_start = props.IntProperty(name = "line_start", default = 0, min = 0, max = 100)
+    line_end = props.IntProperty(name = "line_end", default = 100, min = 0, max = 100)
+    
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',

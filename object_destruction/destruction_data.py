@@ -28,7 +28,7 @@ class Cell:
                       (self.center[1] - cellDim[1] / 2, self.center[1] + cellDim[1] / 2),
                       (self.center[2] - cellDim[2] / 2, self.center[2] + cellDim[2] / 2)] 
                                          
-        self.children = [c.name for c in grid.children if self.isInside(c.localPosition)]
+        self.children = [c.name for c in grid.children if self.isInside(c.localPosition, 0)]
         [self.assign(grid.cellCoord, c, self.gridPos) for c in self.children]
         self.count = len(self.children)
     #    print("Cell created: ", self.center, self.count)
@@ -43,12 +43,13 @@ class Cell:
             return False
         return len(self.children) / self.count > intgr     
             
-    def isInside(self, pos):
-       # print("Child: ", c, c.worldPosition, self.range) 
+    def isInside(self, pos, percentage):
+        #print("Cell center / pos / percentage: ", self.center, pos, percentage) 
         
         if pos[0] >= self.range[0][0] and pos[0] <= self.range[0][1] and \
            pos[1] >= self.range[1][0] and pos[1] <= self.range[1][1] and \
-           pos[2] >= self.range[2][0] and pos[2] <= self.range[2][1]:
+           pos[2] >= self.range[2][0] and pos[2] <= self.range[2][1] and \
+           percentage >= 0 and percentage <= 1:
                return True
            
         return False
@@ -222,9 +223,10 @@ class Cell:
                 closest = geometry.intersect_point_line(Vector(self.center), 
                           Vector(edge[0]), Vector(edge[1]))
                 vec = closest[0]
-                print(vec.to_tuple(), self.center, self.gridPos)
-                if self.isInside(vec.to_tuple()):
-                    print("Found Ground Cell: ", self.gridPos, vec, closest[1])
+                percentage = closest[1]
+              #  print(vec.to_tuple(), self.center, self.gridPos)
+                if self.isInside(vec.to_tuple(), percentage) and not self.isGroundCell:
+                    print("Found Ground Cell: ", self.gridPos, vec, percentage)
                     self.isGroundCell = True
                     
                    

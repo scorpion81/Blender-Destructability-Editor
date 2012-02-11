@@ -292,7 +292,13 @@ class Processor():
         ops.object.add(type = 'EMPTY') 
         context.active_object.game.physics_type = 'RIGID_BODY'            
         context.active_object.game.radius = 0.01  
-        context.active_object.game.use_ghost = True        
+        context.active_object.game.use_ghost = True
+        
+        #context.active_object.game.use_collision_bounds = True
+        #context.active_object.game.use_collision_compound = True
+        #context.active_object.game.collision_bounds_type = 'CONVEX_HULL'
+        #context.active_object.game.collision_margin = 0.0         
+        
         context.active_object.name = parentName   
         
         #clear parent and keep transform
@@ -335,7 +341,7 @@ class Processor():
         
         context.scene.objects.active = context.object
         [self.applyDataSet(context, c, largest, parentName, pos) for c in context.scene.objects if 
-         self.isRelated(context, c, nameStart)]   
+         self.isRelated(c, context, nameStart)]   
          
       #  ops.object.origin_set(type = 'ORIGIN_GEOMETRY') 
         
@@ -369,7 +375,8 @@ class Processor():
     #    print(name, context.object.name)
         children = context.scene.objects
         largest = nameEnd
-        print(context.object.parent)
+        level = 0
+       # print(context.object.parent)
         if context.object.parent != None:
             pLevel = context.object.parent.name.split("_")[0]
             level = int(pLevel.lstrip("P"))
@@ -410,7 +417,10 @@ class Processor():
         c.game.collision_bounds_type = 'CONVEX_HULL'
         c.game.collision_margin = 0.0 
         c.game.radius = 0.01
-        c.game.use_collision_bounds = True 
+        c.game.use_collision_bounds = True
+        
+        #c.game.use_collision_compound = True 
+        
         c.select = True   
         
         c.destruction.transmitMode = 'T_SELF'
@@ -554,7 +564,7 @@ class Processor():
             #index = random.randint(0, len(currentParts) - 1)
             #pick always the largest object to subdivide
             sizes = {}
-            [self.dictItem(sizes, self.getSize(o), o.name) for o in context.scene.objects if                    o.name in currentParts]
+            [self.dictItem(sizes, self.getSize(o), o.name) for o in context.scene.objects if o.name in currentParts]
             
             maxSize = max(sizes.keys())
             name = sizes[maxSize]
@@ -870,12 +880,22 @@ class Processor():
                 return o.name
             
     
-    def isRelated(self, context, c, nameStart):
-        return (c.name.startswith(nameStart)) # and not self.isChild(context,c)) or self.isChild(context, c)    
+    def isRelated(self, c, context, nameStart):
         
-    def isChild(self, context, child):
-        return context.active_object.destruction.transmitMode == 'T_CHILDREN' and \
-              child.parent == context.active_object
+#        if c.parent != None:
+#            nameLevel = c.parent.name.split("_")[0]
+#            cLevel = int(nameLevel.lstrip("P"))
+#            levelOk = cLevel < level
+#        else:
+#            levelOk = True 
+        
+        return (c.name.startswith(nameStart)) and (context.object.parent == c.parent)
+    
+    # and not self.isChild(context,c)) or self.isChild(context, c)    
+        
+#    def isChild(self, context, child):
+#        return context.active_object.destruction.transmitMode == 'T_CHILDREN' and \
+#              child.parent == context.active_object
               
     def endStr(self, nr):
         if nr < 10:
@@ -1026,13 +1046,17 @@ if imported:
 def updateValidTargets(object):
     #print("Current Object is: ", object)
     for index in range(0, len(bpy.context.scene.validTargets)):
+        #print("Removing :", index)
         bpy.context.scene.validTargets.remove(index)
     
     for o in bpy.context.scene.objects:
         if o.destruction.destroyable and o != object and \
-        o.name not in object.destruction.destructorTargets:
+        o.name not in object.destruction.destructorTargets and \
+        o.name not in bpy.context.scene.validTargets:
+           #print("Adding :", o.name)
            prop = bpy.context.scene.validTargets.add()
            prop.name = o.name
+           
     return None 
 
 @pers
@@ -1043,7 +1067,8 @@ def updateValidGrounds(object):
     
     for o in bpy.context.scene.objects:
         if o.destruction.isGround and o != object and \
-        o.name not in object.destruction.grounds:
+        o.name not in object.destruction.grounds and \
+        o.name not in bpy.context.scene.validGrounds:
            prop = bpy.context.scene.validGrounds.add()
            prop.name = o.name
            
@@ -1108,6 +1133,9 @@ class DestructionContext(types.PropertyGroup):
     
     line_start = props.IntProperty(name = "line_start", default = 0, min = 0, max = 100)
     line_end = props.IntProperty(name = "line_end", default = 100, min = 0, max = 100)
+    
+    hierarchy_depth = props.IntProperty(name = "hierarchy_depth", default = 1, min = 1)
+    flatten_hierarchy = props.BoolProperty(name = "flatten_hierarchy", default = True)
     
     
     # From pildanovak, fracture script

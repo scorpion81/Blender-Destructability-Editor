@@ -24,9 +24,9 @@ massFactor = 4
 speedFactor = 2
 defaultRadius = 2
 #define Parameters for each object ! here defined for testing purposes
-hierarchyDepth = 1 # this must be stored per destructor, how deep destruction shall be
+maxHierarchyDepth = 1 # this must be stored per destructor, how deep destruction shall be
 #otherwise 1 level each collision with destroyer / ground
-#maxDepth = 10  #this must be stored in scene
+#maxHierarchyDepth = 2  #this must be stored in scene
 doReturn = False
 integrity = 0.5
 
@@ -35,13 +35,23 @@ def setup():
     #doReturn = False
     scene = logic.getCurrentScene()
     for o in scene.objects:
+        
         if "myParent" in o.getPropertyNames():
             parent = o["myParent"]
             if parent.startswith("P0"):
                 firstparent = scene.objects[parent]
-            o.setParent(parent, False, False)
-            print(o.parent)
+            
+          #  center = scene.addObject("Center", o)
+         #   center.setParent(parent, True, False)
+            if "flattenHierarchy" in o.getPropertyNames():
+                if o["flattenHierarchy"]:
+                    o.setParent(firstParent, False, False)
+            else:        
+                o.setParent(parent, False, False)
+        #    print(o.parent.parent)
         o.suspendDynamics() 
+   
+   # calcAverages()
     
     #rotate parent HERE by 45 degrees, X Axis (testwise)
    # firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
@@ -82,6 +92,7 @@ def setup():
 
 def collide():
     
+    global maxHierarchyDepth
     #colliders have collision sensors attached, which trigger for registered destructibles only
     
     #first the script controller brick, its sensor and owner are needed
@@ -91,10 +102,14 @@ def collide():
     owner = sensor.owner
     #treat each hit object, check hierarchy
   #  print(sensor.hitObjectList)
+   
+    maxHierarchyDepth = owner["hierarchy_depth"]
+            
     for obj in sensor.hitObjectList:
    #for obj in scene.objects:
     #    if obj.getDistanceTo(owner) < 2.0:
-        dissolve(obj, 1, hierarchyDepth, owner)
+    #    print("Hit: ", obj)
+        dissolve(obj, 1, maxHierarchyDepth, owner)
                  
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
@@ -112,14 +127,22 @@ def dissolve(obj, depth, maxdepth, owner):
 #                for c in cells:
 #                    destroyNeighborhood(c)
 #                     
+        
+        #only activate objects at current depth
+        if obj.parent != None:
+            digitEnd = obj.parent.name.index("_")
+            objDepth = int(obj.parent.name[1 : digitEnd]) + 1
+            
+            if depth == objDepth:
+                #[activate(c, owner, grid) for c in obj.parent.children]
+                activate(obj, owner, grid)
+        
         if depth < maxdepth: 
             [dissolve(c, depth + 1, maxdepth, owner) for c in obj.parent.children]
-            [activate(c, owner, grid) for c in obj.parent.children]
-        activate(obj, owner, grid)
 
 def activate(child, owner, grid):
  #   if child.getDistanceTo(owner.worldPosition) < defaultRadius:         
-    # print("activated: ", child)
+     print("activated: ", child)
      global integrity
      if isGroundConnectivity(child.parent) and not isGround(child.parent):
          if grid != None:
@@ -140,9 +163,19 @@ def activate(child, owner, grid):
              
              for c in cells.values():
                 c.visit = False
-                
+    
+    #reparent direct children to compound
+#     childs = [chs for chs in child.children]
+#     for ch in childs:
+#         print("reparenting : ", ch, "->", child)
+#         ch.removeParent()
+#         ch.setParent(child, True, False)
+        
      child.removeParent()
-     child.restoreDynamics() 
+     child.restoreDynamics()
+     
+     #if len(child.children) == 0:
+     #   child.restoreDynamics() 
 
 def isGroundConnectivity(obj):
     if "groundConnectivity" not in obj.getPropertyNames():
@@ -285,4 +318,38 @@ def destructionList(cell, destList):
     #in a radius around collision check whether this are shards of a destructible /or 
     #whether it is a destructible at all if it is activate cell children and reduce integrity of
     #cells if ground connectivity is taken care of
+    
+
+def calcAverages():
+    
+    #after building the parent relationships, unparent temporarily, set empty at average position
+    #and re-parent
+    scene = logic.getCurrentScene()
+    visited = []
+    for o in scene.objects:
+        if o.parent != None:
+            par = o.parent.parent
+            if par != None and par.name != "Player" and par.name != "Eye" and \
+            par.name != "Center":
+                if par.name not in visited:
+                    visited.append(par.name)
+                    childs = []
+                    sumx = 0
+                    sumy = 0
+                    sumz = 0
+                    for c in par.children:
+                        sumx += c.worldPosition[0]
+                        sumy += c.worldPosition[1]
+                        sumz += c.worldPosition[2]
+                        childs.append(c)
+                    length = len(par.children)
+                    if length > 0:
+                        for c in childs:
+                            c.removeParent()
+                        average = Vector((sumx / length, sumy / length, sumz / length))
+                        par.worldPosition = average
+                        print("Average: ", par.name, average)
+                        for c in childs:
+                            c.setParent(par, True, False)
+                
     

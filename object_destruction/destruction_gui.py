@@ -72,6 +72,7 @@ class DestructabilityPanel(types.Panel):
         
         layout.separator()
        
+        layout.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
         layout.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
         layout.prop(context.object.destruction, "groundConnectivity", text = "Calculate Ground Connectivity")
         layout.prop(context.object.destruction, "cubify", text = "Intersect with Grid")
@@ -111,6 +112,10 @@ class DestructabilityPanel(types.Panel):
         layout.separator()
          
         layout.prop(context.object.destruction, "destructor", text = "Destructor")
+        
+        row = layout.row()
+        row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
+        row.active = context.object.destruction.destructor
         
         row = layout.row()
         row.label(text = "Destructor Targets")
@@ -288,6 +293,22 @@ class SetupPlayer(types.Operator):
         data.objects["Player"].select = True
         ops.transform.translate(value = (3, 0, 3))
         
+        
+        
+        #this will be the dynamic "heart" of each object
+#        ops.object.add(type = 'EMPTY', layers =  [False, True, False, False, False,
+#                                                  False, False, False, False, False,
+#                                                  False, False, False, False, False,
+#                                                  False, False, False, False, False])
+#        context.active_object.name = "Center"
+#        context.active_object.game.physics_type = 'RIGID_BODY'
+#        context.active_object.game.collision_bounds_type = 'CONVEX_HULL'
+#        context.active_object.game.collision_margin = 0.0 
+#        context.active_object.game.radius = 0.01
+#        context.active_object.game.use_collision_bounds = True
+#        context.active_object.game.use_collision_compound = True 
+#        
+        
         ops.mesh.primitive_ico_sphere_add(layers = [False, True, False, False, False,
                                                     False, False, False, False, False,
                                                     False, False, False, False, False,
@@ -396,15 +417,17 @@ class SetupPlayer(types.Operator):
         
         for o in context.scene.objects:
             if o.destruction.destroyable:
+                #dp.updateValidTargets(context.active_object)
                 target = context.active_object.destruction.destructorTargets.add()
                 target.name = o.name
+                #dp.updateValidTargets(context.active_object)
                #ctx = context.copy()
                #ctx["object"] = o
                #ops.valid_target.add(ctx)
                #context.scene.objects.active = o
                #context.object.destruction.selector
                #ops.target.add()
-               
+                     
         context.scene.objects.active = context.object
         #ground and cells
         context.object.destruction.groundConnectivity = True
@@ -420,6 +443,10 @@ class SetupPlayer(types.Operator):
         
        # context        
         context.scene.objects.active = context.object
+        
+        while len(context.scene.validTargets) > 0:
+           # print("Deleting valid target")
+            context.scene.validTargets.remove(0)
         return {'FINISHED'}
     
 class ClearPlayer(types.Operator):
@@ -444,6 +471,7 @@ class ClearPlayer(types.Operator):
         data.objects["Launcher"].select = True
         data.objects["Ball"].select = True
         data.objects["Ground"].select = True
+      #  data.objects["Center"].select = True
      
         ops.object.delete()
         
@@ -601,6 +629,16 @@ class ConvertParenting(types.Operator):
             o.game.properties[index + 8].type = 'STRING'
             o.game.properties[index + 8].value = str(dim[0]) + " " + str(dim[1]) + " " + str(dim[2])
             
+            ops.object.game_property_new()
+            o.game.properties[index + 9].name = "hierarchy_depth"
+            o.game.properties[index + 9].type = 'INT'
+            o.game.properties[index + 9].value = o.destruction.hierarchy_depth
+            
+            ops.object.game_property_new()
+            o.game.properties[index + 10].name = "flatten_hierarchy"
+            o.game.properties[index + 10].type = 'BOOL'
+            o.game.properties[index + 10].value = o.destruction.flatten_hierarchy
+            
             
             
         #parent again , rotate to rotation, clear parent with keeptransform    
@@ -659,7 +697,7 @@ class ConvertParenting(types.Operator):
                        continue
             
             context.scene.objects.active = o
-            if len(o.game.properties) > 8:
+            if len(o.game.properties) > 10:
                 #correct some parenting error -> children at wrong position
                 par = data.objects[o.game.properties[0].value]
                 if par.name.startswith("P0"):

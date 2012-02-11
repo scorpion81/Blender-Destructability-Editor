@@ -28,7 +28,7 @@ class Cell:
                       (self.center[1] - cellDim[1] / 2, self.center[1] + cellDim[1] / 2),
                       (self.center[2] - cellDim[2] / 2, self.center[2] + cellDim[2] / 2)] 
                                          
-        self.children = [c.name for c in grid.children if self.isInside(c.localPosition, 0)]
+        self.children = [c.name for c in grid.children if self.isInside(c.worldPosition, 0)]
         [self.assign(grid.cellCoord, c, self.gridPos) for c in self.children]
         self.count = len(self.children)
     #    print("Cell created: ", self.center, self.count)
@@ -247,7 +247,7 @@ class Grid:
         self.cellDim = [ dim[0] / cellCounts[0], dim[1] / cellCounts[1], 
                          dim[2] / cellCounts[2]]
                          
-        print("cell/grid dimension: ", self.cellDim, self.dim)
+        print("cell/grid dimension/center: ", self.cellDim, self.dim, self.center)
         
         #build cells
         for x in range(0, cellCounts[0]):

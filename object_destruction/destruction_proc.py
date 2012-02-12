@@ -9,6 +9,7 @@ from operator import indexOf
 from mathutils import Vector
 #import imp
 import math
+import bisect
 
 #currentDir = path.abspath(os.path.split(__file__)[0])
 #filepath = currentDir + "\\..\\object_fracture"
@@ -553,6 +554,9 @@ class Processor():
         #for 1 ... parts
         tries = 0
         isHorizontal = False
+        names = [ob.name]
+        sizes = [self.getSize(ob)]
+        
         while (len(currentParts) < parts):
                     
             #give up when always invalid objects result from operation
@@ -567,13 +571,15 @@ class Processor():
              #pick a random part
             oldnames = [o.name for o in context.scene.objects]
             #index = random.randint(0, len(currentParts) - 1)
-            #pick always the largest object to subdivide
-            sizes = {}
-            [self.dictItem(sizes, self.getSize(o), o.name) for o in context.scene.objects if o.name in currentParts]
-            
-            maxSize = max(sizes.keys())
-            name = sizes[maxSize]
-           # [print(item) for item in sizes.items()]
+           
+            #pick always the largest object to subdivide next
+        
+        #    sizes = {}
+        #    [self.dictItem(sizes, self.getSize(o), o.name) for o in context.scene.objects if o.name in currentParts]
+        #    maxSize = max(sizes.keys())
+        #    name = sizes[maxSize]
+        
+            name = names[len(names) - 1] 
             tocut = context.scene.objects[name]
 #           if name not in chosen:
 #                chosen[name] = True
@@ -780,7 +786,25 @@ class Processor():
             #context.object seems to disappear so store parent in active object
             context.active_object.parent = parent
             tries = 0
-            print("Split :", tocut.name, tocutFlipped,  part, partFlipped)
+            print("Split :", tocut.name, part)
+            
+            # update size/name arrays
+            # remove the last one because this was chosen to be split(its the biggest one)
+            del sizes[len(sizes) - 1]
+            del names[len(names) - 1]
+            
+            sizeTocut = self.getSize(tocut)
+            sizePart = self.getSize(context.scene.objects[part])
+            
+            indexTocut = bisect.bisect(sizes, sizeTocut)
+            sizes.insert(indexTocut, sizeTocut)
+            names.insert(indexTocut, tocut.name)
+            
+            indexPart = bisect.bisect(sizes, sizePart)
+            sizes.insert(indexPart, sizePart)
+            names.insert(indexPart, part)
+            
+            
                     
 #        parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest)
 #        

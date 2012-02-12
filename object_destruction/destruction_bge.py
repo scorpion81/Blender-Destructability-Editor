@@ -34,19 +34,25 @@ def setup():
     
     #doReturn = False
     scene = logic.getCurrentScene()
+    
+    firstparent = None
     for o in scene.objects:
-        
         if "myParent" in o.getPropertyNames():
             parent = o["myParent"]
             if parent.startswith("P0"):
                 firstparent = scene.objects[parent]
-            
+    
+    for o in scene.objects:
+        if "myParent" in o.getPropertyNames():
+            parent = o["myParent"]
           #  center = scene.addObject("Center", o)
          #   center.setParent(parent, True, False)
-            if "flattenHierarchy" in o.getPropertyNames():
-                if o["flattenHierarchy"]:
-                    o.setParent(firstParent, False, False)
-            else:        
+            if "flatten_hierarchy" in o.getPropertyNames():
+                if o["flatten_hierarchy"]:
+                #    print("SETTING FLAT")
+                    o.setParent(firstparent, False, False)
+            else:
+            #    print("SETTING HIERARCHICAL")        
                 o.setParent(parent, False, False)
         #    print(o.parent.parent)
         o.suspendDynamics() 
@@ -113,7 +119,7 @@ def collide():
                  
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
-  #  print("dissolving level: ", depth)
+   # print("dissolving level: ", depth)
  #   print("isDestroyable / isRegistered: ", isDestroyable(obj.parent), isRegistered(obj.parent, owner))
     if isDestroyable(obj.parent) and isRegistered(obj.parent, owner):
         
@@ -132,6 +138,7 @@ def dissolve(obj, depth, maxdepth, owner):
         if obj.parent != None:
             digitEnd = obj.parent.name.index("_")
             objDepth = int(obj.parent.name[1 : digitEnd]) + 1
+           # print(depth, objDepth)
             
             if depth == objDepth:
                 #[activate(c, owner, grid) for c in obj.parent.children]

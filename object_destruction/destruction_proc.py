@@ -545,6 +545,11 @@ class Processor():
                 reg = [r for r in area.regions if r.type == 'WINDOW']          
                 region = reg[0]
         
+        #move parts to center of SCREEN to cut them correctly
+        for s in area.spaces:
+            if s.type == 'VIEW_3D':
+                zero = s.region_3d.view_location
+        
         #for 1 ... parts
         tries = 0
         isHorizontal = False

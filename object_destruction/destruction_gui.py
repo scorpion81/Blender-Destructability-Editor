@@ -7,7 +7,7 @@ import os
 import bpy
 from mathutils import Vector
 #import pickle
-#import inspect
+import inspect
 
 
 class DestructabilityPanel(types.Panel):
@@ -26,11 +26,6 @@ class DestructabilityPanel(types.Panel):
     def draw(self, context):        
         
         layout = self.layout
-        
-       # row = layout.row()
-       # row.label(text = "Apply this settings to:")
-       # row.prop(context.active_object.destruction, "transmitMode",  text = "")
-       # layout.separator()
         
         row = layout.row()
         row.prop(context.active_object.destruction, "destroyable", text = "Destroyable")
@@ -64,6 +59,9 @@ class DestructabilityPanel(types.Panel):
         col.active = context.object.destruction.destroyable
         
         row = layout.row()
+        row.prop(context.active_object.destruction, "transmitMode",  text = "Apply To")
+        
+        row = layout.row()
         if context.object.name in dd.DataStore.backups:
             row.operator("object.undestroy")
         else:
@@ -89,12 +87,12 @@ class DestructabilityPanel(types.Panel):
         row.active = context.object.destruction.groundConnectivity
         
         row = layout.row()
-        row.label(text = "Select Ground:")
+     #   row.label(text = "Select Ground:")
      #   row.prop(context.object.destruction, "groundSelector", text = "")
      #   ops.valid_ground.remove()
         
         row.prop_search(context.object.destruction, "groundSelector", 
-                        context.scene, "validGrounds", icon = 'OBJECT_DATA', text = "")
+                        context.scene, "validGrounds", icon = 'OBJECT_DATA', text = "Ground:")
         
       #  ops.valid_ground.add()                 
         row.operator("ground.add", icon = 'ZOOMIN', text = "")
@@ -130,12 +128,12 @@ class DestructabilityPanel(types.Panel):
         row.active = context.object.destruction.destructor  
         
         row = layout.row()
-        row.label(text = "Select Destroyable: ")
+     #   row.label(text = "Select Destroyable: ")
      #   row.prop(context.object.destruction, "targetSelector", text = "")
      #   ops.valid_target.remove()
         
         row.prop_search(context.object.destruction, "targetSelector", context.scene, 
-                       "validTargets", icon = 'OBJECT_DATA', text = "")
+                       "validTargets", icon = 'OBJECT_DATA', text = "Destroyable:")
                        
      #   ops.valid_target.add()               
         row.operator("target.add", icon = 'ZOOMIN', text = "")
@@ -751,13 +749,42 @@ class ConvertParenting(types.Operator):
 #        strObj = str(pickle.dumps(grid), 'ascii')
 #        print("Pickled: ", strObj)
 #        return strObj                 
-#   
+# 
+
+
+#Wrapper class for methods needing a "context" object
+#class MyContext():
+#    
+#    def __init__(self, ob, context):
+#        self.object = ob
+#        print("OBJECT: ",  self.object)
+#        self.context = context
+#        self.active_object = ob
+#        self.scene = context.scene
+#        self.selected_objects = context.selected_objects
+#    
+#    def copy(self):
+#        return self.context.copy()
+#       
+#       # members = inspect.getmembers(context)
+#        
+#        #enumerate all context properties/functions and delegate them
+#        #to the inner context!    
+#        #for m in members:
+#        #    if m[0] != "object":
+#        #        setattr(self, m[0], m[1])
+#        
+#        #own = inspect.getmembers(self)
+#        #for x in own:
+#        #    print(x)
+#               
+  
 class DestroyObject(types.Operator):
     bl_idname = "object.destroy"
     bl_label = "Destroy Object"
     
     def execute(self, context):
-        dd.DataStore.proc.processDestruction(context)
+        dd.DataStore.proc.processDestruction(context)         
         return {'FINISHED'}
 
 class UndestroyObject(types.Operator):

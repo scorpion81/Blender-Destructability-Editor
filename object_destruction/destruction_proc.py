@@ -6,7 +6,7 @@ import os
 import random
 from bpy_extras import mesh_utils
 from operator import indexOf
-from mathutils import Vector
+from mathutils import Vector, Quaternion, Euler
 import math
 import bisect
 
@@ -513,6 +513,7 @@ class Processor():
         ops.object.mode_set(mode = 'OBJECT')
         
         zero = Vector((0, 0, 0))
+        align = [1, 0, 0, 0]
         
         area = None
         region = None
@@ -526,6 +527,7 @@ class Processor():
         for s in area.spaces:
             if s.type == 'VIEW_3D':
                 zero = s.region_3d.view_location
+                align = s.region_3d.view_rotation
         
         #for 1 ... parts
         tries = 0
@@ -575,18 +577,72 @@ class Processor():
             anglez = random.randint(rotStart, rotEnd)
             anglez = math.radians(anglez)
             
-            if isHorizontal:
-                anglex += math.radians(90)
-                angley += math.radians(90)
-                anglez += math.radians(90)
+           
                 
+         #   if isHorizontal:
+         #        anglex += math.radians(90)
+         #       angley += math.radians(90)
+         #      anglez += math.radians(90)
+            
+            
+            #pick longest side of bbox
+            dims = tocut.bound_box.data.dimensions.to_tuple()
+            mx = max(dims)
+            index = dims.index(mx)
+            print(mx, index, dims)    
+            
+            
+            #store old rotation in quaternions and align to view
+            tocut.rotation_mode = 'QUATERNION'
+            oldquat = Quaternion(tocut.rotation_quaternion)
+            tocut.rotation_quaternion = align
+            context.scene.update()
+          
+            tocut.rotation_mode = 'XYZ'
+            
+            # a bit variation (use lower values...)
+            if (index < 2):
+                
+                euler = align.to_euler()
+                euler.rotate_axis('X', anglex)
+                euler.rotate_axis('Y', anglex)
+                euler.rotate_axis('Z', anglex)
+                
+                context.active_object.rotation_euler = (euler.x, euler.y, euler.z)
+                context.scene.update()
             
             loc = Vector(context.active_object.location)
             context.active_object.location = zero
             context.scene.update()
             
-            context.active_object.rotation_euler = (anglex, angley, anglez)
-            context.scene.update()
+            #maybe rotate by 90 degrees to align ?
+            
+          
+           # indexRot = [0,0,0]
+            
+            if index == 0:
+                # x is longest, cut vertical
+                isHorizontal = True 
+            elif index == 1:
+                # y is longest, cut horizontal
+                isHorizontal = False    
+                
+            elif index == 2:
+                #z is longest, so rotate by 90 degrees around x, then cut horizontal
+                #indexRot = tocut.rotation_euler
+                ortho = align.to_euler()
+                ortho.rotate_axis('X', math.radians(90))
+            #    axis = ortho.to_quaternion().axis
+            #    ops.transform.rotate(value = [math.radians(90)], axis = axis)
+            
+                 #vary a bit
+                ortho.rotate_axis('X', anglex)
+                ortho.rotate_axis('Y', angley)
+                ortho.rotate_axis('Z', anglez)
+                
+                context.active_object.rotation_euler = (ortho.x, ortho.y, ortho.z)
+                context.scene.update()
+                isHorizontal = False
             
             #context.scene.objects.active = tocut
             #make a random OperatorMousePath Collection to define cut path, the higher the jitter
@@ -602,7 +658,7 @@ class Processor():
             
             path = []
             if cut_type == 'LINEAR':
-                isHorizontal = not isHorizontal
+               # isHorizontal = not isHorizontal
                 path = self.linearPath(jitter, width, height, isHorizontal, lineStart, lineEnd)
             elif cut_type == 'ROUND':
                 path = self.spheroidPath(jitter, width, height)
@@ -617,8 +673,18 @@ class Processor():
             ops.mesh.knife_cut(ctx, type = 'EXACT', path = path)
             ops.object.mode_set(mode = 'OBJECT')
             
-            context.active_object.rotation_euler = (0, 0, 0)
+            
+            #restore rotations 
+        #    if index == 2:
+        #       context.active_object.rotation_euler = indexRot
+        #        context.scene.update()
+          
+            context.active_object.rotation_mode = 'QUATERNION'
+            context.active_object.rotation_quaternion = oldquat
+            
+         #   context.active_object.rotation_euler = (0, 0, 0)
             context.scene.update()
+            context.active_object.rotation_mode = 'XYZ'
      
             context.active_object.location = loc
             context.scene.update()
@@ -696,8 +762,11 @@ class Processor():
             
             manifold1 = min(mesh_utils.edge_face_count(obj.data))
             manifold2 = min(mesh_utils.edge_face_count(tocut.data))
+            
+           # print(manifold1, manifold2)
             manifold = min(manifold1, manifold2)
             
+          #  manifold = 2
             if manifold < 2:
                 print("Undo (non-manifold)...")
                 context.scene.objects.unlink(tocut)
@@ -729,6 +798,7 @@ class Processor():
             indexPart = bisect.bisect(sizes, sizePart)
             sizes.insert(indexPart, sizePart)
             names.insert(indexPart, part)
+                           
            
 
     def linearPath(self, jitter, width, height, isHorizontal, lineStart, lineEnd):
@@ -738,13 +808,13 @@ class Processor():
         endy = height
         
         
-        steps = 1
+        steps = 100
         if jitter > 0.01:
-           steps = random.randint(20, 100)
+           steps = random.randint(100, 200)
         
         if isHorizontal:
             startPercentage = round((lineStart / 100 * width), 0)
-            endPercentage = round((width - (lineEnd / 100 * width)), 0)
+            endPercentage = round((lineEnd / 100 * width), 0)
             startx = random.randint(startPercentage, endPercentage)
             starty = 0
             endx = width - startx
@@ -752,7 +822,7 @@ class Processor():
         
         else:
             startPercentage = round((lineStart / 100 * height), 0)
-            endPercentage = round((height - (lineEnd / 100 * height)),0)
+            endPercentage = round((lineEnd / 100 * height), 0)
             startx = 0
             starty = random.randint(startPercentage, endPercentage)
             endx = width

@@ -157,7 +157,7 @@ class Processor():
                 oldnames = [o.name for o in context.scene.objects]
                   #pick always the largest object to subdivide
                 sizes = {}
-                [self.dictItem(sizes, self.getSize(o), o.name) for o in context.scene.objects if                                  o.name in currentParts]
+                [self.dictItem(sizes, self.getSize(o), o.name) for o in context.scene.objects if o.name in currentParts]
                     
                 maxSize = max(sizes.keys())
                 name = sizes[maxSize]
@@ -533,30 +533,57 @@ class Processor():
         isHorizontal = False
         names = [ob.name]
         sizes = [self.getSize(ob)]
+      #  undoOccurred = False
         
         while (len(currentParts) < parts):
                     
             #give up when always invalid objects result from operation
             partFlipped = False
             tocutFlipped = False
-            if tries > 50:
+            if tries > 100:
                 break
             
             for o in context.scene.objects:
                 o.select = False
                  
             oldnames = [o.name for o in context.scene.objects]
+            
+            #split by loose parts -> find new names, update oldnames, names and sizes, then proceed as usual
+            #pick largest object first
            
-            #pick always the largest object to subdivide next
-        
+            name = names[len(names) - 1] 
+            
+           # print("Oldnames/names : ", len(oldnames), len(names))
+            
+            tocut = context.scene.objects[name]
+            context.scene.objects.active = tocut
+            
+            ops.object.mode_set(mode = 'EDIT')
+            ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.separate(type = 'LOOSE')
+            ops.mesh.select_all(action = 'DESELECT')
+            ops.object.mode_set(mode = 'OBJECT')
+            
+            newObj = self.findNew(context, oldnames)
+            for obj in newObj:
+                oldnames.append(obj.name)
+                sizeNew = self.getSize(obj)
+                indexNew = bisect.bisect(sizes, sizeNew)
+                sizes.insert(indexNew, sizeNew)
+                names.insert(indexNew, obj.name)
+                
+              
+            #re-pick the new largest object to subdivide next
             name = names[len(names) - 1] 
             tocut = context.scene.objects[name]
             
+           
             tocut.select = True
             ops.object.duplicate()
             tocut.select = False
-            backupName = self.findNew(context, oldnames)
-            
+            backupName = self.findNew(context, oldnames)[0].name
+        #    print("Created Backup: ", backupName)
+
             backup = context.scene.objects[backupName]
             backup.name = "KnifeBackup"
             context.scene.objects.unlink(backup)
@@ -588,7 +615,7 @@ class Processor():
             dims = tocut.bound_box.data.dimensions.to_tuple()
             mx = max(dims)
             index = dims.index(mx)
-            print(mx, index, dims)    
+         #   print(mx, index, dims)    
             
             
             #store old rotation in quaternions and align to view
@@ -694,7 +721,12 @@ class Processor():
             
             #separate object by selection
             ops.mesh.separate(type = 'SELECTED')
-            part = self.findNew(context, oldnames)
+            
+            newObject = self.findNew(context, oldnames)
+            if len(newObject) > 0:
+                part = self.findNew(context, oldnames)[0].name
+            else:
+                part = None
              
             ops.mesh.select_all(action = 'SELECT')
             ops.mesh.region_to_loop()
@@ -718,10 +750,17 @@ class Processor():
             
              #missed the object, retry with different values until success   
             if part == None:
-                print("Undo (missed object)...")
+                print("Undo (naming error)...")
+               
                 context.scene.objects.unlink(tocut)
-                backup.name = tocut.name
                 context.scene.objects.link(backup)
+                backup.name = tocut.name #doesnt really work... Blender renames it automatically
+            
+                #so update the names array
+                print("Re-linked: ", backup.name, tocut.name)
+                del names[len(names) - 1]
+                names.append(backup.name)
+                
                 tries += 1
                 continue
             
@@ -756,6 +795,7 @@ class Processor():
                 context.scene.objects.unlink(obj)
                 backup.name = tocut.name
                 context.scene.objects.link(backup)
+                
                 tries += 1
                 continue
             
@@ -767,12 +807,28 @@ class Processor():
             
           #  manifold = 2
             if manifold < 2:
-                print("Undo (non-manifold)...")
+                print("Undo (non-manifold)...", tocut.name, obj.name)
+                
+                
                 context.scene.objects.unlink(tocut)
                 context.scene.objects.unlink(obj)
-                backup.name = tocut.name
+          
+                #backup.name = tocut.name
                 context.scene.objects.link(backup)
+                backup.name = tocut.name #doesnt really work... Blender renames it automatically
+            
+                #so update the names array
+                print("Re-linked: ", backup.name, tocut.name)
+                del names[len(names) - 1]
+                names.append(backup.name)
+                if tocut.name in oldnames:
+                    oldnames.remove(tocut.name)
+                if backup.name in oldnames:
+                    oldnames.remove(backup.name)
+                    
+                #undoOccurred = True
                 tries += 1
+                #undoOccurred = True
                 continue
                       
             currentParts.append(part)
@@ -891,10 +947,12 @@ class Processor():
         return {"name":"", "loc":(x, y), "time":0}
     
     def findNew(self, context, oldnames):
+        ret = []
         for o in context.scene.objects:
             if o.name not in oldnames:
-     #           print("new object: ", o.name)
-                return o.name
+                ret.append(o)
+       # print("found: ", ret)
+        return ret
             
     
     def isRelated(self, c, context, nameStart):

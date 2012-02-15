@@ -30,32 +30,44 @@ maxHierarchyDepth = 1 # this must be stored per destructor, how deep destruction
 doReturn = False
 integrity = 0.5
 
+children = {}
+scene = logic.getCurrentScene()
+
 def setup():
     
     #doReturn = False
-    scene = logic.getCurrentScene()
+    #scene = logic.getCurrentScene()    
     
     firstparent = None
+    firstShard = None
+    
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():
             parent = o["myParent"]
             if parent.startswith("P0"):
                 firstparent = scene.objects[parent]
-    
-    for o in scene.objects:
-        if "myParent" in o.getPropertyNames():
-            parent = o["myParent"]
-          #  center = scene.addObject("Center", o)
-         #   center.setParent(parent, True, False)
-            if "flatten_hierarchy" in o.getPropertyNames():
-                if o["flatten_hierarchy"]:
-                #    print("SETTING FLAT")
-                    o.setParent(firstparent, False, False)
-            else:
-            #    print("SETTING HIERARCHICAL")        
-                o.setParent(parent, False, False)
-        #    print(o.parent.parent)
-        o.suspendDynamics() 
+            
+            if parent not in children.keys():
+                children[parent] = list()
+                children[parent].append(o)
+                if parent == firstparent.name:
+                    firstShard = o
+            else: 
+                children[parent].append(o)
+            
+ 
+    for i in children.items():
+      #  scene.objects[i[0]].endObject()
+        for c in i[1]: 
+            if c != i[1][0]: 
+                if "flatten_hierarchy" in c.getPropertyNames():
+                    if c["flatten_hierarchy"]:
+                        print("Setting parent", c, " -> ", firstShard)
+                        c.setParent(firstShard, True, False)
+                    else:
+                        print("Setting parent", c, " -> ", i[1][0])      
+                        c.setParent(i[1][0], True, False)
+                     
    
    # calcAverages()
     
@@ -63,6 +75,7 @@ def setup():
    # firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
     #oldOrientation = Matrix(firstparent.worldOrientation)
     
+    #Grid neu berechnen nach Bewegung.... oder immer alles relativ zur lokalen/Worldposition
     print("In Setup")
     for o in scene.objects:
         if isGroundConnectivity(o):
@@ -111,47 +124,58 @@ def collide():
    
     maxHierarchyDepth = owner["hierarchy_depth"]
             
-    for obj in sensor.hitObjectList:
-   #for obj in scene.objects:
-    #    if obj.getDistanceTo(owner) < 2.0:
-    #    print("Hit: ", obj)
-        dissolve(obj, 1, maxHierarchyDepth, owner)
+  #  for obj in sensor.hitObjectList:
+#        print ("Hit: ", obj)
+        
+    for p in children.keys():
+        print(children[p][0])
+        for obj in children[p]:
+            if obj.getDistanceTo(owner) < 2.0:
+                dissolve(obj, 1, maxHierarchyDepth, owner)
                  
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
-   # print("dissolving level: ", depth)
- #   print("isDestroyable / isRegistered: ", isDestroyable(obj.parent), isRegistered(obj.parent, owner))
-    if isDestroyable(obj.parent) and isRegistered(obj.parent, owner):
+    
+    parent = None
+    for p in children.keys():
+     #   print(p, children[p])
+        if obj in children[p]:
+            parent = p
+            break
+    par = scene.objects[parent]
+          
+    if isDestroyable(par) and isRegistered(par, owner):
         
         grid = None
-        if obj.parent.name in dd.DataStore.grids.keys():
-            grid = dd.DataStore.grids[obj.parent.name]
-                 
-#        if isGroundConnectivity(obj.parent) and not isGround(obj.parent):
-#            if grid != None:
-#                cells = [c for c in grid.cells.values()]
-#                for c in cells:
-#                    destroyNeighborhood(c)
-#                     
+        if par.name in dd.DataStore.grids.keys():
+            grid = dd.DataStore.grids[par.name]                
         
         #only activate objects at current depth
-        if obj.parent != None:
-            digitEnd = obj.parent.name.index("_")
-            objDepth = int(obj.parent.name[1 : digitEnd]) + 1
+        if par != None:
+            digitEnd = par.name.index("_")
+            objDepth = int(par.name[1 : digitEnd]) + 1
            # print(depth, objDepth)
             
             if depth == objDepth:
                 #[activate(c, owner, grid) for c in obj.parent.children]
                 activate(obj, owner, grid)
-        
+       
         if depth < maxdepth: 
-            [dissolve(c, depth + 1, maxdepth, owner) for c in obj.parent.children]
+            [dissolve(c, depth + 1, maxdepth, owner) for c in children[parent]]
 
 def activate(child, owner, grid):
  #   if child.getDistanceTo(owner.worldPosition) < defaultRadius:         
      print("activated: ", child)
      global integrity
-     if isGroundConnectivity(child.parent) and not isGround(child.parent):
+     
+     parent = None
+     for p in children.keys():
+        if child in children[p]:
+            parent = p
+            break
+     par = scene.objects[parent]
+     
+     if isGroundConnectivity(par) and not isGround(par):
          if grid != None:
              cells = dict(grid.cells)
              gridPos = grid.getCellByName(child.name)
@@ -170,19 +194,10 @@ def activate(child, owner, grid):
              
              for c in cells.values():
                 c.visit = False
-    
-    #reparent direct children to compound
-#     childs = [chs for chs in child.children]
-#     for ch in childs:
-#         print("reparenting : ", ch, "->", child)
-#         ch.removeParent()
-#         ch.setParent(child, True, False)
-        
+
      child.removeParent()
      child.restoreDynamics()
      
-     #if len(child.children) == 0:
-     #   child.restoreDynamics() 
 
 def isGroundConnectivity(obj):
     if "groundConnectivity" not in obj.getPropertyNames():
@@ -233,15 +248,12 @@ def getGrounds(obj):
             continue
         ground = dd.Ground()
         ground.name = p[0]
-       # ground.pos = logic.getCurrentScene().objects[ground.name].worldPosition
+  
         vert = p[1]
         verts = vert.split("_")
         for coords in verts:
             coord = coords.split(",")
-#            i = 0
-#            for c in coord:
-#                print(i, c, float(c))
-#                i += 1    
+ 
             vertexStart = (float(coord[0]), float(coord[1]), float(coord[2]))
             vertexEnd = (float(coord[3]), float(coord[4]), float(coord[5]))
             edge = (vertexStart, vertexEnd)
@@ -254,19 +266,11 @@ def destroyNeighborhood(cell):
     
     global doReturn
     global integrity
-#
+
     doReturn = False
     destlist = []
     destructionList(cell, destlist)
     
-#    for c in destlist:
-#       if c.isGroundCell and c.integrity(integrity): 
-#           print("GroundCell Found:", c.center)
-#           return
-        
-    #destroy unconnected cells -> enable physics within radius -> fuzzy
- #   print("Destruction List(no ground)", len(destlist))
-   # cells = dict(cell.grid.cells)
     cells = cell.grid.cells
     
     for c in destlist:
@@ -289,7 +293,6 @@ def destroyCell(cell, cells):
         childs.remove(child)
             
     cell.children = childs      
-  #  cell.grid.cells = cells
     
 
 def destructionList(cell, destList):
@@ -297,9 +300,6 @@ def destructionList(cell, destList):
     global doReturn
     global integrity  
     
-#   if cell.visit:
-#        return
-#    cell.visit = True
     
     if (cell.isGroundCell and cell.integrity(integrity)) or cell.visit:
         #print("GroundCell Found:", cell.gridPos)
@@ -327,36 +327,36 @@ def destructionList(cell, destList):
     #cells if ground connectivity is taken care of
     
 
-def calcAverages():
-    
-    #after building the parent relationships, unparent temporarily, set empty at average position
-    #and re-parent
-    scene = logic.getCurrentScene()
-    visited = []
-    for o in scene.objects:
-        if o.parent != None:
-            par = o.parent.parent
-            if par != None and par.name != "Player" and par.name != "Eye" and \
-            par.name != "Center":
-                if par.name not in visited:
-                    visited.append(par.name)
-                    childs = []
-                    sumx = 0
-                    sumy = 0
-                    sumz = 0
-                    for c in par.children:
-                        sumx += c.worldPosition[0]
-                        sumy += c.worldPosition[1]
-                        sumz += c.worldPosition[2]
-                        childs.append(c)
-                    length = len(par.children)
-                    if length > 0:
-                        for c in childs:
-                            c.removeParent()
-                        average = Vector((sumx / length, sumy / length, sumz / length))
-                        par.worldPosition = average
-                        print("Average: ", par.name, average)
-                        for c in childs:
-                            c.setParent(par, True, False)
-                
+#def calcAverages():
+#    
+#    #after building the parent relationships, unparent temporarily, set empty at average position
+#    #and re-parent
+#    scene = logic.getCurrentScene()
+#    visited = []
+#    for o in scene.objects:
+#        if o.parent != None:
+#            par = o.parent.parent
+#            if par != None and par.name != "Player" and par.name != "Eye" and \
+#            par.name != "Center":
+#                if par.name not in visited:
+#                    visited.append(par.name)
+#                    childs = []
+#                    sumx = 0
+#                    sumy = 0
+#                    sumz = 0
+#                    for c in par.children:
+#                        sumx += c.worldPosition[0]
+#                        sumy += c.worldPosition[1]
+#                        sumz += c.worldPosition[2]
+#                        childs.append(c)
+#                    length = len(par.children)
+#                    if length > 0:
+#                        for c in childs:
+#                            c.removeParent()
+#                        average = Vector((sumx / length, sumy / length, sumz / length))
+#                        par.worldPosition = average
+#                        print("Average: ", par.name, average)
+#                        for c in childs:
+#                            c.setParent(par, True, False)
+#                
     

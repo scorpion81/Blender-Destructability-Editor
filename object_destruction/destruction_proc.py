@@ -320,10 +320,14 @@ class Processor():
         parent.destruction.cubify = context.object.destruction.cubify
         
         
-        
+        #distribute the object mass to the single pieces, equally for now
+        mass = context.object.game.mass / context.object.destruction.partCount
         context.scene.objects.active = context.object
-        [self.applyDataSet(context, c, largest, parentName, pos) for c in context.scene.objects if 
-         self.isRelated(c, context, nameStart)]   
+        [self.applyDataSet(context, c, largest, parentName, pos, mass) for c in context.scene.objects if 
+         self.isRelated(c, context, nameStart)] 
+         
+        lastChild = parent.children[len(parent.children) - 1]
+        lastChild.game.use_collision_compound = True   
         
         if parent.name not in context.scene.validTargets:
             prop = bpy.context.scene.validTargets.add()
@@ -381,14 +385,14 @@ class Processor():
     def valid(self,context, child):
         return child.name.startswith(context.object.name)
     
-    def applyDataSet(self, context, c, nameEnd, parentName, pos):
+    def applyDataSet(self, context, c, nameEnd, parentName, pos, mass):
         split = c.name.split(".")
         end = split[1]
         
         if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName):
-            self.assign(c, parentName, pos)  
+            self.assign(c, parentName, pos, mass)  
         
-    def assign(self, c, parentName, pos):
+    def assign(self, c, parentName, pos, mass):
          
         #correct a parenting "error": the parts are moved pos too far
         c.location -= pos
@@ -399,8 +403,7 @@ class Processor():
         c.game.collision_margin = 0.0 
         c.game.radius = 0.01
         c.game.use_collision_bounds = True
-        
-        #c.game.use_collision_compound = True 
+        c.game.mass = mass
         
         c.select = True   
         

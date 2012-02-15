@@ -198,9 +198,11 @@ class RemoveGroundOperator(types.Operator):
         index = context.object.destruction.active_ground
         name = context.object.destruction.grounds[index].name 
         context.object.destruction.grounds.remove(index)
+        context.object.destruction.active_ground = len(context.object.destruction.grounds) - 1
         
-        propNew = context.scene.validGrounds.add()
-        propNew.name = name
+        if name not in context.scene.validGrounds:
+            propNew = context.scene.validGrounds.add()
+            propNew.name = name
         
         return {'FINISHED'}
        
@@ -245,9 +247,12 @@ class RemoveTargetOperator(types.Operator):
         index = context.object.destruction.active_target
         name = context.object.destruction.destructorTargets[index].name 
         context.object.destruction.destructorTargets.remove(index)
+        context.object.destruction.active_target = len(context.object.destruction.destructorTargets) - 1
         
-        propNew = context.scene.validTargets.add()
-        propNew.name = name
+        if name not in context.scene.validTargets:
+            propNew = context.scene.validTargets.add()
+            propNew.name = name
+            
         return {'FINISHED'} 
     
 class SetupPlayer(types.Operator):
@@ -418,7 +423,7 @@ class SetupPlayer(types.Operator):
                 #dp.updateValidTargets(context.active_object)
                 target = context.active_object.destruction.destructorTargets.add()
                 target.name = o.name
-                #dp.updateValidTargets(context.active_object)
+                dp.updateValidTargets(context.active_object)
                #ctx = context.copy()
                #ctx["object"] = o
                #ops.valid_target.add(ctx)
@@ -434,10 +439,12 @@ class SetupPlayer(types.Operator):
         ops.mesh.primitive_plane_add(location = (0, 0, -0.9))
         context.active_object.name = "Ground"
         context.active_object.destruction.isGround = True
-        dp.updateValidGrounds(context.active_object)
+        #dp.updateValidGrounds(context.active_object)
         
         g = context.object.destruction.grounds.add()
         g.name = "Ground"
+        
+        dp.updateValidGrounds(context.active_object)
         
        # context        
         context.scene.objects.active = context.object

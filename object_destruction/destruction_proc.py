@@ -1084,32 +1084,77 @@ if imported:
 @pers
 def updateValidTargets(object):
     #print("Current Object is: ", object)
-    for index in range(0, len(bpy.context.scene.validTargets)):
-        #print("Removing :", index)
-        bpy.context.scene.validTargets.remove(index)
     
-    for o in bpy.context.scene.objects:
-        if o.destruction.destroyable and o != object and \
-        o.name not in object.destruction.destructorTargets and \
-        o.name not in bpy.context.scene.validTargets:
+    #for index in range(0, len(bpy.context.scene.validTargets)):
+        #print("Removing :", index)
+    #    bpy.context.scene.validTargets.remove(index)
+    if object.destruction.destroyable:
+        if object.name not in bpy.context.scene.validTargets:
+            prop = bpy.context.scene.validTargets.add()
+            prop.name = object.name
+    else:
+        #print("Not:", object.name)
+        if object.name in bpy.context.scene.validTargets:
+            index = bpy.context.scene.validTargets.index(object.name)
+            bpy.context.scene.validTargets.remove(index) 
+         #   print("Removing valid:", object.name)
+            
+        for o in bpy.context.scene.objects:
+            if o.destruction.destructor and object.name in o.destruction.destructorTargets:
+                index = 0
+                for ob in o.destruction.destructorTargets:
+                    if ob.name == object.name:
+                        break
+                    index += 1
+          #      print("Removing:", object.name)
+                o.destruction.destructorTargets.remove(index)
+    
+   # for o in bpy.context.scene.objects:
+    #    if o.destruction.destroyable and o != object and \
+    #    o.name not in object.destruction.destructorTargets and \
+     #   o.name not in bpy.context.scene.validTargets:
            #print("Adding :", o.name)
-           prop = bpy.context.scene.validTargets.add()
-           prop.name = o.name
+      #     prop = bpy.context.scene.validTargets.add()
+    #       prop.name = o.name
            
     return None 
 
 @pers
 def updateValidGrounds(object):
     #print("Current Object is: ", object)
-    for index in range(0, len(bpy.context.scene.validGrounds)):
-        bpy.context.scene.validGrounds.remove(index)
+   
+   # for index in range(0, len(bpy.context.scene.validGrounds)):
+    #    bpy.context.scene.validGrounds.remove(index)
     
-    for o in bpy.context.scene.objects:
-        if o.destruction.isGround and o != object and \
-        o.name not in object.destruction.grounds and \
-        o.name not in bpy.context.scene.validGrounds:
-           prop = bpy.context.scene.validGrounds.add()
-           prop.name = o.name
+    #for o in bpy.context.scene.objects:
+    #    if o.destruction.isGround and o != object and \
+    #    o.name not in object.destruction.grounds and \
+    #    o.name not in bpy.context.scene.validGrounds:
+    #       prop = bpy.context.scene.validGrounds.add()
+    #       prop.name = o.name
+    
+    if object.destruction.isGround:
+        if object.name not in bpy.context.scene.validGrounds:
+            prop = bpy.context.scene.validTargets.add()
+            prop.name = object.name
+    else:
+       # print("Not:", object.name)
+        if object.name in bpy.context.scene.validGrounds:
+            index = bpy.context.scene.validGrounds.index(object.name)
+            bpy.context.scene.validTargets.remove(index) 
+        #    print("Removing valid:", object.name)
+            
+        for o in bpy.context.scene.objects:
+            if object.name in o.destruction.grounds:
+                #index = o.destruction.grounds.index(object.name)
+                index = 0
+                for ob in o.destruction.grounds:
+                    if ob.name == object.name:
+                        break
+                    index += 1
+             
+         #       print("Removing:", object.name, index)
+                o.destruction.grounds.remove(index)
            
     return None
 
@@ -1216,14 +1261,14 @@ def initialize():
     Scene.validGrounds = props.CollectionProperty(name = "validGrounds", type = types.PropertyGroup)
     dd.DataStore.proc = Processor()  
   
-    if hasattr(bpy.app.handlers, "object_activation" ) != 0:
-        bpy.app.handlers.object_activation.append(updateValidTargets)
-        bpy.app.handlers.object_activation.append(updateValidGrounds)
+    #if hasattr(bpy.app.handlers, "object_activation" ) != 0:
+        #bpy.app.handlers.object_activation.append(updateValidTargets)
+        #bpy.app.handlers.object_activation.append(updateValidGrounds)
   
 def uninitialize():
     del Object.destruction
     
-    if hasattr(bpy.app.handlers, "object_activation" ) != 0:
-        bpy.app.handlers.object_activation.remove(updateValidTargets)
-        bpy.app.handlers.object_activation.remove(updateValidGrounds)
+    #if hasattr(bpy.app.handlers, "object_activation" ) != 0:
+        #bpy.app.handlers.object_activation.remove(updateValidTargets)
+        #bpy.app.handlers.object_activation.remove(updateValidGrounds)
     

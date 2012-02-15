@@ -27,135 +27,144 @@ class DestructabilityPanel(types.Panel):
         
         layout = self.layout
         
-        row = layout.row()
-        row.prop(context.active_object.destruction, "destroyable", text = "Destroyable")
+        meshChild = False
+        for o in context.object.children:
+            if o.type == 'MESH':
+                meshChild = True
+                break;
+        isParent = context.object.type == 'EMPTY' and meshChild
+        isMesh = context.object.type == 'MESH'
         
-        row = layout.row()
-        row.prop(context.object.destruction, "destructionMode", text = "Mode")
-        row.active = context.object.destruction.destroyable
+        if isParent:
+            row = layout.row()
+            row.prop(context.object.destruction, "destroyable", text = "Destroyable")
+            row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
+        
+        if isMesh:
+            row = layout.row()
+            row.prop(context.object.destruction, "destructionMode", text = "Mode")
+            #row.active = context.object.destruction.destroyable
 
-        col = layout.column()
-        col.prop(context.object.destruction, "partCount", text = "Parts")
+            col = layout.column()
+            col.prop(context.object.destruction, "partCount", text = "Parts")
+            
+            if context.object.destruction.destructionMode == 'DESTROY_F':
+                col.prop(context.object.destruction, "roughness", text = "Roughness")
+                col.prop(context.object.destruction, "crack_type", text = "Crack Type")
+            elif context.object.destruction.destructionMode.startswith('DESTROY_E'):
+                col.prop(context.object.destruction, "wallThickness", text = "Thickness")
+                col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
+            elif context.object.destruction.destructionMode == 'DESTROY_K':
+                col.prop(context.object.destruction, "cut_type", text = "Cut type")
+                col.prop(context.object.destruction, "jitter", text = "Jitter")
+                col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
+                
+                row = col.row()
+                row.prop(context.object.destruction, "rot_start", text = "ObjRot Start")
+                row.prop(context.object.destruction, "rot_end", text = "ObjRot End")
+                
+                row = col.row()
+                row.prop(context.object.destruction, "line_start", text = "CutLine Start")
+                row.prop(context.object.destruction, "line_end", text = "CutLine End")
+            
+            # col.active = context.object.destruction.destroyable
+            row = layout.row()
+            row.prop(context.object.destruction, "cubify", text = "Intersect with Grid")
+            
+            row = layout.row()
+            col = row.column()
+            col.prop(context.object.destruction, "cubifyDim", text = "Intersection Grid")
         
-        if context.object.destruction.destructionMode == 'DESTROY_F':
-            col.prop(context.object.destruction, "roughness", text = "Roughness")
-            col.prop(context.object.destruction, "crack_type", text = "Crack Type")
-        elif context.object.destruction.destructionMode.startswith('DESTROY_E'):
-            col.prop(context.object.destruction, "wallThickness", text = "Thickness")
-            col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
-        elif context.object.destruction.destructionMode == 'DESTROY_K':
-            col.prop(context.object.destruction, "cut_type", text = "Cut type")
-            col.prop(context.object.destruction, "jitter", text = "Jitter")
-            col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
-            
-            row = col.row()
-            row.prop(context.object.destruction, "rot_start", text = "ObjRot Start")
-            row.prop(context.object.destruction, "rot_end", text = "ObjRot End")
-            
-            row = col.row()
-            row.prop(context.object.destruction, "line_start", text = "CutLine Start")
-            row.prop(context.object.destruction, "line_end", text = "CutLine End")
-            
-        col.active = context.object.destruction.destroyable
+        if isMesh or isParent:
+            row = layout.row()
+            row.prop(context.active_object.destruction, "transmitMode",  text = "Apply To")
         
         row = layout.row()
-        row.prop(context.active_object.destruction, "transmitMode",  text = "Apply To")
-        
-        row = layout.row()
-        if context.object.name in dd.DataStore.backups:
+        if context.object.name in dd.DataStore.backups and isParent:
             row.operator("object.undestroy")
-        else:
+        elif isMesh or (isParent and (context.object.transmitMode == context.object.transModes[2][0] or \
+        context.object.transmitMode == context.object.transModes[3][0])):
             row.operator("object.destroy")
-        row.active = context.object.destruction.destroyable
+        #row.active = context.object.destruction.destroyable
         
         layout.separator()
        
-        layout.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
-        layout.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
-        layout.prop(context.object.destruction, "groundConnectivity", text = "Calculate Ground Connectivity")
-        layout.prop(context.object.destruction, "cubify", text = "Intersect with Grid")
-      #  layout.prop(context.object.destruction, "cascadeGround", text = "Cascade Ground")
+       # layout.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
+        if isMesh:
+            layout.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
         
-        row = layout.row()
-        row.label(text = "Connected Grounds")
-        row.active = context.object.destruction.groundConnectivity
+        if isParent:
+            layout.prop(context.object.destruction, "groundConnectivity", text = "Calculate Ground Connectivity")
+            #layout.prop(context.object.destruction, "cubify", text = "Intersect with Grid")
         
-        row = layout.row()       
-        row.template_list(context.object.destruction, "grounds", 
+            row = layout.row()
+            row.label(text = "Connected Grounds")
+            row.active = context.object.destruction.groundConnectivity
+        
+            row = layout.row()       
+            row.template_list(context.object.destruction, "grounds", 
                           context.object.destruction, "active_ground", rows = 2)
-        row.operator("ground.remove", icon = 'ZOOMOUT', text = "")
-        row.active = context.object.destruction.groundConnectivity
+            row.operator("ground.remove", icon = 'ZOOMOUT', text = "")
+            row.active = context.object.destruction.groundConnectivity
         
-        row = layout.row()
-     #   row.label(text = "Select Ground:")
-     #   row.prop(context.object.destruction, "groundSelector", text = "")
-     #   ops.valid_ground.remove()
-        
-        row.prop_search(context.object.destruction, "groundSelector", 
+            row = layout.row()   
+            row.prop_search(context.object.destruction, "groundSelector", 
                         context.scene, "validGrounds", icon = 'OBJECT_DATA', text = "Ground:")
+                        
+            row.operator("ground.add", icon = 'ZOOMIN', text = "")
+            row.active = context.object.destruction.groundConnectivity
         
-      #  ops.valid_ground.add()                 
-        row.operator("ground.add", icon = 'ZOOMIN', text = "")
-        row.active = context.object.destruction.groundConnectivity
-        
-        row = layout.row()
-        col = row.column()
-        col.prop(context.object.destruction, "gridDim", text = "Connectivity Grid")
-        col.active = context.object.destruction.groundConnectivity
-        
-       # col = row.column()
-       # col.prop(context.object.destruction, "subgridDim", text = "Cubify Sub Grid")
-       # col.active = context.object.destruction.cubify
-        
+            row = layout.row()
+            col = row.column()
+            col.prop(context.object.destruction, "gridDim", text = "Connectivity Grid")
+            col.active = context.object.destruction.groundConnectivity
+       
         layout.separator()
-         
-        layout.prop(context.object.destruction, "destructor", text = "Destructor")
+        if isMesh: # or isParent: if destroyables were able to be dynamic....
+            layout.prop(context.object.destruction, "destructor", text = "Destructor")
         
-        row = layout.row()
-        row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
-        row.active = context.object.destruction.destructor
+            row = layout.row()
+            row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
+            row.active = context.object.destruction.destructor
         
-        row = layout.row()
-        row.label(text = "Destructor Targets")
-        row.active = context.object.destruction.destructor
+            row = layout.row()
+            row.label(text = "Destructor Targets")
+            row.active = context.object.destruction.destructor
         
-        row = layout.row()
+            row = layout.row()
         
-        row.template_list(context.object.destruction, "destructorTargets", 
+            row.template_list(context.object.destruction, "destructorTargets", 
                           context.object.destruction, "active_target" , rows = 2) 
                         
-        row.operator("target.remove", icon = 'ZOOMOUT', text = "") 
-        row.active = context.object.destruction.destructor  
+            row.operator("target.remove", icon = 'ZOOMOUT', text = "") 
+            row.active = context.object.destruction.destructor  
         
-        row = layout.row()
-     #   row.label(text = "Select Destroyable: ")
-     #   row.prop(context.object.destruction, "targetSelector", text = "")
-     #   ops.valid_target.remove()
-        
-        row.prop_search(context.object.destruction, "targetSelector", context.scene, 
+            row = layout.row()
+            
+            row.prop_search(context.object.destruction, "targetSelector", context.scene, 
                        "validTargets", icon = 'OBJECT_DATA', text = "Destroyable:")
-                       
-     #   ops.valid_target.add()               
-        row.operator("target.add", icon = 'ZOOMIN', text = "")
-        row.active = context.object.destruction.destructor 
+                                    
+            row.operator("target.add", icon = 'ZOOMIN', text = "")
+            row.active = context.object.destruction.destructor 
         
-        row = layout.row()
-        col = row.column() 
+        if isMesh or isParent:
+            row = layout.row()
+            col = row.column() 
         
-        col.operator("player.setup")
-        col.active = not context.scene.player
+            col.operator("player.setup")
+            col.active = not context.scene.player
         
-        col = row.column()
-        col.operator("player.clear")
-        col.active = context.scene.player
+            col = row.column()
+            col.operator("player.clear")
+            col.active = context.scene.player
         
-        row = layout.row()
+            row = layout.row()
         
-        txt = "To Editor Parenting"
-        if not context.scene.converted:
-            txt = "To Game Parenting"
+            txt = "To Editor Parenting"
+            if not context.scene.converted:
+                txt = "To Game Parenting"
        
-        row.operator("parenting.convert", text = txt)
+            row.operator("parenting.convert", text = txt)
         
 class AddGroundOperator(types.Operator):
     bl_idname = "ground.add"

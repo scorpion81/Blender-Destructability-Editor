@@ -72,13 +72,12 @@ class Processor():
                 if transMode == context.object.destruction.transModes[1][0]: #selected
                     objects.append(o)
                 elif transMode == context.object.destruction.transModes[2][0] or \
-                transMode == context.object.destruction.transModes[3][0]:  #selected+children
+                transMode == context.object.destruction.transModes[3][0]:
                     objects.append(o)
                     self.applyToChildren(o, objects, transMode)
                 o.select = False
         
-        if (parts > 1) and destroyable or \
-           (parts == 1) and groundConnectivity and cubify: #and (mode == 'DESTROY_F' or mode == 'DESTROY_K'):
+        if (parts > 1) or ((parts == 1) and cubify):
             print("OBJECTS: ", objects)   
             eval(modes[mode])
         
@@ -91,7 +90,7 @@ class Processor():
                self.applyToChildren(c, objects, transMode) #apply recursively...
            objects.append(c)
            
-    
+               
     def createBackup(self, context, obj):
         
         sel = []
@@ -224,7 +223,7 @@ class Processor():
             #if massive -> select all, region to loop, create faces, use self intersect
             #if massive and pairwise, apply a 2 piece particle system to random object
             #like knife
-            if obj.destruction.cubify and obj.destruction.groundConnectivity:
+            if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
             else:
                 self.explo(context, obj, parts, granularity, thickness, massive, pairwise)
@@ -422,7 +421,7 @@ class Processor():
             
             #fracture the sub objects if cubify is selected
            
-            if obj.destruction.cubify and obj.destruction.groundConnectivity:
+            if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
             else:
                 fo.fracture_basic(context, [obj], parts, crack_type, roughness)
@@ -457,7 +456,7 @@ class Processor():
             parentName, nameStart, largest, bbox = self.prepareParenting(context)
             backup = self.createBackup(context, obj) 
             
-            if obj.destruction.cubify and obj.destruction.groundConnectivity:
+            if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
             else:
                 self.knife(context, obj, parts, jitter, granularity, cut_type)
@@ -661,7 +660,7 @@ class Processor():
                # isHorizontal = not isHorizontal
                 path = self.linearPath(jitter, width, height, isHorizontal, lineStart, lineEnd)
             elif cut_type == 'ROUND':
-                path = self.spheroidPath(jitter, width, height)
+                path = self.spheroidPath(jitter, width, height, lineStart, lineEnd)
                 
             #apply the cut, exact cut
             ops.object.mode_set(mode = 'EDIT')
@@ -859,14 +858,17 @@ class Processor():
   
         return path        
     
-    def spheroidPath(self, jitter, width, height):
+    def spheroidPath(self, jitter, width, height, lineStart, lineEnd):
         midx = random.randint(0, width)
         midy = random.randint(0, height)
-        maxrad = height / 4
-        if height > width:
-            maxrad = width / 4
-        radius = random.uniform(1, maxrad)
-        steps = random.randint(32, 64)
+       # maxrad = height / 4
+    #    if height > width:
+     #       maxrad = width / 4
+        startPercentage = round((lineStart / 100 * width), 0)
+        endPercentage = round((lineEnd / 100 * width), 0)
+        
+        radius = random.uniform(startPercentage, endPercentage)
+        steps = random.randint(100, 200)
         
         deltaAngle = 360 / steps
         
@@ -924,7 +926,7 @@ class Processor():
         #intersect with pos of cells[0], go through all cells, set cube to pos, intersect again
         #repeat always with original object
         
-        grid = dd.Grid(object.destruction.gridDim, 
+        grid = dd.Grid(object.destruction.cubifyDim, 
                        object.destruction.pos,
                        bbox, 
                        [], 
@@ -1192,6 +1194,10 @@ class DestructionContext(types.PropertyGroup):
     description = "Determines whether connectivity of parts of this object is calculated, so only unconnected parts collapse according to their parent relations", update = updateGroundConnectivity)
     gridDim = props.IntVectorProperty(name = "grid", default = (1, 1, 1), min = 1, max = 100, 
                                           subtype ='XYZ', update = updateGrid )
+                                          
+    cubifyDim = props.IntVectorProperty(name = "cubifyDim", default = (1, 1, 1), min = 1, max = 100, 
+                                          subtype ='XYZ' )
+    
     gridBBox = props.FloatVectorProperty(name = "gridbbox", default = (0, 0, 0))
     destructorTargets = props.CollectionProperty(type = types.PropertyGroup, name = "destructorTargets")
     grounds = props.CollectionProperty(type = types.PropertyGroup, name = "grounds")
@@ -1212,8 +1218,8 @@ class DestructionContext(types.PropertyGroup):
    
     pos = props.FloatVectorProperty(name = "pos" , default = (0, 0, 0))
  #   currentKnifePath = props.CollectionProperty(type = types.OperatorMousePath, name = "currentKnifePath")
-    rot_start = props.IntProperty(name = "rot_start", default = 10, min = 0, max = 90)
-    rot_end = props.IntProperty(name = "rot_end", default = 80, min = 0, max = 90)
+    rot_start = props.IntProperty(name = "rot_start", default = 0, min = 0, max = 90)
+    rot_end = props.IntProperty(name = "rot_end", default = 30, min = 0, max = 90)
     
     line_start = props.IntProperty(name = "line_start", default = 0, min = 0, max = 100)
     line_end = props.IntProperty(name = "line_end", default = 100, min = 0, max = 100)

@@ -822,7 +822,20 @@ class UndestroyObject(types.Operator):
         return {'FINISHED'}
     
     def selectShards(self, object):
-        for c in object.children:
+        if object.name in bpy.context.scene.validTargets:
+            index = bpy.context.scene.validTargets.index(object.name)
+            bpy.context.scene.validTargets.remove(index)
+                
+        for o in bpy.context.scene.objects:
+            if o.destruction.destructor and object.name in o.destruction.destructorTargets:
+                index = 0
+                for ob in o.destruction.destructorTargets:
+                    if ob.name == object.name:
+                        break
+                    index += 1
+                o.destruction.destructorTargets.remove(index)
+            
+        for c in object.children: 
             c.select = True
             self.selectShards(c)
             

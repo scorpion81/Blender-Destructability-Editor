@@ -325,6 +325,10 @@ class Processor():
         [self.applyDataSet(context, c, largest, parentName, pos) for c in context.scene.objects if 
          self.isRelated(c, context, nameStart)]   
         
+        if parent.name not in context.scene.validTargets:
+            prop = bpy.context.scene.validTargets.add()
+            prop.name = parent.name
+        
         return parent
         
     def prepareParenting(self, context):

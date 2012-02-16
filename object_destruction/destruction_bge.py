@@ -32,14 +32,17 @@ integrity = 0.5
 
 children = {}
 scene = logic.getCurrentScene()
+gridValid = False
+firstparent = None
+firstShard = None
 
 def setup():
     
     #doReturn = False
     #scene = logic.getCurrentScene()    
     
-    firstparent = None
-    firstShard = None
+    global firstparent
+    global firstShard
     
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():
@@ -59,27 +62,61 @@ def setup():
     for i in children.items():
       #  scene.objects[i[0]].endObject()
         for c in i[1]: 
+            totalMass = i[1][0].mass
             if c != i[1][0]: 
                 if "flatten_hierarchy" in c.getPropertyNames():
-                    if c["flatten_hierarchy"]:
+                    mass = c.mass
+                    if c["flatten_hierarchy"]:   #this should be a global setting....
                         print("Setting parent", c, " -> ", firstShard)
-                        c.setParent(firstShard, True, False)
+                        c.setParent(firstShard, True, False)   
                     else:
                         print("Setting parent", c, " -> ", i[1][0])      
                         c.setParent(i[1][0], True, False)
-                     
-   
-   # calcAverages()
+                        #set hierarchical masses...
+                    totalMass += mass
+                    
+                    oldPar = scene.objects[i[0]]
+                    
+                    #keep sticky if groundConnectivity is wanted
+                    if isGroundConnectivity(oldPar):
+                        c.suspendDynamics()
+                        firstShard.suspendDynamics()
+                        
+    #    if "flatten_hierarchy" in i[1][0].getPropertyNames():
+    #        firstShard.mass = totalMass
+    #    else:
+    #        i[1][0].mass = totalMass
+                    
     
-    #rotate parent HERE by 45 degrees, X Axis (testwise)
+def checkSpeed():
+    #print("In checkSpeed")
+    global gridValid
+    control = logic.getCurrentController()
+    owner = control.sensors["Always"].owner #name it correctly
+    
+    vel = owner.linearVelocity
+    thresh = 0.001
+    if math.fabs(vel[0]) < thresh and math.fabs(vel[1]) < thresh and math.fabs(vel[2]) < thresh:
+        if not gridValid:
+            calculateGrids()
+            gridValid = True
+        
+
+def calculateGrids():
+     #rotate parent HERE by 45 degrees, X Axis (testwise)
    # firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
     #oldOrientation = Matrix(firstparent.worldOrientation)
     
     #Grid neu berechnen nach Bewegung.... oder immer alles relativ zur lokalen/Worldposition
-    print("In Setup")
+    global firstparent
+    global firstShard
+    print("In Calculate Grids")
+    #firstShard.suspendDynamics()
+    
     for o in scene.objects:
         if isGroundConnectivity(o):
             print("ISGROUNDCONN")
+            
             bbox = getFloats(o["gridbbox"])
             dim = getInts(o["griddim"])
             
@@ -95,7 +132,7 @@ def setup():
           #  firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
         #    [g.removeParent() for g in groundObjs]
             
-            grid = dd.Grid(dim, o.worldPosition, bbox, o.children, grounds)
+            grid = dd.Grid(dim, o.worldPosition, bbox, children[o.name], grounds)
             grid.buildNeighborhood()
             grid.findGroundCells() 
             dd.DataStore.grids[o.name] = grid
@@ -108,7 +145,8 @@ def setup():
     
     #rotate parent HERE by 45 degrees, X Axis (testwise)
     #firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
-
+        
+    
 def collide():
     
     global maxHierarchyDepth
@@ -123,9 +161,8 @@ def collide():
   #  print(sensor.hitObjectList)
    
     maxHierarchyDepth = owner["hierarchy_depth"]
-            
-  #  for obj in sensor.hitObjectList:
-#        print ("Hit: ", obj)
+    
+    gridValid = False
         
     for p in children.keys():
         print(children[p][0])
@@ -167,6 +204,7 @@ def activate(child, owner, grid):
  #   if child.getDistanceTo(owner.worldPosition) < defaultRadius:         
      print("activated: ", child)
      global integrity
+     global firstShard
      
      parent = None
      for p in children.keys():
@@ -175,28 +213,51 @@ def activate(child, owner, grid):
             break
      par = scene.objects[parent]
      
-     if isGroundConnectivity(par) and not isGround(par):
+     #if parent is hit, reparent all to first child if any
+     #TODO: do this hierarchical
+     if child == firstShard:
+         print("HIT PARENT")
+         mass = firstShard.mass
+         if len(firstShard.children) > 0:
+             newParent = firstShard.children[0]
+             for ch in firstShard.children:
+                 if ch != newParent:
+                    ch.removeParent()
+                    ch.setParent(newParent, True, False)
+                    
+             newParent.mass = mass        
+                 
+     if isGroundConnectivity(par) and not isGround(par) and gridValid:
          if grid != None:
              cells = dict(grid.cells)
              gridPos = grid.getCellByName(child.name)
-             cell = cells[gridPos]
              
-             if (child.name in cell.children):
-                cell.children.remove(child.name)
-            
-             if not cell.integrity(integrity):
-                print("Low Integrity, destroying cell!")
-                destroyCell(cell, cells)
+             if gridPos in cells.keys():
+                 cell = cells[gridPos]
+                 
+                 if (child.name in cell.children):
+                    cell.children.remove(child.name)
                 
-                
-             for c in cells.values():
-                destroyNeighborhood(c)
-             
-             for c in cells.values():
-                c.visit = False
-
+                 if not cell.integrity(integrity):
+                    print("Low Integrity, destroying cell!")
+                    destroyCell(cell, cells)
+                    
+                    
+                 for c in cells.values():
+                    destroyNeighborhood(c)
+                 
+                 for c in cells.values():
+                    c.visit = False
+                    
+    # if child.parent != None:
+    #    child.parent.mass -= child.mass
+    #    print("Mass : ", child.parent.mass)
+        
      child.removeParent()
      child.restoreDynamics()
+     
+     if child in children[parent]:
+        children[parent].remove(child)
      
 
 def isGroundConnectivity(obj):
@@ -325,7 +386,6 @@ def destructionList(cell, destList):
     #in a radius around collision check whether this are shards of a destructible /or 
     #whether it is a destructible at all if it is activate cell children and reduce integrity of
     #cells if ground connectivity is taken care of
-    
 
 #def calcAverages():
 #    

@@ -321,7 +321,8 @@ class Processor():
         
         
         #distribute the object mass to the single pieces, equally for now
-        mass = context.object.game.mass / context.object.destruction.partCount
+        print("Mass: ", backup.game.mass)
+        mass = backup.game.mass / backup.destruction.partCount
         context.scene.objects.active = context.object
         [self.applyDataSet(context, c, largest, parentName, pos, mass) for c in context.scene.objects if 
          self.isRelated(c, context, nameStart)] 
@@ -403,9 +404,11 @@ class Processor():
         c.game.collision_margin = 0.0 
         c.game.radius = 0.01
         c.game.use_collision_bounds = True
-        c.game.mass = mass
+       
+        c.select = True
         
-        c.select = True   
+        ops.object.transform_apply(scale = True)  
+        c.game.mass = mass 
         
         c.destruction.transmitMode = 'T_SELF'
         c.destruction.destroyable = False
@@ -413,6 +416,7 @@ class Processor():
         c.destruction.wallThickness = 0.01
         c.destruction.pieceGranularity = 0
         c.destruction.destructionMode = 'DESTROY_F'
+        
     
     def isBeingSplit(self, c, parentName):
         if parentName.split(".")[1] == c.name.split(".")[1]:
@@ -1283,8 +1287,8 @@ class DestructionContext(types.PropertyGroup):
    
     pos = props.FloatVectorProperty(name = "pos" , default = (0, 0, 0))
  #   currentKnifePath = props.CollectionProperty(type = types.OperatorMousePath, name = "currentKnifePath")
-    rot_start = props.IntProperty(name = "rot_start", default = 0, min = 0, max = 90)
-    rot_end = props.IntProperty(name = "rot_end", default = 30, min = 0, max = 90)
+    rot_start = props.IntProperty(name = "rot_start", default = -30, min = -90, max = 90)
+    rot_end = props.IntProperty(name = "rot_end", default = 30, min = -90, max = 90)
     
     line_start = props.IntProperty(name = "line_start", default = 0, min = 0, max = 100)
     line_end = props.IntProperty(name = "line_end", default = 100, min = 0, max = 100)

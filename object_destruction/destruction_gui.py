@@ -413,16 +413,16 @@ class SetupPlayer(types.Operator):
         
         #ball
         context.scene.objects.active = data.objects["Ball"]
-        ops.logic.controller_add(type = 'PYTHON', object = "Ball")
-        ops.logic.sensor_add(type = 'COLLISION', object = "Ball")
+        #ops.logic.controller_add(type = 'PYTHON', object = "Ball")
+        #ops.logic.sensor_add(type = 'COLLISION', object = "Ball")
         
-        context.active_object.game.sensors[0].use_pulse_true_level = True
+        #context.active_object.game.sensors[0].use_pulse_true_level = True
         
-        context.active_object.game.controllers[0].mode = 'MODULE'
-        context.active_object.game.controllers[0].module = "destruction_bge.collide"
+        #context.active_object.game.controllers[0].mode = 'MODULE'
+        #context.active_object.game.controllers[0].module = "destruction_bge.collide"
         
-        context.active_object.game.controllers[0].link(
-            context.active_object.game.sensors[0])
+        #context.active_object.game.controllers[0].link(
+        #    context.active_object.game.sensors[0])
         
         #by default destroy all destroyable objects
         context.active_object.destruction.destructor = True
@@ -565,6 +565,28 @@ class ConvertParenting(types.Operator):
                      
                     ground.select = False
                 break
+            
+        
+        for o in context.scene.objects:    
+            #poll speed of ANY destroyable object's child
+            if o.parent != None:
+                if o.parent.name.startswith("P") and o.parent.name != "Player":             #regexp PNumber !!
+                    context.scene.objects.active = o
+                    
+                    controllers = len(context.active_object.game.controllers)
+                    sensors = len(context.active_object.game.sensors)
+                    
+                    ops.logic.controller_add(type = 'PYTHON', object = o.name)
+                    ops.logic.sensor_add(type = 'ALWAYS', object = o.name)
+                    context.active_object.game.sensors[sensors].name = "Always"
+            
+                   # context.active_object.game.sensors[sensors].use_pulse_true_level = True
+            
+                    context.active_object.game.controllers[controllers].mode = 'MODULE'
+                    context.active_object.game.controllers[controllers].module = "destruction_bge.checkSpeed"
+            
+                    context.active_object.game.controllers[controllers].link(
+                    context.active_object.game.sensors[sensors])    
                   
         for o in context.scene.objects: #data.objects:
             
@@ -572,15 +594,17 @@ class ConvertParenting(types.Operator):
                 if o.name == "Player" or o.name == "Eye" or \
                    o.name == "Launcher" or o.name == "Ground":
                        continue
-            index = -1
+          #  index = -1  # currently LAST Property must be used len(props) - 1
+            index = len(o.game.properties) - 1
             context.scene.objects.active = o
           #  ctx = dp.setObject(context, o)
             if o.parent != None:
-                index = 0
+           #     index = 0
+                index += 1
                 ops.object.game_property_new()
-                o.game.properties[0].name = "myParent"
-                o.game.properties[0].type = 'STRING'
-                o.game.properties[0].value = o.parent.name
+                o.game.properties[index].name = "myParent"
+                o.game.properties[index].type = 'STRING'
+                o.game.properties[index].value = o.parent.name
               #  o.parent = None
             
            # ctx = dp.setObject(context, o)    
@@ -695,6 +719,29 @@ class ConvertParenting(types.Operator):
             o.select = True
             ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
             o.select = False
+        
+        
+        #destructors
+        for o in context.scene.objects:
+            if o.destruction.destructor:
+                context.scene.objects.active = o
+                
+                controllers = len(context.active_object.game.controllers)
+                sensors = len(context.active_object.game.sensors)
+            
+              #  if context.active_object.game.controllers #append sensor/controller only ONCE!
+                
+                ops.logic.controller_add(type = 'PYTHON', object = o.name)
+                ops.logic.sensor_add(type = 'COLLISION', object = o.name)
+                context.active_object.game.sensors[sensors].name = "Collision"
+            
+                context.active_object.game.sensors[sensors].use_pulse_true_level = True
+            
+                context.active_object.game.controllers[controllers].mode = 'MODULE'
+                context.active_object.game.controllers[controllers].module = "destruction_bge.collide"
+            
+                context.active_object.game.controllers[controllers].link(
+                context.active_object.game.sensors[sensors])                   
                        
     def unconvert(self, context):
         pos = Vector((0.0, 0.0, 0.0))
@@ -711,16 +758,32 @@ class ConvertParenting(types.Operator):
                        continue
             
             context.scene.objects.active = o
+            
+            index = 0
             if len(o.game.properties) > 10:
-                #correct some parenting error -> children at wrong position
-                par = data.objects[o.game.properties[0].value]
-                if par.name.startswith("P0"):
-                    o.location -= pos
-                o.parent = par
-                
-            while len(o.game.properties) > 0:
-                #ctx = dp.setObject(context, o)
+                if "myParent" in o.game.properties:
+                    props = 11
+                    index = len(o.game.properties) - props
+                    #correct some parenting error -> children at wrong position
+                    par = data.objects[o.game.properties[index].value]
+                    if par.name.startswith("P0"):
+                        o.location -= pos
+                    o.parent = par
+                else: 
+                    props = 10
+                    index = len(o.game.properties) - props
+                    
+            while len(o.game.properties) > index:
                 ops.object.game_property_remove()
+            
+            #delete the last ones added
+            if o.parent != None: #here we have an additional always sensor
+                ops.logic.controller_remove(controller = "Python", object = o.name)
+                ops.logic.sensor_remove(sensor = "Always", object = o.name)
+            if o.destruction.destructor:
+                #and here should be the collision sensor
+                ops.logic.controller_remove(controller = "Python1", object = o.name)
+                ops.logic.sensor_remove(sensor = "Collision", object = o.name)
     
     def grounds(self, context, o, namesOnly = False):
        retVal = ""
@@ -765,41 +828,17 @@ class ConvertParenting(types.Operator):
 #        strObj = str(pickle.dumps(grid), 'ascii')
 #        print("Pickled: ", strObj)
 #        return strObj                 
-# 
-
-
-#Wrapper class for methods needing a "context" object
-#class MyContext():
-#    
-#    def __init__(self, ob, context):
-#        self.object = ob
-#        print("OBJECT: ",  self.object)
-#        self.context = context
-#        self.active_object = ob
-#        self.scene = context.scene
-#        self.selected_objects = context.selected_objects
-#    
-#    def copy(self):
-#        return self.context.copy()
-#       
-#       # members = inspect.getmembers(context)
 #        
-#        #enumerate all context properties/functions and delegate them
-#        #to the inner context!    
-#        #for m in members:
-#        #    if m[0] != "object":
-#        #        setattr(self, m[0], m[1])
-#        
-#        #own = inspect.getmembers(self)
-#        #for x in own:
-#        #    print(x)
-#               
   
 class DestroyObject(types.Operator):
     bl_idname = "object.destroy"
     bl_label = "Destroy Object"
     
     def execute(self, context):
+        
+        #set a heavy mass as workaround, until mass update works correctly...
+        context.object.game.mass = 1000
+        
         dd.DataStore.proc.processDestruction(context)         
         return {'FINISHED'}
 
@@ -823,7 +862,11 @@ class UndestroyObject(types.Operator):
     
     def selectShards(self, object):
         if object.name in bpy.context.scene.validTargets:
-            index = bpy.context.scene.validTargets.index(object.name)
+            index = 0
+            for ob in bpy.context.scene.validTargets:
+                if ob.name == object.name:
+                    break
+                index += 1
             bpy.context.scene.validTargets.remove(index)
                 
         for o in bpy.context.scene.objects:

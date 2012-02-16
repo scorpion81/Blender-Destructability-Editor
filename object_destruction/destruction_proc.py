@@ -696,7 +696,7 @@ class Processor():
             path = []
             if cut_type == 'LINEAR':
                # isHorizontal = not isHorizontal
-                path = self.linearPath(jitter, width, height, isHorizontal, lineStart, lineEnd)
+                path = self.linearPath(context, tocut, jitter, width, height, isHorizontal, lineStart, lineEnd)
             elif cut_type == 'ROUND':
                 path = self.spheroidPath(jitter, width, height, lineStart, lineEnd)
                 
@@ -708,95 +708,15 @@ class Processor():
             ctx["area"] = area
             ctx["region"] = region
             ops.mesh.knife_cut(ctx, type = 'EXACT', path = path)
-            ops.object.mode_set(mode = 'OBJECT')
+            
+            part = self.handleKnife(context, tocut, backup, names, oldquat, loc, oldnames)
+            
+            #use fallback method if no patch available
+            # create cutters
             
             
-            #restore rotations 
-        #    if index == 2:
-        #       context.active_object.rotation_euler = indexRot
-        #        context.scene.update()
-          
-            context.active_object.rotation_mode = 'QUATERNION'
-            context.active_object.rotation_quaternion = oldquat
-            
-         #   context.active_object.rotation_euler = (0, 0, 0)
-            context.scene.update()
-            context.active_object.rotation_mode = 'XYZ'
-     
-            context.active_object.location = loc
-            context.scene.update()
-          
-            
-            ops.object.mode_set(mode = 'EDIT')
-            ops.mesh.loop_to_region()
-            
-            #separate object by selection
-            ops.mesh.separate(type = 'SELECTED')
-            
-            newObject = self.findNew(context, oldnames)
-            if len(newObject) > 0:
-                part = self.findNew(context, oldnames)[0].name
-            else:
-                part = None
-             
-            ops.mesh.select_all(action = 'SELECT')
-            ops.mesh.region_to_loop()
-            ops.mesh.fill()
-                
-            ops.object.mode_set(mode = 'OBJECT')
-            tocut.select = True
-            ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
-            tocut.select = False
-            
-            ops.object.mode_set(mode = 'EDIT')
-           # ops.mesh.select_all(action = 'DESELECT')
-        #    ops.mesh.select_all(action = 'SELECT')
-            ops.mesh.normals_make_consistent(inside = False)
-            
-#            if self.testNormalInside(tocut):
-#                ops.mesh.normals_make_consistent(inside = False)
-#                tocutFlipped = True
-            
-            ops.object.mode_set(mode = 'OBJECT')
-            
-             #missed the object, retry with different values until success   
             if part == None:
-                print("Undo (naming error)...")
-               
-                context.scene.objects.unlink(tocut)
-                context.scene.objects.link(backup)
-                backup.name = tocut.name #doesnt really work... Blender renames it automatically
-            
-                #so update the names array
-                print("Re-linked: ", backup.name, tocut.name)
-                del names[len(names) - 1]
-                names.append(backup.name)
-                
-                tries += 1
                 continue
-            
-      
-            context.scene.objects.active = context.scene.objects[part]
-            ops.object.mode_set(mode = 'EDIT')
-            ops.mesh.select_all(action = 'SELECT')
-            ops.mesh.region_to_loop()
-            ops.mesh.fill()
-                    
-            ops.object.mode_set(mode = 'OBJECT')
-            context.active_object.select = True
-            ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
-            context.active_object.select = False
-            
-            ops.object.mode_set(mode = 'EDIT')
-            #ops.mesh.select_all(action = 'DESELECT')
-            #ops.mesh.select_all(action = 'SELECT')
-            ops.mesh.normals_make_consistent(inside = False)
-            
-            #if self.testNormalInside(context.active_object):
-            #   ops.mesh.normals_make_consistent(inside = False)
-            #   partFlipped = True
-            
-            ops.object.mode_set(mode = 'OBJECT')
             
             obj = context.active_object
             
@@ -866,8 +786,103 @@ class Processor():
             names.insert(indexPart, part)
                            
            
-
-    def linearPath(self, jitter, width, height, isHorizontal, lineStart, lineEnd):
+    def handleKnife(self, context, tocut, backup, names, oldquat, loc, oldnames):
+            ops.object.mode_set(mode = 'OBJECT')
+            
+            #restore rotations 
+        #    if index == 2:
+        #       context.active_object.rotation_euler = indexRot
+        #        context.scene.update()
+          
+            context.active_object.rotation_mode = 'QUATERNION'
+            context.active_object.rotation_quaternion = oldquat
+            
+         #   context.active_object.rotation_euler = (0, 0, 0)
+            context.scene.update()
+            context.active_object.rotation_mode = 'XYZ'
+     
+            context.active_object.location = loc
+            context.scene.update()
+          
+            
+            ops.object.mode_set(mode = 'EDIT')
+            ops.mesh.loop_to_region()
+            
+            #separate object by selection
+            ops.mesh.separate(type = 'SELECTED')
+            
+            newObject = self.findNew(context, oldnames)
+            if len(newObject) > 0:
+                part = self.findNew(context, oldnames)[0].name
+            else:
+                part = None
+             
+            ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.region_to_loop()
+            ops.mesh.fill()
+                
+            ops.object.mode_set(mode = 'OBJECT')
+            tocut.select = True
+            ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+            tocut.select = False
+            
+            ops.object.mode_set(mode = 'EDIT')
+           # ops.mesh.select_all(action = 'DESELECT')
+        #    ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.normals_make_consistent(inside = False)
+            
+#            if self.testNormalInside(tocut):
+#                ops.mesh.normals_make_consistent(inside = False)
+#                tocutFlipped = True
+            
+            ops.object.mode_set(mode = 'OBJECT')
+            
+             #missed the object, retry with different values until success   
+            if part == None:
+                print("Undo (naming error)...")
+               
+                context.scene.objects.unlink(tocut)
+                context.scene.objects.link(backup)
+                backup.name = tocut.name #doesnt really work... Blender renames it automatically
+            
+                #so update the names array
+                print("Re-linked: ", backup.name, tocut.name)
+                del names[len(names) - 1]
+                names.append(backup.name)
+                
+                tries += 1
+                return None
+            
+      
+            context.scene.objects.active = context.scene.objects[part]
+            ops.object.mode_set(mode = 'EDIT')
+            ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.region_to_loop()
+            ops.mesh.fill()
+                    
+            ops.object.mode_set(mode = 'OBJECT')
+            context.active_object.select = True
+            ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+            context.active_object.select = False
+            
+            ops.object.mode_set(mode = 'EDIT')
+            #ops.mesh.select_all(action = 'DESELECT')
+            #ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.normals_make_consistent(inside = False)
+            
+            #if self.testNormalInside(context.active_object):
+            #   ops.mesh.normals_make_consistent(inside = False)
+            #   partFlipped = True
+            ops.object.mode_set(mode = 'OBJECT')
+            
+            return part
+     
+    def handleKnifeBoolean(self, context, tocut, backup, names, oldquat, loc, oldnames):
+        pass
+        
+        
+            
+    def linearPath(self, context, tocut, jitter, width, height, isHorizontal, lineStart, lineEnd):
         startx = 0;
         starty = 0
         endx = width
@@ -885,6 +900,14 @@ class Processor():
             starty = 0
             endx = width - startx
             endy = height
+            
+            #create cutters which are aligned like the path would be, for fallback method
+            #size them in width/height and move to center (-width/height / 2)
+          #  ops.mesh.primitive_cube_add(view_align=True, location = tocut.location.to_tuple(), 
+        #                                rotation = tocut.rotation_euler.to_tuple())
+                                        
+         #   cutter = context.active_object
+        #    cutter.dimensions = tocut.bound_box.data.dimensions   
         
         else:
             startPercentage = round((lineStart / 100 * height), 0)
@@ -893,7 +916,7 @@ class Processor():
             starty = random.randint(startPercentage, endPercentage)
             endx = width
             endy = height - starty
-            
+        
             
         deltaX = (endx - startx) / steps
         deltaY = (endy - starty) / steps

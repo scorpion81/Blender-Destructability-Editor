@@ -36,6 +36,8 @@ gridValid = False
 firstparent = None
 firstShard = None
 
+#TODO, temporary hack
+ground = None
 def setup():
     
     #doReturn = False
@@ -78,9 +80,9 @@ def setup():
                     oldPar = scene.objects[i[0]]
                     
                     #keep sticky if groundConnectivity is wanted
-                    if isGroundConnectivity(oldPar):
-                        c.suspendDynamics()
-                        firstShard.suspendDynamics()
+                   # if isGroundConnectivity(oldPar):
+                    #    c.suspendDynamics()
+                     #   firstShard.suspendDynamics()
                         
     #    if "flatten_hierarchy" in i[1][0].getPropertyNames():
     #        firstShard.mass = totalMass
@@ -110,6 +112,8 @@ def calculateGrids():
     #Grid neu berechnen nach Bewegung.... oder immer alles relativ zur lokalen/Worldposition
     global firstparent
     global firstShard
+    global ground
+    
     print("In Calculate Grids")
     #firstShard.suspendDynamics()
     
@@ -123,6 +127,7 @@ def calculateGrids():
             grounds = getGrounds(o)
             groundObjs = [logic.getCurrentScene().objects[g.name] for g in grounds]
             [g.setParent(firstparent, False, False) for g in groundObjs]
+            
             oldRot = Matrix(firstparent.worldOrientation)
             firstparent.worldOrientation = Vector((0, 0, 0))
             for g in grounds:
@@ -140,6 +145,8 @@ def calculateGrids():
            # firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
             firstparent.worldOrientation = oldRot
             [g.removeParent() for g in groundObjs]
+            
+            ground = groundObjs[0]
         
     print("Grids: ", dd.DataStore.grids)  
     
@@ -215,17 +222,20 @@ def activate(child, owner, grid):
      
      #if parent is hit, reparent all to first child if any
      #TODO: do this hierarchical
-     if child == firstShard:
+     if child == firstShard and isGroundConnectivity(par):
          print("HIT PARENT")
          mass = firstShard.mass
          if len(firstShard.children) > 0:
              newParent = firstShard.children[0]
+          #   newParent.compound = True
+             newParent.setParent(ground, False, False)
              for ch in firstShard.children:
                  if ch != newParent:
                     ch.removeParent()
                     ch.setParent(newParent, True, False)
                     
-             newParent.mass = mass        
+             newParent.mass = mass
+             firstShard = newParent        
                  
      if isGroundConnectivity(par) and not isGround(par) and gridValid:
          if grid != None:
@@ -253,8 +263,11 @@ def activate(child, owner, grid):
     #    child.parent.mass -= child.mass
     #    print("Mass : ", child.parent.mass)
         
-     child.removeParent()
-     child.restoreDynamics()
+     
+     
+     if child != firstShard or not isGroundConnectivity(par):
+        child.removeParent()
+        child.restoreDynamics()
      
      if child in children[parent]:
         children[parent].remove(child)

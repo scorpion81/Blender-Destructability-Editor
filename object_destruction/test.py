@@ -54,6 +54,157 @@
 
 from object_destruction.libvoro import voronoi
 import random
+from mathutils import Vector
+import bpy
+from bpy import ops
+
+def bracketPair(line, lastIndex):
+    opening = line.index("(", lastIndex)
+    closing = line.index(")", opening)
+    
+    print(opening, closing)
+    values = line[opening+1:closing]
+    vals = values.split(",")
+    return vals, closing
+    
+def parseFile(name):
+#    read array from file
+     file = open(name)
+     records = []
+     for line in file:
+         verts = []
+         faces = []
+         areas = []
+    #    #have a big string, need to parse ( and ), then split by ,
+         #vertex part
+         next = None
+         lastIndex = 0
+         while next != 'v':
+            vals, closing = bracketPair(line, lastIndex)
+            x = float(vals[0])
+            y = float(vals[1])
+            z = float(vals[2])
+            verts.append((x,y,z))
+            lastIndex = closing
+            next = line[closing+2]
+        
+         while next != 'f':
+            facetuple = []
+            print(lastIndex, len(line), next)
+            try:
+                vals, closing = bracketPair(line, lastIndex)
+                for f in vals:
+                    facetuple.append(int(f))
+                faces.append(facetuple)
+                lastIndex = closing
+                next = line[closing+2]
+            except ValueError:
+                next = 'f'
+                
+         lastIndex = line.index('f') + 2     
+         centr = line.index('c', lastIndex)
+         centrStr = line[centr+2:]
+         
+         vals = centrStr.split(" ")
+         cx = float(vals[0])
+         cy = float(vals[1])
+         cz = float(vals[2])
+         
+         centroid = ((cx, cy, cz))
+         
+         areastr = line[lastIndex:centr-2]
+         vals = areastr.split(" ")
+         for a in vals:
+             areas.append(float(a))
+         
+         print("VERTSFACES:", verts, faces) 
+         records.append({"v": verts, "f": faces, "a": areas, "c":centroid})
+     return records    
+
+def planarCentroid(verts, area):
+    if len(verts) < 3:
+        return None
+    
+    b1 = Vector((1, 0, 0))
+    b2 = Vector((0, 0, 1))
+    
+    first = verts[0]
+    xy = []
+    for i in range(1, len(verts)):
+        x = (verts[i][0] - first[0])*b1[0] + \
+            (verts[i][1] - first[1])*b1[1] + \
+            (verts[i][2] - first[2])*b1[2]
+             
+        y =  (verts[i][0] - first[0])*b2[0] + \
+             (verts[i][1] - first[1])*b2[1] + \
+             (verts[i][2] - first[2])*b2[2]
+             
+        xy.append((x,y))
+    
+    sumx = 0
+    sumy = 0
+    for i in range(0, len(xy)-1):
+        factor =  xy[i][0] * xy[i+1][1] - xy[i+1][0] * xy[i][1]
+        sumx += ((xy[i][0] + xy[i+1][0]) * factor)
+        sumy += ((xy[i][1] + xy[i+1][1]) * factor)
+    
+    cpx = sumx / 6 * area
+    cpy = sumy / 6 * area
+    
+    cx = first[0] + b1[0] * cpx + b2[0] * cpy
+    cy = first[1] + b1[1] * cpx + b2[1] * cpy   
+    cz = first[2] + b1[2] * cpx + b2[2] * cpy
+    
+    print ("Centroid: ", cx, cy, cz, area)
+    return [cx, cy, cz]
+         
+def buildCellMesh(cells):      
+   
+    cube = bpy.context.active_object 
+    bpy.context.scene.objects.unlink(cube)  
+    for cell in cells:
+        # for each face
+        verts = []
+        faces = []
+        cents = []
+        
+        length = 0
+        for i in range(0, len(cell["f"])):
+            v = []
+            #get corresponding vertices
+            for index in cell["f"][i]:
+                print(index)
+                vert = cell["v"][index]
+                v.append(vert)
+                if vert not in verts:
+                    verts.append(vert)
+                        
+            for j in range(0, len(v)-1):
+                index = verts.index(v[0])
+                index1 = verts.index(v[j])
+                index2 = verts.index(v[j+1]) 
+                    
+                faces.append([index, index1, index2])
+                    
+               
+        ops.mesh.primitive_cube_add()
+        obj = bpy.context.active_object
+        mesh = obj.data
+        print("Creating new mesh")
+        nmesh = bpy.data.meshes.new(name = mesh.name)
+        
+        print("Building new mesh")
+        print(faces)
+        nmesh.from_pydata(verts, [], faces)
+   
+        print("Removing old mesh")    
+        obj.data = None
+        mesh.user_clear()
+        if (mesh.users == 0):
+            bpy.data.meshes.remove(mesh)
+   
+        print("Assigning new mesh")     
+        obj.data = nmesh 
 
 
 def voronoiCube(context, objects, parts):
@@ -94,89 +245,10 @@ def voronoiCube(context, objects, parts):
         y = values[i][1]
         z = values[i][2]
         d.put(i, x, y, z)
-
-    d.print_custom("%P v %t f %f", "test.out")
+        
+    name = "test.out"
+    d.print_custom("%P v %t f %f c %C", name )
     
-def parseFile():
-#    read array from file
-     file = open("test.out")
-     verts = []
-#    #have a big string, need to parse ( and ), then split by ,
-     #vertex part
-     next = None
-     lastIndex = 0
-     while next != 'v':
-        opening = file.index("(", lastIndex)
-        closing = file.index(")", lastIndex)
-        triplet = file[opening:closing]
-        vals = triplet.split(",")
-        x = float(vals[0])
-        y = float(vals[1])
-        z = float(vals[2])
-        verts.append((x,y,z))
-     
-        lastIndex = closing
-        next = file[closing+1]
-    
-     
-     while next != 'f':
-        opening = file.index("(", lastIndex)
-        closing = file.index(")", lastIndex)
-        triplet = file[opening:closing]
-        vals = triplet.split(",")
-        x = float(vals[0])
-        y = float(vals[1])
-        z = float(vals[2])
-        verts.append((x,y,z))
-     
-        lastIndex = closing
-        next = file[closing+1]
-     
-     
-     
-     
-     
-    
-#def drawMesh():
-#    
-#    #
-#    
-#    
-#    
-#    verts = []
-#    faces = []
-#    for t in Side.__hull__:
-#        length = len(verts)
-#        print("Normal: ", t.n)
-#        v1 = Vector((t.p1[0], t.p1[1], t.p1[2]))
-#        v2 = Vector((t.p2[0], t.p2[1], t.p2[2]))
-#        v3 = Vector((t.p3[0], t.p3[1], t.p3[2]))
-#        
-#        verts.append(v1)
-#        verts.append(v2)
-#        verts.append(v3)
-#        rev = verts[::-1]
-#        first = rev.index(v1) + length
-#        second = rev.index(v2) + length
-#        third = rev.index(v3) + length
-#        faces.append([first, second, third])
-#        print("Face: ", [first, second, third])#
-#
-#    obj = bpy.context.active_object
-#    mesh = obj.data
-#    print("Creating new mesh")
-#    nmesh = bpy.data.meshes.new(name = mesh.name)
-
-#    print("Building new mesh")
-#    nmesh.from_pydata(verts, [], faces)
-#   
-#    print("Removing old mesh")    
-#    obj.data = None
-#    mesh.user_clear()
-#    if (mesh.users == 0):
-#        bpy.data.meshes.remove(mesh)
-#   
-#    print("Assigning new mesh")     
-#    obj.data = nmesh 
-    
+    records = parseFile(name)
+    buildCellMesh(records)    
 #voronoiCube(20)

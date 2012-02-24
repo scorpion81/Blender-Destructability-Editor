@@ -1,6 +1,7 @@
 from bpy import types, props, utils, ops, data, path
 from bpy.types import Object, Scene
 from . import destruction_data as dd
+from . import test
 import bpy
 import os
 import random
@@ -34,7 +35,9 @@ class Processor():
                  DestructionContext.destModes[3][0]: 
                      "self.applyExplo(context, objects, parts, granularity, thickness, True, False)",
                  DestructionContext.destModes[4][0]: 
-                     "self.applyKnife(context, objects, parts, jitter, granularity, cut_type)" } 
+                     "self.applyKnife(context, objects, parts, jitter, granularity, cut_type)",
+                 DestructionContext.destModes[5][0]: 
+                     "test.voronoiCube(context, objects, parts)" } 
                      
         #make an object backup if necessary (if undo doesnt handle this)
         #according to mode call correct method
@@ -709,7 +712,7 @@ class Processor():
             ctx["region"] = region
             ops.mesh.knife_cut(ctx, type = 'EXACT', path = path)
             
-            part = self.handleKnife(context, tocut, backup, names, oldquat, loc, oldnames)
+            part = self.handleKnife(context, tocut, backup, names, oldquat, loc, oldnames, tries)
             
             #use fallback method if no patch available
             # create cutters
@@ -786,7 +789,7 @@ class Processor():
             names.insert(indexPart, part)
                            
            
-    def handleKnife(self, context, tocut, backup, names, oldquat, loc, oldnames):
+    def handleKnife(self, context, tocut, backup, names, oldquat, loc, oldnames, tries):
             ops.object.mode_set(mode = 'OBJECT')
             
             #restore rotations 
@@ -1261,7 +1264,8 @@ class DestructionContext(types.PropertyGroup):
                'Destroy this object using the explosion modifier, forming a massive shape', 2),
              ('DESTROY_E_P', 'Explosion Modifier (Small Pieces)', 
                'Destroy this object using the explosion modifier, forming small pieces', 3),
-             ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 4)] 
+             ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 4),
+             ('DESTROY_V', 'Voronoi Fracture', 'Destroy this object using voronoi decomposition', 5)] 
     
     transModes = [('T_SELF', 'This Object', 'Apply settings to this object only', 0), 
              ('T_SELECTED', 'Selected', 'Apply settings to all selected objects as well', 1),

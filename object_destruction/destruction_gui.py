@@ -2,6 +2,7 @@ from bpy import types, props, utils, ops, data, path
 from bpy.types import Object, Scene
 from . import destruction_proc as dp
 from . import destruction_data as dd
+from . import test
 import math
 import os
 import bpy

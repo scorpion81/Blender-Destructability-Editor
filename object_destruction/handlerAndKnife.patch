@@ -1,19 +1,7 @@
-Index: blender/source/blender/python/intern/bpy_app_handlers.c
+Index: source/blender/blenkernel/intern/context.c
 ===================================================================
---- blender/source/blender/python/intern/bpy_app_handlers.c	(Revision 43527)
-+++ blender/source/blender/python/intern/bpy_app_handlers.c	(Arbeitskopie)
-@@ -53,6 +53,7 @@
- 	{(char *)"save_post",         (char *)"Callback list - on saving a blend file (after)"},
- 	{(char *)"scene_update_pre",  (char *)"Callback list - on updating the scenes data (before)"},
- 	{(char *)"scene_update_post", (char *)"Callback list - on updating the scenes data (after)"},
-+	{(char *)"object_activation", (char *)"Callback list - on activating the object"},
- 
- 	/* sets the permanent tag */
- #   define APP_CB_OTHER_FIELDS 1
-Index: blender/source/blender/blenkernel/intern/context.c
-===================================================================
---- blender/source/blender/blenkernel/intern/context.c	(Revision 43527)
-+++ blender/source/blender/blenkernel/intern/context.c	(Arbeitskopie)
+--- source/blender/blenkernel/intern/context.c	(Revision 44136)
++++ source/blender/blenkernel/intern/context.c	(Arbeitskopie)
 @@ -213,11 +213,6 @@
  	return C->wm.area;
  }
@@ -26,7 +14,7 @@ Index: blender/source/blender/blenkernel/intern/context.c
  ARegion *CTX_wm_region(const bContext *C)
  {
  	return C->wm.region;
-@@ -501,6 +496,21 @@
+@@ -503,6 +498,21 @@
  	return NULL;
  }
  
@@ -48,10 +36,10 @@ Index: blender/source/blender/blenkernel/intern/context.c
  static int ctx_data_pointer_verify(const bContext *C, const char *member, void **pointer)
  {
  	bContextDataResult result;
-Index: blender/source/blender/blenkernel/BKE_context.h
+Index: source/blender/blenkernel/BKE_context.h
 ===================================================================
---- blender/source/blender/blenkernel/BKE_context.h	(Revision 43527)
-+++ blender/source/blender/blenkernel/BKE_context.h	(Arbeitskopie)
+--- source/blender/blenkernel/BKE_context.h	(Revision 44136)
++++ source/blender/blenkernel/BKE_context.h	(Arbeitskopie)
 @@ -136,7 +136,7 @@
  struct wmWindow *CTX_wm_window(const bContext *C);
  struct bScreen *CTX_wm_screen(const bContext *C);
@@ -61,39 +49,3 @@ Index: blender/source/blender/blenkernel/BKE_context.h
  struct ARegion *CTX_wm_region(const bContext *C);
  void *CTX_wm_region_data(const bContext *C);
  struct ARegion *CTX_wm_menu(const bContext *C);
-Index: blender/source/blender/blenlib/BLI_callbacks.h
-===================================================================
---- blender/source/blender/blenlib/BLI_callbacks.h	(Revision 43527)
-+++ blender/source/blender/blenlib/BLI_callbacks.h	(Arbeitskopie)
-@@ -49,6 +49,7 @@
- 	BLI_CB_EVT_SAVE_POST,
- 	BLI_CB_EVT_SCENE_UPDATE_PRE,
- 	BLI_CB_EVT_SCENE_UPDATE_POST,
-+	BLI_CB_EVT_OBJECT_ACTIVATION,
- 	BLI_CB_EVT_TOT
- } eCbEvent;
- 
-Index: blender/source/blender/editors/object/object_select.c
-===================================================================
---- blender/source/blender/editors/object/object_select.c	(Revision 43527)
-+++ blender/source/blender/editors/object/object_select.c	(Arbeitskopie)
-@@ -59,7 +59,10 @@
- #include "BKE_scene.h"
- #include "BKE_library.h"
- #include "BKE_deform.h"
-+#include "BKE_global.h"
- 
-+#include "BLI_callbacks.h"
-+
- #include "WM_api.h"
- #include "WM_types.h"
- 
-@@ -113,6 +116,8 @@
- 		//		select_actionchannel_by_name(base->object->action, "Object", 1);
- 		
- 		WM_event_add_notifier(C, NC_SCENE|ND_OB_ACTIVE, scene);
-+
-+		BLI_exec_cb(G.main, &base->object->id, BLI_CB_EVT_OBJECT_ACTIVATION);
- 	}
- 	else
- 		WM_event_add_notifier(C, NC_SCENE|ND_OB_ACTIVE, NULL);

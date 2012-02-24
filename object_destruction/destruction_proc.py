@@ -7,7 +7,7 @@ import os
 import random
 from bpy_extras import mesh_utils
 from operator import indexOf
-from mathutils import Vector, Quaternion, Euler
+from mathutils import Vector, Quaternion, Euler, Matrix
 import math
 import bisect
 
@@ -546,6 +546,7 @@ class Processor():
         
         zero = Vector((0, 0, 0))
         align = [1, 0, 0, 0]
+        matrix = Matrix.Identity(4)
         
         area = None
         region = None
@@ -560,6 +561,7 @@ class Processor():
             if s.type == 'VIEW_3D':
                 zero = s.region_3d.view_location
                 align = s.region_3d.view_rotation
+                matrix = s.region_3d.view_matrix
         
         #for 1 ... parts
         tries = 0
@@ -571,8 +573,8 @@ class Processor():
         while (len(currentParts) < parts):
                     
             #give up when always invalid objects result from operation
-            partFlipped = False
-            tocutFlipped = False
+        #    partFlipped = False
+        #    tocutFlipped = False
             if tries > 100:
                 break
             
@@ -615,7 +617,7 @@ class Processor():
             ops.object.duplicate()
             tocut.select = False
             backupName = self.findNew(context, oldnames)[0].name
-        #    print("Created Backup: ", backupName)
+            print("Created Backup: ", backupName)
 
             backup = context.scene.objects[backupName]
             backup.name = "KnifeBackup"
@@ -674,6 +676,8 @@ class Processor():
             context.active_object.location = zero
             context.scene.update()
             
+            print("POS", context.active_object.location)
+            
             #maybe rotate by 90 degrees to align ?
             
           
@@ -721,7 +725,8 @@ class Processor():
                 path = self.linearPath(context, tocut, jitter, width, height, isHorizontal, lineStart, lineEnd)
             elif cut_type == 'ROUND':
                 path = self.spheroidPath(jitter, width, height, lineStart, lineEnd)
-                
+            
+          #  print("PATH: ", path, tocut.location, tocut.rotation_euler)    
             #apply the cut, exact cut
             ops.object.mode_set(mode = 'EDIT')
             ops.mesh.select_all(action = 'SELECT')
@@ -729,7 +734,8 @@ class Processor():
             ctx = context.copy()
             ctx["area"] = area
             ctx["region"] = region
-            ops.mesh.knife_cut(ctx, type = 'EXACT', path = path)
+            ops.mesh.knife_cut(ctx, type = 'EXACT', path = path, region_width = region.width, region_height = region.height,
+                               perspective_matrix = matrix)
             
             part = self.handleKnife(context, tocut, backup, names, oldquat, loc, oldnames, tries)
             
@@ -738,6 +744,7 @@ class Processor():
             
             
             if part == None:
+                tries += 1
                 continue
             
             obj = context.active_object
@@ -758,7 +765,7 @@ class Processor():
            # print(manifold1, manifold2)
             manifold = min(manifold1, manifold2)
             
-          #  manifold = 2
+            #manifold = 2
             if manifold < 2:
                 print("Undo (non-manifold)...", tocut.name, obj.name)
                 
@@ -774,10 +781,10 @@ class Processor():
                 print("Re-linked: ", backup.name, tocut.name)
                 del names[len(names) - 1]
                 names.append(backup.name)
-                if tocut.name in oldnames:
-                    oldnames.remove(tocut.name)
-                if backup.name in oldnames:
-                    oldnames.remove(backup.name)
+                #if tocut.name in oldnames:
+                #    oldnames.remove(tocut.name)
+                #if backup.name in oldnames:
+                #    oldnames.remove(backup.name)
                     
                 #undoOccurred = True
                 tries += 1
@@ -831,11 +838,13 @@ class Processor():
             ops.mesh.loop_to_region()
             
             #separate object by selection
+          #  print("BEFORE", len(context.scene.objects))
             ops.mesh.separate(type = 'SELECTED')
+          #  print("AFTER", len(context.scene.objects))
             
             newObject = self.findNew(context, oldnames)
             if len(newObject) > 0:
-                part = self.findNew(context, oldnames)[0].name
+                part = newObject[0].name
             else:
                 part = None
              
@@ -868,9 +877,13 @@ class Processor():
                 backup.name = tocut.name #doesnt really work... Blender renames it automatically
             
                 #so update the names array
-                print("Re-linked: ", backup.name, tocut.name)
+                print("Re-linked: ", backup.name, tocut.name, oldnames)
                 del names[len(names) - 1]
                 names.append(backup.name)
+                if tocut.name in oldnames:
+                    oldnames.remove(tocut.name)
+                if backup.name in oldnames:
+                    oldnames.remove(backup.name)
                 
                 tries += 1
                 return None
@@ -1007,7 +1020,7 @@ class Processor():
         for o in context.scene.objects:
             if o.name not in oldnames:
                 ret.append(o)
-       # print("found: ", ret)
+        print("found: ", ret)
         return ret
             
     
@@ -1332,7 +1345,7 @@ class DestructionContext(types.PropertyGroup):
 
     wallThickness = props.FloatProperty(name = "wallThickness", default = 0.01, min = 0.01, max = 10,
                                       update = updateWallThickness)
-    pieceGranularity = props.IntProperty(name = "pieceGranularity", default = 3, min = 0, max = 100, 
+    pieceGranularity = props.IntProperty(name = "pieceGranularity", default = 4, min = 0, max = 100, 
                                          update = updatePieceGranularity)
     applyDone = props.BoolProperty(name = "applyDone", default = False)
     previewDone = props.BoolProperty(name = "previewDone", default = False)

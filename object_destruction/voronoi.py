@@ -104,10 +104,8 @@ def parseFile(name):
          records.append({"v": verts, "f": faces})
      return records    
          
-def buildCellMesh(cells):      
-   
-    cube = bpy.context.active_object 
-    bpy.context.scene.objects.unlink(cube)  
+def buildCellMesh(cells, name):      
+     
     for cell in cells:
         # for each face
         verts = []
@@ -135,6 +133,8 @@ def buildCellMesh(cells):
                
         ops.mesh.primitive_cube_add()
         obj = bpy.context.active_object
+        obj.name = name
+        
         mesh = obj.data
         print("Creating new mesh")
         nmesh = bpy.data.meshes.new(name = mesh.name)
@@ -151,42 +151,57 @@ def buildCellMesh(cells):
    
         print("Assigning new mesh")     
         obj.data = nmesh 
+        
+        ops.object.origin_set(type='ORIGIN_GEOMETRY')
+        ops.object.mode_set(mode = 'EDIT')
+        ops.mesh.normals_make_consistent(inside=False)
+        ops.object.mode_set(mode = 'OBJECT')
 
-
-def voronoiCube(context, objects, parts):
-    obj = context.active_object
+def corners(obj):
     
-    print ("InVORONOICube")
     bbox = obj.bound_box.data 
     dims = bbox.dimensions
     loc = bbox.location
     
     lowCorner = (loc[0] - dims[0] / 2, loc[1] - dims[1] / 2, loc[2] - dims[2] / 2)
-    values = []
-    #verts = bbox.data.vertices
-    #dims = [2, 2, 2]
-    #lowCorner = [-1, -1, -1]
     xmin = lowCorner[0]
     xmax = lowCorner[0] + dims[0]
     ymin = lowCorner[1]
     ymax = lowCorner[1] + dims[1]
     zmin = lowCorner[2]
     zmax = lowCorner[2] + dims[2]
+    
+    return xmin, xmax, ymin, ymax, zmin, zmax 
+
+def voronoiCube(context, obj, parts, vol):
+    
+    print ("InVORONOICube")
+    volume = None
+    print("Volume", vol)
+    if vol == None or vol == "":
+        volume = obj
+    else:
+        volume = context.scene.objects[vol]
+    
+    xmin, xmax, ymin, ymax, zmin, zmax = corners(obj)   
      
     nx = 6
     ny = 6
     nz = 6
-    particles = parts
+    particles = parts+1
 
     d = voronoi.domain(xmin,xmax,ymin,ymax,zmin,zmax,nx,ny,nz, False, False, False, particles)
     
-    for i in range(0, parts):# - len(verts)):
+    xmin, xmax, ymin, ymax, zmin, zmax = corners(volume)
+    
+    values = []
+    for i in range(0, particles):# - len(verts)):
         randX = random.uniform(xmin, xmax)
         randY = random.uniform(ymin, ymax)
         randZ = random.uniform(zmin, zmax)
         values.append((randX, randY, randZ))
   
-    for i in range(0, parts):
+    for i in range(0, particles):
         x = values[i][0]
         y = values[i][1]
         z = values[i][2]
@@ -195,5 +210,8 @@ def voronoiCube(context, objects, parts):
     name = "test.out"
     d.print_custom("%P v %t", name )
     
+    
     records = parseFile(name)
-    buildCellMesh(records)    
+    buildCellMesh(records, obj.name)   
+    
+    context.scene.objects.unlink(obj) 

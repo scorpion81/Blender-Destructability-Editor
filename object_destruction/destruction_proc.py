@@ -1,7 +1,7 @@
 from bpy import types, props, utils, ops, data, path
 from bpy.types import Object, Scene
 from . import destruction_data as dd
-from . import test
+from . import voronoi
 import bpy
 import os
 import random
@@ -37,7 +37,7 @@ class Processor():
                  DestructionContext.destModes[4][0]: 
                      "self.applyKnife(context, objects, parts, jitter, granularity, cut_type)",
                  DestructionContext.destModes[5][0]: 
-                     "test.voronoiCube(context, objects, parts)" } 
+                     "self.applyVoronoi(context, objects, parts, volume)" } 
                      
         #make an object backup if necessary (if undo doesnt handle this)
         #according to mode call correct method
@@ -52,6 +52,7 @@ class Processor():
         cubify = context.object.destruction.cubify
         jitter = context.object.destruction.jitter
         cut_type = context.object.destruction.cut_type
+        volume = context.object.destruction.voro_volume
         
         objects = []
         #determine HERE, which objects will be decomposed
@@ -209,6 +210,23 @@ class Processor():
             ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
             for o in context.scene.objects:
                 o.select = False    
+    
+    def applyVoronoi(self, context, objects, parts , volume):
+        
+        for obj in objects:
+            print("applyVoronoi", obj,  parts, volume)
+            
+            #prepare parenting
+            parentName, nameStart, largest, bbox = self.prepareParenting(context)
+            backup = obj
+         
+            if obj.destruction.cubify:
+                self.cubify(context, obj, bbox, parts)
+            else:
+                voronoi.voronoiCube(context, obj, parts, volume)
+                    
+            #do the parenting
+            self.doParenting(context, parentName, nameStart, bbox, backup, largest)     
     
         
     def applyExplo(self, context, objects, parts, granularity, thickness, massive, pairwise):
@@ -390,6 +408,7 @@ class Processor():
         return child.name.startswith(context.object.name)
     
     def applyDataSet(self, context, c, nameEnd, parentName, pos, mass):
+        print("NAME: ", c.name)
         split = c.name.split(".")
         end = split[1]
         
@@ -1057,6 +1076,13 @@ class Processor():
                 for cube in cubes:
                     self.knife(context, cube, parts, jitter, granularity, cut_type)
             
+            elif object.destruction.destructionMode == 'DESTROY_V':
+                 volume = context.object.destruction.voro_volume
+                 context.scene.objects.unlink(object)
+                 
+                 for cube in cubes:
+                     voronoi.voronoiCube(context, cube, parts, volume)
+            
             else:
                 granularity = object.destruction.pieceGranularity
                 thickness = object.destruction.wallThickness
@@ -1323,6 +1349,8 @@ class DestructionContext(types.PropertyGroup):
     hierarchy_depth = props.IntProperty(name = "hierarchy_depth", default = 1, min = 1)
     flatten_hierarchy = props.BoolProperty(name = "flatten_hierarchy", default = True)
     
+    voro_volume = props.StringProperty(name="volumeSelector")
+    
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',
@@ -1361,6 +1389,7 @@ def initialize():
     Scene.converted = props.BoolProperty(name = "converted")
     Scene.validTargets = props.CollectionProperty(name = "validTargets", type = types.PropertyGroup)
     Scene.validGrounds = props.CollectionProperty(name = "validGrounds", type = types.PropertyGroup)
+ #   Scene.validVolumes = props.CollectionProperty(name = "validVolumes", type = types.PropertyGroup)
     dd.DataStore.proc = Processor()  
   
     #if hasattr(bpy.app.handlers, "object_activation" ) != 0:

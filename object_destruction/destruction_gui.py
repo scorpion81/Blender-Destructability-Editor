@@ -2,7 +2,6 @@ from bpy import types, props, utils, ops, data, path
 from bpy.types import Object, Scene
 from . import destruction_proc as dp
 from . import destruction_data as dd
-from . import test
 import math
 import os
 import bpy
@@ -67,6 +66,10 @@ class DestructabilityPanel(types.Panel):
                 row = col.row()
                 row.prop(context.object.destruction, "line_start", text = "CutLine Start")
                 row.prop(context.object.destruction, "line_end", text = "CutLine End")
+            elif context.object.destruction.destructionMode == 'DESTROY_V':
+                row = col.row()
+                row.prop_search(context.object.destruction, "voro_volume", 
+                        context.scene, "objects", icon = 'OBJECT_DATA', text = "Volume:")
             
             # col.active = context.object.destruction.destroyable
             row = layout.row()

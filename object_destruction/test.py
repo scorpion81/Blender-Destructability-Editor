@@ -88,7 +88,7 @@ def parseFile(name):
             lastIndex = closing
             next = line[closing+2]
         
-         while next != 'f':
+         while True:
             facetuple = []
             print(lastIndex, len(line), next)
             try:
@@ -97,66 +97,12 @@ def parseFile(name):
                     facetuple.append(int(f))
                 faces.append(facetuple)
                 lastIndex = closing
-                next = line[closing+2]
             except ValueError:
-                next = 'f'
-                
-         lastIndex = line.index('f') + 2     
-         centr = line.index('c', lastIndex)
-         centrStr = line[centr+2:]
-         
-         vals = centrStr.split(" ")
-         cx = float(vals[0])
-         cy = float(vals[1])
-         cz = float(vals[2])
-         
-         centroid = ((cx, cy, cz))
-         
-         areastr = line[lastIndex:centr-2]
-         vals = areastr.split(" ")
-         for a in vals:
-             areas.append(float(a))
-         
+                break
+        
          print("VERTSFACES:", verts, faces) 
-         records.append({"v": verts, "f": faces, "a": areas, "c":centroid})
+         records.append({"v": verts, "f": faces})
      return records    
-
-def planarCentroid(verts, area):
-    if len(verts) < 3:
-        return None
-    
-    b1 = Vector((1, 0, 0))
-    b2 = Vector((0, 0, 1))
-    
-    first = verts[0]
-    xy = []
-    for i in range(1, len(verts)):
-        x = (verts[i][0] - first[0])*b1[0] + \
-            (verts[i][1] - first[1])*b1[1] + \
-            (verts[i][2] - first[2])*b1[2]
-             
-        y =  (verts[i][0] - first[0])*b2[0] + \
-             (verts[i][1] - first[1])*b2[1] + \
-             (verts[i][2] - first[2])*b2[2]
-             
-        xy.append((x,y))
-    
-    sumx = 0
-    sumy = 0
-    for i in range(0, len(xy)-1):
-        factor =  xy[i][0] * xy[i+1][1] - xy[i+1][0] * xy[i][1]
-        sumx += ((xy[i][0] + xy[i+1][0]) * factor)
-        sumy += ((xy[i][1] + xy[i+1][1]) * factor)
-    
-    cpx = sumx / 6 * area
-    cpy = sumy / 6 * area
-    
-    cx = first[0] + b1[0] * cpx + b2[0] * cpy
-    cy = first[1] + b1[1] * cpx + b2[1] * cpy   
-    cz = first[2] + b1[2] * cpx + b2[2] * cpy
-    
-    print ("Centroid: ", cx, cy, cz, area)
-    return [cx, cy, cz]
          
 def buildCellMesh(cells):      
    
@@ -179,7 +125,7 @@ def buildCellMesh(cells):
                 if vert not in verts:
                     verts.append(vert)
                         
-            for j in range(0, len(v)-1):
+            for j in range(1, len(v)-1):
                 index = verts.index(v[0])
                 index1 = verts.index(v[j])
                 index2 = verts.index(v[j+1]) 
@@ -247,8 +193,7 @@ def voronoiCube(context, objects, parts):
         d.put(i, x, y, z)
         
     name = "test.out"
-    d.print_custom("%P v %t f %f c %C", name )
+    d.print_custom("%P v %t", name )
     
     records = parseFile(name)
     buildCellMesh(records)    
-#voronoiCube(20)

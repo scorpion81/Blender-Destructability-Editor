@@ -2,7 +2,7 @@ from bge import logic, events
 from time import clock
 from mathutils import Vector, Matrix
 import math
-#from bpy import ops, data
+import Rasterizer
 
 class P:
     pass
@@ -41,7 +41,9 @@ def shoot():
         act.linearVelocity = linVelocity
         control.activate(act)
     
-    
+def screenshot():
+    Rasterizer.makeScreenshot("shot#")
+        
     
     
     

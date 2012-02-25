@@ -395,7 +395,20 @@ class SetupPlayer(types.Operator):
             context.active_object.game.controllers[i+3].link(
             context.active_object.game.sensors[i+2],
             context.active_object.game.actuators[i+1])
-                     
+        
+        #make screenshots
+        ops.logic.controller_add(type = 'PYTHON', object = "Player")
+        context.active_object.game.controllers[9].mode = 'MODULE'
+        context.active_object.game.controllers[9].module = "player.screenshot" 
+        
+        ops.logic.sensor_add(type = 'KEYBOARD', object = "Player")
+        context.active_object.game.sensors[8].key = 'C'
+        
+        context.active_object.game.controllers[9].link(
+            context.active_object.game.sensors[8])
+        
+        
+               
             
         #launcher
         context.scene.objects.active = data.objects["Launcher"]

@@ -110,7 +110,7 @@ def buildCellMesh(cells, name):
         # for each face
         verts = []
         faces = []
-        cents = []
+        edges = []
         
         length = 0
         for i in range(0, len(cell["f"])):
@@ -127,7 +127,10 @@ def buildCellMesh(cells, name):
                 index = verts.index(v[0])
                 index1 = verts.index(v[j])
                 index2 = verts.index(v[j+1]) 
-                    
+                
+                edges.append([index, index1])
+                edges.append([index1, index2])
+                edges.append([index2, index])    
                 faces.append([index, index1, index2])
                     
                
@@ -140,8 +143,8 @@ def buildCellMesh(cells, name):
         nmesh = bpy.data.meshes.new(name = mesh.name)
         
         print("Building new mesh")
-        print(faces)
-        nmesh.from_pydata(verts, [], faces)
+        print(edges, faces)
+        nmesh.from_pydata(verts, edges, faces)
    
         print("Removing old mesh")    
         obj.data = None

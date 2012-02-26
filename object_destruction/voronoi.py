@@ -128,9 +128,9 @@ def buildCellMesh(cells, name):
                 index1 = verts.index(v[j])
                 index2 = verts.index(v[j+1]) 
                 
-                edges.append([index, index1])
-                edges.append([index1, index2])
-                edges.append([index2, index])    
+               # edges.append([index, index1])
+            #    edges.append([index1, index2])
+             #   edges.append([index2, index])    
                 faces.append([index, index1, index2])
                     
                
@@ -148,12 +148,13 @@ def buildCellMesh(cells, name):
    
         print("Removing old mesh")    
         obj.data = None
-        mesh.user_clear()
-        if (mesh.users == 0):
-            bpy.data.meshes.remove(mesh)
+       # mesh.user_clear()
+        #if (mesh.users == 0):
+        #    bpy.data.meshes.remove(mesh)
    
-        print("Assigning new mesh")     
-        obj.data = nmesh 
+        print("Assigning new mesh")
+        nmesh.update(calc_edges=True)     
+        obj.data = nmesh
         
         ops.object.origin_set(type='ORIGIN_GEOMETRY')
         ops.object.mode_set(mode = 'EDIT')

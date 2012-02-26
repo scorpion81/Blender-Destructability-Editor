@@ -429,7 +429,7 @@ class Processor():
        
         c.select = True
         
-        ops.object.transform_apply(scale = True)  
+       # ops.object.transform_apply(scale = True)  
         c.game.mass = mass 
         
         c.destruction.transmitMode = 'T_SELF'

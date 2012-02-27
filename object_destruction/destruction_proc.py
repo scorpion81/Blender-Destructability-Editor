@@ -30,13 +30,13 @@ class Processor():
                     "self.applyFracture(context, objects, parts, roughness, crack_type)",
                  DestructionContext.destModes[1][0]: 
                      "self.applyExplo(context, objects, parts, granularity, thickness, False, False)",
+                # DestructionContext.destModes[2][0]: 
+                #     "self.applyExplo(context, objects, parts, granularity, thickness, True, True)",
+                # DestructionContext.destModes[3][0]: 
+                #     "self.applyExplo(context, objects, parts, granularity, thickness, True, False)",
                  DestructionContext.destModes[2][0]: 
-                     "self.applyExplo(context, objects, parts, granularity, thickness, True, True)",
-                 DestructionContext.destModes[3][0]: 
-                     "self.applyExplo(context, objects, parts, granularity, thickness, True, False)",
-                 DestructionContext.destModes[4][0]: 
                      "self.applyKnife(context, objects, parts, jitter, granularity, cut_type)",
-                 DestructionContext.destModes[5][0]: 
+                 DestructionContext.destModes[3][0]: 
                      "self.applyVoronoi(context, objects, parts, volume)" } 
                      
         #make an object backup if necessary (if undo doesnt handle this)
@@ -156,60 +156,65 @@ class Processor():
             ops.object.mode_set()
         
         
-        if massive and pairwise:
-            while (len(currentParts) < parts):
-                oldnames = [o.name for o in context.scene.objects]
-                  #pick always the largest object to subdivide
-                sizes = {}
-                [self.dictItem(sizes, self.getSize(o), o.name) for o in context.scene.objects if o.name in currentParts]
-                    
-                maxSize = max(sizes.keys())
-                name = sizes[maxSize]
-                tocut = context.scene.objects[name]
-                context.scene.objects.active = tocut
-                parent = context.active_object.parent
-                
-                self.previewExplo(context, 2, 0) 
-                self.separateExplo(context, 0)   
-                
-                part = self.findNew(context, oldnames)
-                
-                ops.object.mode_set(mode = 'EDIT')
-                ops.mesh.select_all(action = 'SELECT')
-                ops.mesh.region_to_loop()
-                ops.mesh.fill()
-                ops.mesh.select_all(action = 'SELECT')
-                ops.mesh.normals_make_consistent()
-                ops.object.mode_set(mode = 'OBJECT')
-                tocut.select = True
-                ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
-                tocut.select = False
-            
-                context.scene.objects.active = context.scene.objects[part]
-                ops.object.mode_set(mode = 'EDIT')
-                ops.mesh.select_all(action = 'SELECT')
-                ops.mesh.region_to_loop()
-                ops.mesh.fill()
-                ops.mesh.select_all(action = 'SELECT')
-                ops.mesh.normals_make_consistent()
-                ops.object.mode_set(mode = 'OBJECT')
-                context.active_object.select = True
-                ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
-                context.active_object.select = False
-                
-                
-                currentParts.append(part)
-            
-        else:
+#        if massive and pairwise:
+#            while (len(currentParts) < parts):
+#                oldnames = [o.name for o in context.scene.objects]
+#                  #pick always the largest object to subdivide
+#               # sizes = {}
+#                #[self.dictItem(sizes, self.getSize(o), o.name) for o in context.scene.objects if o.name in currentParts]
+#                    
+#                #maxSize = max(sizes.keys())
+#                #name = sizes[maxSize]
+#                index = random.randint(0, len(currentParts)-1)
+#                tocut = context.scene.objects[currentParts[index]]
+#                context.scene.objects.active = tocut
+#                parent = context.active_object.parent
+#                
+#                self.previewExplo(context, 2, 0) 
+#                self.separateExplo(context, 0)   
+#                
+#                part = self.findNew(context, oldnames)[0].name
+#                
+#                ops.object.mode_set(mode = 'EDIT')
+#                ops.mesh.select_all(action = 'SELECT')
+#                ops.mesh.region_to_loop()
+#                ops.mesh.fill()
+#               # ops.mesh.edge_face_add()
+#                #ops.mesh.quads_convert_to_tris()
+#                ops.mesh.select_all(action = 'SELECT')
+#                ops.mesh.normals_make_consistent()
+#                ops.object.mode_set(mode = 'OBJECT')
+#                tocut.select = True
+#                ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+#                tocut.select = False
+#            
+#                context.scene.objects.active = context.scene.objects[part]
+#                ops.object.mode_set(mode = 'EDIT')
+#                ops.mesh.select_all(action = 'SELECT')
+#                ops.mesh.region_to_loop()
+#                ops.mesh.fill()
+#               # ops.mesh.edge_face_add()
+#                #ops.mesh.quads_convert_to_tris()
+#                ops.mesh.select_all(action = 'SELECT')
+#                ops.mesh.normals_make_consistent()
+#                ops.object.mode_set(mode = 'OBJECT')
+#                context.active_object.select = True
+#                ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+#                context.active_object.select = False
+#                
+#                
+#                currentParts.append(part)
+#            
+#        else:
             #explosion modifier specific    
-            self.previewExplo(context, parts, thickness)
-            self.separateExplo(context, thickness)
-            
-            for o in context.scene.objects:
-                o.select = True
-            ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
-            for o in context.scene.objects:
-                o.select = False    
+        self.previewExplo(context, parts, thickness)
+        self.separateExplo(context, thickness)
+        
+        for o in context.scene.objects:
+            o.select = True
+        ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
+        for o in context.scene.objects:
+            o.select = False    
     
     def applyVoronoi(self, context, objects, parts , volume):
         
@@ -283,7 +288,8 @@ class Processor():
         ops.object.mode_set(mode = 'EDIT')
         ops.mesh.select_all(action = 'DESELECT')
         #omit loose vertices, otherwise they form an own object!
-        ops.mesh.select_by_number_vertices(type='OTHER')
+        #ops.mesh.select_by_number_vertices(number = 3, type='LESS')
+        ops.mesh.select_loose_verts()
         ops.mesh.delete(type = 'VERT')
         ops.mesh.select_all(action = 'SELECT')
         ops.mesh.separate(type = 'LOOSE')
@@ -1297,14 +1303,14 @@ def updateValidGrounds(object):
 class DestructionContext(types.PropertyGroup):
     
     destModes = [('DESTROY_F', 'Boolean Fracture', 'Destroy this object using boolean fracturing', 0 ), 
-             ('DESTROY_E_H', 'Explosion Modifier (Hollow)', 
+             ('DESTROY_E_H', 'Explosion Modifier', 
               'Destroy this object using the explosion modifier, forming a hollow shape', 1),
-             ('DESTROY_E_M', 'Explosion Modifier (Massive)', 
-               'Destroy this object using the explosion modifier, forming a massive shape', 2),
-             ('DESTROY_E_P', 'Explosion Modifier (Small Pieces)', 
-               'Destroy this object using the explosion modifier, forming small pieces', 3),
-             ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 4),
-             ('DESTROY_V', 'Voronoi Fracture', 'Destroy this object using voronoi decomposition', 5)] 
+             #('DESTROY_E_M', 'Explosion Modifier (Massive)', 
+             #  'Destroy this object using the explosion modifier, forming a massive shape', 2),
+             #('DESTROY_E_P', 'Explosion Modifier (Small Pieces)', 
+             #  'Destroy this object using the explosion modifier, forming small pieces', 3),
+             ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 2),
+             ('DESTROY_V', 'Voronoi Fracture', 'Destroy this object using voronoi decomposition', 3)] 
     
     transModes = [('T_SELF', 'This Object', 'Apply settings to this object only', 0), 
              ('T_SELECTED', 'Selected', 'Apply settings to all selected objects as well', 1),
@@ -1343,7 +1349,7 @@ class DestructionContext(types.PropertyGroup):
     groundSelector = props.StringProperty(name = "groundSelector")
     targetSelector = props.StringProperty(name = "targetSelector")
 
-    wallThickness = props.FloatProperty(name = "wallThickness", default = 0.01, min = 0.01, max = 10,
+    wallThickness = props.FloatProperty(name = "wallThickness", default = 0.01, min = 0, max = 10,
                                       update = updateWallThickness)
     pieceGranularity = props.IntProperty(name = "pieceGranularity", default = 4, min = 0, max = 100, 
                                          update = updatePieceGranularity)

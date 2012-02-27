@@ -45,6 +45,7 @@ def setup():
     
     global firstparent
     global firstShard
+    global ground
     
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():
@@ -120,7 +121,7 @@ def calculateGrids():
     #firstShard.suspendDynamics()
     
     for o in scene.objects:
-        if isGroundConnectivity(o):
+        if isGroundConnectivity(o) or isGround(o):
             print("ISGROUNDCONN")
             
             bbox = getFloats(o["gridbbox"])
@@ -148,7 +149,7 @@ def calculateGrids():
             firstparent.worldOrientation = oldRot
             [g.removeParent() for g in groundObjs]
             
-            ground = groundObjs[0]
+           # ground = groundObjs[0]
         
     print("Grids: ", dd.DataStore.grids)  
     
@@ -159,6 +160,7 @@ def calculateGrids():
 def collide():
     
     global maxHierarchyDepth
+    global ground
     #colliders have collision sensors attached, which trigger for registered destructibles only
     
     #first the script controller brick, its sensor and owner are needed
@@ -174,10 +176,14 @@ def collide():
     gridValid = False
         
     for p in children.keys():
-        print(children[p][0])
+      #  print(children[p][0])
         for obj in children[p]:
             if obj.getDistanceTo(owner) < 2.0:
                 dissolve(obj, 1, maxHierarchyDepth, owner)
+                
+    for c in ground.children:
+       if c.getDistanceTo(owner) < 2.0:
+           dissolve(c, 1, maxHierarchyDepth, owner)
                  
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
@@ -188,9 +194,14 @@ def dissolve(obj, depth, maxdepth, owner):
         if obj in children[p]:
             parent = p
             break
-    par = scene.objects[parent]
+        
+    par = None
+    if parent != None:
+       par = scene.objects[parent]
+    else:
+       par = ground
           
-    if isDestroyable(par) and isRegistered(par, owner):
+    if isDestroyable(par) and isRegistered(par, owner) or isGround(par):
         
         grid = None
         if par.name in dd.DataStore.grids.keys():
@@ -220,7 +231,12 @@ def activate(child, owner, grid):
         if child in children[p]:
             parent = p
             break
-     par = scene.objects[parent]
+    
+     #ground is parent when connectivity is used    
+     if parent == None:
+         par = ground
+     else:
+         par = scene.objects[parent]
      
      #if parent is hit, reparent all to first child if any
      #TODO: do this hierarchical
@@ -240,7 +256,7 @@ def activate(child, owner, grid):
 #             newParent.mass = mass
 #             firstShard = newParent        
 #                 
-     if isGroundConnectivity(par) and not isGround(par) and gridValid:
+     if isGroundConnectivity(par) or isGround(par) and gridValid:
          if grid != None:
              cells = dict(grid.cells)
              gridPos = grid.getCellByName(child.name)
@@ -268,9 +284,9 @@ def activate(child, owner, grid):
         
      
      
-     if child != firstShard or not isGroundConnectivity(par):
-        child.removeParent()
-        child.restoreDynamics()
+    # if not isGroundConnectivity(par) or isGround(par):# or child != firstShard
+     child.removeParent()
+     child.restoreDynamics()
      
      if child in children[parent]:
         children[parent].remove(child)
@@ -281,15 +297,14 @@ def isGroundConnectivity(obj):
         return False
     return obj["groundConnectivity"]
 
-def isGround(obj):
-    return obj["isGround"]    
-
 def isDestroyable(destroyable):
-    if destroyable == None:
+    if destroyable == None or "destroyable" not in destroyable.getPropertyNames():
         return False
     return destroyable["destroyable"]
 
 def isGround(obj):
+    if "isGround" not in obj.getPropertyNames():
+        return False
     return obj["isGround"]
 
 def isRegistered(destroyable, destructor):

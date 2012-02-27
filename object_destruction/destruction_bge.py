@@ -80,9 +80,11 @@ def setup():
                     oldPar = scene.objects[i[0]]
                     
                     #keep sticky if groundConnectivity is wanted
-                   # if isGroundConnectivity(oldPar):
-                    #    c.suspendDynamics()
-                     #   firstShard.suspendDynamics()
+                    if isGroundConnectivity(oldPar):
+                        c.suspendDynamics()
+                        firstShard.suspendDynamics()
+                        ground = scene.objects["Ground"]
+                        c.setParent(ground, True, False)
                         
     #    if "flatten_hierarchy" in i[1][0].getPropertyNames():
     #        firstShard.mass = totalMass
@@ -222,21 +224,22 @@ def activate(child, owner, grid):
      
      #if parent is hit, reparent all to first child if any
      #TODO: do this hierarchical
-     if child == firstShard and isGroundConnectivity(par):
-         print("HIT PARENT")
-         mass = firstShard.mass
-         if len(firstShard.children) > 0:
-             newParent = firstShard.children[0]
-          #   newParent.compound = True
-             newParent.setParent(ground, False, False)
-             for ch in firstShard.children:
-                 if ch != newParent:
-                    ch.removeParent()
-                    ch.setParent(newParent, True, False)
-                    
-             newParent.mass = mass
-             firstShard = newParent        
-                 
+#     if child == firstShard and isGroundConnectivity(par):
+#         print("HIT PARENT")
+#         mass = firstShard.mass
+#         if len(firstShard.children) > 0:
+#             newParent = firstShard.children[0]
+#          #   newParent.compound = True
+#             newParent.suspendDynamics()
+#        #     newParent.setParent(ground, True, False)
+#             for ch in firstShard.children:
+#                 if ch != newParent:
+#                    ch.removeParent()
+#                    ch.setParent(ground, True, False)
+#                    
+#             newParent.mass = mass
+#             firstShard = newParent        
+#                 
      if isGroundConnectivity(par) and not isGround(par) and gridValid:
          if grid != None:
              cells = dict(grid.cells)

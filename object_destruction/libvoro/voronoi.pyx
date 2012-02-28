@@ -11,9 +11,15 @@ cdef extern from "voro/src/voro++.hh" namespace "voro":
                     int nx, int ny, int nz, bool xp, bool yp, bool zp, int p)
         void put(int i, double x, double y, double z)
         void print_custom(char *format, FILE *fp)
+        void add_wall(wall_plane* w)
+        bool point_inside(double x, double y, double z)
+
+    cdef cppclass wall_plane:
+        wall_plane(double xn, double yn, double zn, double dn, int w_id)
 
 cdef class domain:
     cdef container *thisptr
+
     def __cinit__(self, int xmin, int xmax, int ymin, int ymax, int zmin, int zmax, \
     int nx, int ny, int nz, bool xp, bool yp, bool zp, int p):
         self.thisptr = new container(xmin, xmax, ymin, ymax, zmin, zmax, nx, ny,
@@ -43,5 +49,15 @@ cdef class domain:
       
         if (ret != 0):
             print("Closing file error!", fp)
+
+    def add_wall(self, l):
+        cdef wall_plane* wp = NULL
+        for e in l:                      
+            wp = new wall_plane(e[0], e[1], e[2], e[3], e[4])
+            self.thisptr.add_wall(wp)
+
+    def point_inside(self, x, y, z):
+        return self.thisptr.point_inside(x, y, z)
+
 
 

@@ -57,6 +57,7 @@ import random
 from mathutils import Vector
 import bpy
 from bpy import ops
+#import bmesh
 
 def bracketPair(line, lastIndex):
     opening = line.index("(", lastIndex)
@@ -90,7 +91,7 @@ def parseFile(name):
         
          while True:
             facetuple = []
-            print(lastIndex, len(line), next)
+          #  print(lastIndex, len(line), next)
             try:
                 vals, closing = bracketPair(line, lastIndex)
                 for f in vals:
@@ -117,7 +118,7 @@ def buildCellMesh(cells, name):
             v = []
             #get corresponding vertices
             for index in cell["f"][i]:
-                print(index)
+              #  print(index)
                 vert = cell["v"][index]
                 v.append(vert)
                 if vert not in verts:
@@ -155,6 +156,7 @@ def buildCellMesh(cells, name):
         print("Assigning new mesh")
         nmesh.update(calc_edges=True)     
         obj.data = nmesh
+        print("Mesh Done")
         
         ops.object.origin_set(type='ORIGIN_GEOMETRY')
         ops.object.mode_set(mode = 'EDIT')
@@ -189,14 +191,40 @@ def voronoiCube(context, obj, parts, vol):
     
     xmin, xmax, ymin, ymax, zmin, zmax = corners(obj)   
      
-    nx = 6
-    ny = 6
-    nz = 6
-    particles = parts+1
+    nx = 12
+    ny = 12
+    nz = 12
+    particles = parts
 
-    d = voronoi.domain(xmin,xmax,ymin,ymax,zmin,zmax,nx,ny,nz, False, False, False, particles)
+    print(xmin, xmax, ymin, ymax, zmin, zmax)
+    con = voronoi.domain(xmin,xmax,ymin,ymax,zmin,zmax,nx,ny,nz, False, False, False, particles)
+    print("After")
     
     xmin, xmax, ymin, ymax, zmin, zmax = corners(volume)
+    
+    #add a wall object
+    ops.object.mode_set(mode = 'EDIT')
+ #   bm = bmesh.from_mesh(obj.data)
+    bm = obj.data
+    
+    print("After bmesh")
+    colist = []
+    i = 0
+    for poly in bm.polygons:
+       # n = p.calc_center_median()
+        n = poly.normal
+        v = bm.vertices[poly.vertices[0]].co
+        d = n.dot(v)
+        print("Displacement: ", d)
+        colist.append([n[0], n[1], n[2], d, i])
+        i = i+1
+        
+    ops.object.mode_set(mode = 'OBJECT')
+    
+    print("After colist")
+   # print(colist)
+    con.add_wall(colist)
+  #  print("After wall")
     
     values = []
     for i in range(0, particles):# - len(verts)):
@@ -209,10 +237,13 @@ def voronoiCube(context, obj, parts, vol):
         x = values[i][0]
         y = values[i][1]
         z = values[i][2]
-        d.put(i, x, y, z)
+        #if con.point_inside(x, y, z):
+        con.put(i, x, y, z)
+    
+  #  d.add_wall(colist)
         
     name = "test.out"
-    d.print_custom("%P v %t", name )
+    con.print_custom("%P v %t", name )
     
     
     records = parseFile(name)

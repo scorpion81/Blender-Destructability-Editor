@@ -4,5 +4,5 @@ from Cython.Distutils import build_ext
 
 setup(
     cmdclass = {'build_ext': build_ext},
-    ext_modules = [Extension("voronoi", ["voronoi.pyx", "voro/src/voro++.cc"], language="c++")]
+    ext_modules = [Extension("voronoi", [ "voro/src/voro++.cc", "voronoi.pyx"], language="c++")]
 )

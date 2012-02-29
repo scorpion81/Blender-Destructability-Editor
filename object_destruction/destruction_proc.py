@@ -1165,7 +1165,7 @@ class Processor():
         
         ops.object.mode_set(mode = 'EDIT')  
         ops.mesh.select_all(action = 'SELECT')
-        ops.mesh.remove_doubles(limit = 0.01)
+        ops.mesh.remove_doubles(mergedist = 0.01)
         ops.object.mode_set(mode = 'OBJECT') 
         
         ob.select = True

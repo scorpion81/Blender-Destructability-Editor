@@ -133,6 +133,7 @@ def buildCellMesh(cells, name):
             #    edges.append([index1, index2])
              #   edges.append([index2, index])    
                 faces.append([index, index1, index2])
+                assert(len(set(faces[-1])) == 3)
                     
                
         ops.mesh.primitive_cube_add()
@@ -154,7 +155,8 @@ def buildCellMesh(cells, name):
         #    bpy.data.meshes.remove(mesh)
    
         print("Assigning new mesh")
-        nmesh.update(calc_edges=True)     
+        nmesh.update(calc_edges=True) 
+        nmesh.validate()    
         obj.data = nmesh
         print("Mesh Done")
         
@@ -203,11 +205,13 @@ def voronoiCube(context, obj, parts, vol):
     xmin, xmax, ymin, ymax, zmin, zmax = corners(volume)
     
     #add a wall object
-    ops.object.mode_set(mode = 'EDIT')
+  #  ops.object.mode_set(mode = 'EDIT')
  #   bm = bmesh.from_mesh(obj.data)
     bm = obj.data
+#    ops.mesh.select_all(action = 'SELECT')
+  #  ops.mesh.flip_normals()
     
-    print("After bmesh")
+ #   print("After bmesh")
     colist = []
     i = 0
     for poly in bm.polygons:
@@ -218,8 +222,9 @@ def voronoiCube(context, obj, parts, vol):
         print("Displacement: ", d)
         colist.append([n[0], n[1], n[2], d, i])
         i = i+1
-        
-    ops.object.mode_set(mode = 'OBJECT')
+    
+#    ops.mesh.flip_normals()    
+ #   ops.object.mode_set(mode = 'OBJECT')
     
     print("After colist")
    # print(colist)

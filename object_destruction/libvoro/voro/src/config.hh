@@ -102,7 +102,7 @@ const double optimal_particles=5.6;
 
 /** If this is set to 1, then the code reports any instances of particles being
  * put outside of the container geometry. */
-#define VOROPP_REPORT_OUT_OF_BOUNDS 0
+#define VOROPP_REPORT_OUT_OF_BOUNDS 1
 
 /** Voro++ returns this status code if there is a file-related error, such as
  * not being able to open file. */

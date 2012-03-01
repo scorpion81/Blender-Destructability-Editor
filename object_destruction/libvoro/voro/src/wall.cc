@@ -118,5 +118,6 @@ bool wall_cone::cut_cell_base(v_cell &c,double x,double y,double z) {
 	}
 	return true;
 }
-
+template bool wall_plane::cut_cell_base<voronoicell>(voronoicell &c, double x, double y, double z);
+template bool wall_plane::cut_cell_base<voronoicell_neighbor>(voronoicell_neighbor &c, double x, double y, double z);
 }

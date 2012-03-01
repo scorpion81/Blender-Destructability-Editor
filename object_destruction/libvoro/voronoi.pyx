@@ -7,7 +7,7 @@ cdef extern from "stdio.h":
 
 cdef extern from "voro/src/voro++.hh" namespace "voro":
     cdef cppclass container:
-        container(int xmin, int xmax, int ymin, int ymax, int zmin, int zmax,
+        container(double xmin, double xmax, double ymin, double ymax, double zmin, double zmax,
                     int nx, int ny, int nz, bool xp, bool yp, bool zp, int p)
         void put(int i, double x, double y, double z)
         void print_custom(char *format, FILE *fp)
@@ -20,7 +20,7 @@ cdef extern from "voro/src/voro++.hh" namespace "voro":
 cdef class domain:
     cdef container *thisptr
 
-    def __cinit__(self, int xmin, int xmax, int ymin, int ymax, int zmin, int zmax, \
+    def __cinit__(self, double xmin, double xmax, double ymin, double ymax, double zmin, double zmax, \
     int nx, int ny, int nz, bool xp, bool yp, bool zp, int p):
         self.thisptr = new container(xmin, xmax, ymin, ymax, zmin, zmax, nx, ny,
                     nz, xp, yp, zp, p)

@@ -1038,6 +1038,7 @@ class Processor():
 #            levelOk = cLevel < level
 #        else:
 #            levelOk = True 
+ #       print(c.name, c.parent)
         
         return (c.name.startswith(nameStart)) and (context.object.parent == c.parent)
     
@@ -1100,6 +1101,7 @@ class Processor():
                  context.scene.objects.unlink(object)
                  
                  for cube in cubes:
+                     #ops.object.transform_apply(scale=True, location=True)
                      voronoi.voronoiCube(context, cube, parts, volume)
             
             else:

@@ -407,8 +407,7 @@ class SetupPlayer(types.Operator):
         context.active_object.game.controllers[9].link(
             context.active_object.game.sensors[8])
         
-        
-               
+              
             
         #launcher
         context.scene.objects.active = data.objects["Launcher"]

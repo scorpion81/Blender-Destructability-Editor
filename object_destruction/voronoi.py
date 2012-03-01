@@ -63,7 +63,7 @@ def bracketPair(line, lastIndex):
     opening = line.index("(", lastIndex)
     closing = line.index(")", opening)
     
-    print(opening, closing)
+   # print(opening, closing)
     values = line[opening+1:closing]
     vals = values.split(",")
     return vals, closing
@@ -101,7 +101,7 @@ def parseFile(name):
             except ValueError:
                 break
         
-         print("VERTSFACES:", verts, faces) 
+       #  print("VERTSFACES:", verts, faces) 
          records.append({"v": verts, "f": faces})
      return records    
          
@@ -131,34 +131,40 @@ def buildCellMesh(cells, name):
                 
                # edges.append([index, index1])
             #    edges.append([index1, index2])
-             #   edges.append([index2, index])    
-                faces.append([index, index1, index2])
-                assert(len(set(faces[-1])) == 3)
+             #   edges.append([index2, index])   
+                if (index == index1) or (index == index2) or \
+                (index2 == index1):
+                    continue
+                else: 
+                    faces.append([index, index1, index2])
+                #assert(len(set(faces[-1])) == 3)
                     
-               
         ops.mesh.primitive_cube_add()
         obj = bpy.context.active_object
         obj.name = name
+        obj.parent = bpy.context.scene.objects[name].parent
+        
         
         mesh = obj.data
-        print("Creating new mesh")
-        nmesh = bpy.data.meshes.new(name = mesh.name)
+    #    print("Creating new mesh")
+        nmesh = bpy.data.meshes.new(name = name)
         
-        print("Building new mesh")
-        print(edges, faces)
+   #     print("Building new mesh")
+       # print(edges, faces)
         nmesh.from_pydata(verts, edges, faces)
    
-        print("Removing old mesh")    
+   #     print("Removing old mesh")    
         obj.data = None
-       # mesh.user_clear()
+        #mesh.user_clear()
         #if (mesh.users == 0):
         #    bpy.data.meshes.remove(mesh)
    
-        print("Assigning new mesh")
+       # print("Assigning new mesh")
         nmesh.update(calc_edges=True) 
         nmesh.validate()    
         obj.data = nmesh
-        print("Mesh Done")
+      #  obj.name = nmesh.name
+      #  print("Mesh Done")
         
         ops.object.origin_set(type='ORIGIN_GEOMETRY')
         ops.object.mode_set(mode = 'EDIT')
@@ -183,15 +189,18 @@ def corners(obj):
 
 def voronoiCube(context, obj, parts, vol):
     
-    print ("InVORONOICube")
-    volume = None
-    print("Volume", vol)
-    if vol == None or vol == "":
-        volume = obj
-    else:
-        volume = context.scene.objects[vol]
-    
-    xmin, xmax, ymin, ymax, zmin, zmax = corners(obj)   
+    #applyscale before
+    loc = Vector(obj.location)
+    ops.object.transform_apply(scale=True, location = True)
+   
+    xmin, xmax, ymin, ymax, zmin, zmax = corners(obj)
+          
+    xmin += loc[0]
+    xmax += loc[0]
+    ymin += loc[1]
+    ymax += loc[1]
+    zmin += loc[2]
+    zmax += loc[2] 
      
     nx = 12
     ny = 12
@@ -199,19 +208,23 @@ def voronoiCube(context, obj, parts, vol):
     particles = parts
 
     print(xmin, xmax, ymin, ymax, zmin, zmax)
-    con = voronoi.domain(xmin,xmax,ymin,ymax,zmin,zmax,nx,ny,nz, False, False, False, particles)
-    print("After")
     
-    xmin, xmax, ymin, ymax, zmin, zmax = corners(volume)
+    #enlarge container a bit, so parts near the border wont be cut off
+    theta = 10
+    con = voronoi.domain(xmin-theta,xmax+theta,ymin-theta,ymax+theta,zmin-theta,zmax+theta,nx,ny,nz,False, False, False, particles)
     
-    #add a wall object
-  #  ops.object.mode_set(mode = 'EDIT')
- #   bm = bmesh.from_mesh(obj.data)
+    if vol == None or vol == "":
+        pass
+    else:
+        xmin, xmax, ymin, ymax, zmin, zmax = corners(context.scene.objects[vol])
+        xmin += loc[0]
+        xmax += loc[0]
+        ymin += loc[1]
+        ymax += loc[1]
+        zmin += loc[2]
+        zmax += loc[2] 
+    
     bm = obj.data
-#    ops.mesh.select_all(action = 'SELECT')
-  #  ops.mesh.flip_normals()
-    
- #   print("After bmesh")
     colist = []
     i = 0
     for poly in bm.polygons:
@@ -219,17 +232,12 @@ def voronoiCube(context, obj, parts, vol):
         n = poly.normal
         v = bm.vertices[poly.vertices[0]].co
         d = n.dot(v)
-        print("Displacement: ", d)
+       # print("Displacement: ", d)
         colist.append([n[0], n[1], n[2], d, i])
         i = i+1
     
-#    ops.mesh.flip_normals()    
- #   ops.object.mode_set(mode = 'OBJECT')
-    
-    print("After colist")
-   # print(colist)
+    #add a wall object per face    
     con.add_wall(colist)
-  #  print("After wall")
     
     values = []
     for i in range(0, particles):# - len(verts)):
@@ -242,7 +250,8 @@ def voronoiCube(context, obj, parts, vol):
         x = values[i][0]
         y = values[i][1]
         z = values[i][2]
-        #if con.point_inside(x, y, z):
+       # if con.point_inside(x, y, z):
+        print("Inserting", x, y, z)
         con.put(i, x, y, z)
     
   #  d.add_wall(colist)
@@ -250,7 +259,7 @@ def voronoiCube(context, obj, parts, vol):
     name = "test.out"
     con.print_custom("%P v %t", name )
     
-    
+    del con
     records = parseFile(name)
     buildCellMesh(records, obj.name)   
     

@@ -33,6 +33,9 @@ comment out line 661:
 Otherwise this would remove the msvcrt.dll from the manifest and then R6034
 would occur.
 
+You also need to insert the __init__.py in the os specific folders, if not 
+present. Take the one from the win64 dir, for example.
+
 FEATURES:
 
 working: -Decomposition with different methods (Boolean, Explosion Modifier, 

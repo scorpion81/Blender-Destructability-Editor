@@ -1,58 +1,20 @@
-# 1: // Voronoi calculation example code
-# 2: //
-# 3: // Author   : Chris H. Rycroft (LBL / UC Berkeley)
-# 4: // Email    : chr@alum.mit.edu
-# 5: // Date     : August 30th 2011
-# 6: 
-# 7: #include "voro++.hh"
-# 8: using namespace voro;
-# 9: 
-#10: // Set up constants for the container geometry
-#11: const double x_min=-1,x_max=1;
-#12: const double y_min=-1,y_max=1;
-#13: const double z_min=-1,z_max=1;
-#14: const double cvol=(x_max-x_min)*(y_max-y_min)*(x_max-x_min);
-#15: 
-#16: // Set up the number of blocks that the container is divided into
-#17: const int n_x=6,n_y=6,n_z=6;
-#18: 
-#19: // Set the number of particles that are going to be randomly introduced
-#20: const int particles=20;
-#21: 
-#22: // This function returns a random double between 0 and 1
-#23: double rnd() {return double(rand())/RAND_MAX;}
-#24: 
-#25: int main() {
-#26:         int i;
-#27:         double x,y,z;
-#28: 
-#29:         // Create a container with the geometry given above, and make it
-#30:         // non-periodic in each of the three coordinates. Allocate space for
-#31:         // eight particles within each computational block
-#32:         container con(x_min,x_max,y_min,y_max,z_min,z_max,n_x,n_y,n_z,
-#33:                         false,false,false,8);
-#34: 
-#35:         // Randomly add particles into the container
-#36:         for(i=0;i<particles;i++) {
-#37:                 x=x_min+rnd()*(x_max-x_min);
-#38:                 y=y_min+rnd()*(y_max-y_min);
-#39:                 z=z_min+rnd()*(z_max-z_min);
-#40:                 con.put(i,x,y,z);
-#41:         }
-#42: 
-#43:         // Sum up the volumes, and check that this matches the container volume
-#44:         double vvol=con.sum_cell_volumes();
-#45:         printf("Container volume : %g\n"
-#46:                "Voronoi volume   : %g\n"
-#47:                "Difference       : %g\n",cvol,vvol,vvol-cvol);
-#48: 
-#49:         // Output the particle positions in gnuplot format
-#50:         con.draw_particles("random_points_p.gnu");
-#51: 
-#52:         // Output the Voronoi cells in gnuplot format
-#53:         con.draw_cells_gnuplot("random_points_v.gnu");
 
-from object_destruction.libvoro import voronoi
+
+import platform
+
+if platform.architecture()[0] == "64bit":
+    if platform.architecture()[1] == "ELF":
+        from object_destruction.libvoro.linux64 import voronoi
+    elif platform.architecture()[1] == "WindowsPE":
+        extname = "win64/voronoi"
+        from object_destruction.libvoro.win64 import voronoi
+elif platform.architecture[0]() == "32bit":
+    if platform.architecture[1]() == "ELF":
+        from object_destruction.libvoro.linux32 import voronoi
+    elif platform.architecture()[1] == "WindowsPE":
+       from object_destruction.libvoro.win32 import voronoi
+
+#from object_destruction.libvoro import voronoi
 import random
 from mathutils import Vector
 import bpy

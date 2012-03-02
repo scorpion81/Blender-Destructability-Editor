@@ -260,22 +260,26 @@ def activate(child, owner, grid):
      
      #if parent is hit, reparent all to first child if any
      #TODO: do this hierarchical
-#     if child == firstShard and isGroundConnectivity(par):
-#         print("HIT PARENT")
-#         mass = firstShard.mass
+     if child == firstShard and not isGroundConnectivity(par):
+         print("HIT PARENT")
+         for ch in firstShard.children:
+             ch.removeParent()
+              #      ch.setParent(newParent, True, False)
+         
+#  #      mass = firstShard.mass
 #         if len(firstShard.children) > 0:
 #             newParent = firstShard.children[0]
 #          #   newParent.compound = True
 #             newParent.suspendDynamics()
 #        #     newParent.setParent(ground, True, False)
 #             for ch in firstShard.children:
-#                 if ch != newParent:
+#                if ch != newParent:
 #                    ch.removeParent()
-#                    ch.setParent(ground, True, False)
+#                    ch.setParent(newParent, True, False)
 #                    
 #             newParent.mass = mass
 #             firstShard = newParent        
-#                 
+                 
      if isGroundConnectivity(par) or isGround(par) and gridValid:
          if grid != None:
              cells = dict(grid.cells)

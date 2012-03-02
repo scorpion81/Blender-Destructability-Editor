@@ -354,6 +354,11 @@ class Processor():
         [self.applyDataSet(context, c, largest, parentName, pos, mass) for c in context.scene.objects if 
          self.isRelated(c, context, nameStart)] 
          
+        #deactivate old compound settings 
+        if parent.parent != None:
+            for c in parent.parent.children:
+                c.game.use_collision_compound = False
+         
         lastChild = parent.children[len(parent.children) - 1]
         lastChild.game.use_collision_compound = True   
         

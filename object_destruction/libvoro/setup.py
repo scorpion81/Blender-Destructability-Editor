@@ -9,12 +9,15 @@ if platform.architecture()[0] == "64bit":
         extname = "linux64/voronoi"
     elif platform.architecture()[1] == "WindowsPE":
         extname = "win64/voronoi"
+    else:
+        extname = "osx64/voronoi"
 elif platform.architecture()[0] == "32bit":
     if platform.architecture()[1] == "ELF":
         extname = "linux32/voronoi"
     elif platform.architecture()[1] == "WindowsPE":
         extname = "win32/voronoi"
-
+    else:
+        extname = "osx32/voronoi"
 setup(
     cmdclass = {'build_ext': build_ext},
     ext_modules = [Extension(extname, [ "voro/src/voro++.cc", "voronoi.pyx"], language="c++")]

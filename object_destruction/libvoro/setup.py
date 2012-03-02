@@ -9,8 +9,8 @@ if platform.architecture()[0] == "64bit":
         extname = "linux64/voronoi"
     elif platform.architecture()[1] == "WindowsPE":
         extname = "win64/voronoi"
-elif platform.architecture[0]() == "32bit":
-    if platform.architecture[1]() == "ELF":
+elif platform.architecture()[0] == "32bit":
+    if platform.architecture()[1] == "ELF":
         extname = "linux32/voronoi"
     elif platform.architecture()[1] == "WindowsPE":
         extname = "win32/voronoi"

@@ -8,8 +8,8 @@ if platform.architecture()[0] == "64bit":
     elif platform.architecture()[1] == "WindowsPE":
         extname = "win64/voronoi"
         from object_destruction.libvoro.win64 import voronoi
-elif platform.architecture[0]() == "32bit":
-    if platform.architecture[1]() == "ELF":
+elif platform.architecture()[0] == "32bit":
+    if platform.architecture()[1] == "ELF":
         from object_destruction.libvoro.linux32 import voronoi
     elif platform.architecture()[1] == "WindowsPE":
        from object_destruction.libvoro.win32 import voronoi

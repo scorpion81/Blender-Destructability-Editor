@@ -321,11 +321,17 @@ class Processor():
         context.active_object.parent = parent
         context.active_object.destruction.gridBBox = bbox
   
-        dd.DataStore.backups[context.active_object.name] = backup
+       # dd.DataStore.backups[context.active_object.name] = backup
+        backup.destruction.is_backup_for = context.active_object.name
+        backup.use_fake_user = True
         
         #get the first backup, need that position
         if parent == None:
-            pos = dd.DataStore.backups["P0_" + nameStart + ".000"].location
+           # pos = dd.DataStore.backups["P0_" + nameStart + ".000"].location
+            for o in data.objects:
+                if o.destruction != None:
+                    if o.destruction.is_backup_for == "P0_" + nameStart + ".000":
+                        pos = o.location
             print("EMPTY Pos: ", pos)
             context.active_object.location = pos
         else:
@@ -1376,7 +1382,7 @@ class DestructionContext(types.PropertyGroup):
     flatten_hierarchy = props.BoolProperty(name = "flatten_hierarchy", default = True)
     
     voro_volume = props.StringProperty(name="volumeSelector")
-    
+    is_backup_for = props.StringProperty(name = "is_backup_for")
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',

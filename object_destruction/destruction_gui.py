@@ -84,7 +84,13 @@ class DestructabilityPanel(types.Panel):
             row.prop(context.active_object.destruction, "transmitMode",  text = "Apply To")
         
         row = layout.row()
-        if context.object.name in dd.DataStore.backups and isParent:
+        names = []
+        for o in data.objects:
+            if o.destruction != None:
+                if o.destruction.is_backup_for != None:
+                    names.append(o.destruction.is_backup_for)
+        
+        if context.object.name in names and isParent:
             row.operator("object.undestroy")
         elif isMesh or (isParent and (context.object.transmitMode == context.object.transModes[2][0] or \
         context.object.transmitMode == context.object.transModes[3][0])):
@@ -761,9 +767,16 @@ class ConvertParenting(types.Operator):
                        
     def unconvert(self, context):
         pos = Vector((0.0, 0.0, 0.0))
+        posFound = False
         for o in context.scene.objects:
              if o.name.startswith("P0"):
-                 pos = dd.DataStore.backups[o.name].location
+                 for obj in data.objects:
+                     if obj.destruction != None:
+                         if obj.destruction.is_backup_for == o.name:
+                            pos = obj.location
+                            posFound = True
+                            break
+             if posFound:
                  break
         
         for o in context.scene.objects:
@@ -864,8 +877,13 @@ class UndestroyObject(types.Operator):
     
     def execute(self, context):
         #context.scene.objects.link(context.object.destruction["backup"])
-        context.scene.objects.link(dd.DataStore.backups[context.object.name])
-        del dd.DataStore.backups[context.object.name]
+        for o in data.objects:
+            if o.destruction != None:
+                if o.destruction.is_backup_for == context.object.name:
+                    context.scene.objects.link(o)
+                    o.destruction.is_backup_for == None
+                    o.use_fake_user = False
+        #del dd.DataStore.backups[context.object.name]
         
         for o in data.objects:
             o.select = False

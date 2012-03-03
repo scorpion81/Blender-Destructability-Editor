@@ -135,6 +135,7 @@ def buildCellMesh(cells, name):
         ops.object.origin_set(type='ORIGIN_GEOMETRY')
         ops.object.mode_set(mode = 'EDIT')
         ops.mesh.normals_make_consistent(inside=False)
+        ops.mesh.dissolve_limited()
         ops.object.mode_set(mode = 'OBJECT')
 
 def corners(obj):
@@ -153,7 +154,7 @@ def corners(obj):
     
     return xmin, xmax, ymin, ymax, zmin, zmax 
 
-def voronoiCube(context, obj, parts, vol):
+def voronoiCube(context, obj, parts, vol, walls):
     
     #applyscale before
     loc = Vector(obj.location)
@@ -176,7 +177,9 @@ def voronoiCube(context, obj, parts, vol):
     print(xmin, xmax, ymin, ymax, zmin, zmax)
     
     #enlarge container a bit, so parts near the border wont be cut off
-    theta = 10
+    theta = 0.25
+    if walls:
+        theta = 10
     con = voronoi.domain(xmin-theta,xmax+theta,ymin-theta,ymax+theta,zmin-theta,zmax+theta,nx,ny,nz,False, False, False, particles)
     
     if vol == None or vol == "":
@@ -191,19 +194,21 @@ def voronoiCube(context, obj, parts, vol):
         zmax += loc[2] 
     
     bm = obj.data
-    colist = []
-    i = 0
-    for poly in bm.polygons:
-       # n = p.calc_center_median()
-        n = poly.normal
-        v = bm.vertices[poly.vertices[0]].co
-        d = n.dot(v)
-       # print("Displacement: ", d)
-        colist.append([n[0], n[1], n[2], d, i])
-        i = i+1
     
-    #add a wall object per face    
-    con.add_wall(colist)
+    if walls:
+        colist = []
+        i = 0
+        for poly in bm.polygons:
+           # n = p.calc_center_median()
+            n = poly.normal
+            v = bm.vertices[poly.vertices[0]].co
+            d = n.dot(v)
+           # print("Displacement: ", d)
+            colist.append([n[0], n[1], n[2], d, i])
+            i = i+1
+        
+        #add a wall object per face    
+        con.add_wall(colist)
     
     values = []
     for i in range(0, particles):# - len(verts)):
@@ -226,7 +231,38 @@ def voronoiCube(context, obj, parts, vol):
     con.print_custom("%P v %t", name )
     
     del con
-    records = parseFile(name)
-    buildCellMesh(records, obj.name)   
     
+    oldnames = [o.name for o in context.scene.objects]
+    records = parseFile(name)
+    buildCellMesh(records, obj.name)
+    
+    if not walls:
+        for o in context.scene.objects:
+            if o.name not in oldnames:
+                context.scene.objects.active = o
+                booleanIntersect(context, o, obj)
+                oldnames.append(o.name)
+               
     context.scene.objects.unlink(obj) 
+    
+def booleanIntersect(context, o, obj):
+    bool = o.modifiers.new("Boolean", 'BOOLEAN')
+    bool.object = obj
+    bool.operation = 'INTERSECT'
+    
+    mesh = o.to_mesh(context.scene, 
+                    apply_modifiers=True, 
+                    settings='PREVIEW')
+                         
+    old_mesh = o.data
+    o.data = None
+    old_mesh.user_clear()
+        
+    if (old_mesh.users == 0):
+        bpy.data.meshes.remove(old_mesh)  
+            
+    o.data = mesh 
+    o.modifiers.remove(bool)
+    o.select = True
+    ops.object.origin_set(type='ORIGIN_GEOMETRY')
+    o.select = False

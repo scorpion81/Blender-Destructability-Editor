@@ -37,7 +37,9 @@ class Processor():
                  DestructionContext.destModes[2][0]: 
                      "self.applyKnife(context, objects, parts, jitter, granularity, cut_type)",
                  DestructionContext.destModes[3][0]: 
-                     "self.applyVoronoi(context, objects, parts, volume)" } 
+                     "self.applyVoronoi(context, objects, parts, volume, True)",  
+                 DestructionContext.destModes[4][0]: 
+                     "self.applyVoronoi(context, objects, parts, volume, False)" } 
                      
         #make an object backup if necessary (if undo doesnt handle this)
         #according to mode call correct method
@@ -216,10 +218,11 @@ class Processor():
         for o in context.scene.objects:
             o.select = False    
     
-    def applyVoronoi(self, context, objects, parts , volume):
+    def applyVoronoi(self, context, objects, parts , volume, wall):
         
         for obj in objects:
-            print("applyVoronoi", obj,  parts, volume)
+            print("applyVoronoi", obj,  parts, volume, wall)
+            obj.destruction.wall = wall
             
             #prepare parenting
             parentName, nameStart, largest, bbox = self.prepareParenting(context)
@@ -228,7 +231,7 @@ class Processor():
             if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
             else:
-                voronoi.voronoiCube(context, obj, parts, volume)
+                voronoi.voronoiCube(context, obj, parts, volume, wall)
                     
             #do the parenting
             self.doParenting(context, parentName, nameStart, bbox, backup, largest)     
@@ -1109,11 +1112,12 @@ class Processor():
             
             elif object.destruction.destructionMode == 'DESTROY_V':
                  volume = context.object.destruction.voro_volume
+                 wall = context.object.destruction.wall
                  context.scene.objects.unlink(object)
                  
                  for cube in cubes:
                      #ops.object.transform_apply(scale=True, location=True)
-                     voronoi.voronoiCube(context, cube, parts, volume)
+                     voronoi.voronoiCube(context, cube, parts, volume, wall)
             
             else:
                 granularity = object.destruction.pieceGranularity
@@ -1323,7 +1327,9 @@ class DestructionContext(types.PropertyGroup):
              #('DESTROY_E_P', 'Explosion Modifier (Small Pieces)', 
              #  'Destroy this object using the explosion modifier, forming small pieces', 3),
              ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 2),
-             ('DESTROY_V', 'Voronoi Fracture', 'Destroy this object using voronoi decomposition', 3)] 
+             ('DESTROY_V', 'Voronoi Fracture', 'Destroy this object using voronoi decomposition', 3),
+             ('DESTROY_VB', 'Voronoi + Boolean', 'Destroy this object simple voronoi and a boolean modifier', 4)] 
+             
     
     transModes = [('T_SELF', 'This Object', 'Apply settings to this object only', 0), 
              ('T_SELECTED', 'Selected', 'Apply settings to all selected objects as well', 1),
@@ -1383,6 +1389,7 @@ class DestructionContext(types.PropertyGroup):
     
     voro_volume = props.StringProperty(name="volumeSelector")
     is_backup_for = props.StringProperty(name = "is_backup_for")
+    wall = props.BoolProperty(name = "wall", default = True)
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',

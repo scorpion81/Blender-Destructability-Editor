@@ -362,7 +362,7 @@ class Processor():
         print("Mass: ", backup.game.mass)
         mass = backup.game.mass / backup.destruction.partCount
         context.scene.objects.active = context.object
-        [self.applyDataSet(context, c, largest, parentName, pos, mass) for c in context.scene.objects if 
+        [self.applyDataSet(context, c, largest, parentName, pos, mass, backup) for c in context.scene.objects if 
          self.isRelated(c, context, nameStart)] 
          
         #deactivate old compound settings 
@@ -429,15 +429,15 @@ class Processor():
     def valid(self,context, child):
         return child.name.startswith(context.object.name)
     
-    def applyDataSet(self, context, c, nameEnd, parentName, pos, mass):
+    def applyDataSet(self, context, c, nameEnd, parentName, pos, mass, backup):
         print("NAME: ", c.name)
         split = c.name.split(".")
         end = split[1]
         
         if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName):
-            self.assign(c, parentName, pos, mass)  
+            self.assign(c, parentName, pos, mass, backup)  
         
-    def assign(self, c, parentName, pos, mass):
+    def assign(self, c, parentName, pos, mass, backup):
          
         #correct a parenting "error": the parts are moved pos too far
         c.location -= pos
@@ -460,6 +460,12 @@ class Processor():
         c.destruction.wallThickness = 0.01
         c.destruction.pieceGranularity = 0
         c.destruction.destructionMode = 'DESTROY_F'
+        
+        c.destruction.isGround = backup.destruction.isGround
+        c.destruction.destructor = backup.destruction.destructor
+        for p in backup.destruction.destructorTargets:
+            prop = c.destruction.destructorTargets.add()
+            prop.name = p.name
         
     
     def isBeingSplit(self, c, parentName):
@@ -1322,6 +1328,13 @@ def updateValidGrounds(object):
 
 class DestructionContext(types.PropertyGroup):
     
+    def getVolumes():
+        ret = []
+        for o in bpy.context.scene.objects:
+            if o.type == 'MESH' and o != bpy.context.scene.objects.active:
+                ret.append((o.name, o.name, o.name))
+        return ret
+    
     destModes = [('DESTROY_F', 'Boolean Fracture', 'Destroy this object using boolean fracturing', 0 ), 
              ('DESTROY_E_H', 'Explosion Modifier', 
               'Destroy this object using the explosion modifier, forming a hollow shape', 1),
@@ -1395,6 +1408,7 @@ class DestructionContext(types.PropertyGroup):
     wall = props.BoolProperty(name = "wall", default = True)
     tempLoc = props.FloatVectorProperty(name = "tempLoc", default = (0, 0, 0))
     
+    
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',
         items=(
@@ -1424,6 +1438,7 @@ class DestructionContext(types.PropertyGroup):
                         ('LINEAR', 'Linear', 'a'),
                         ('ROUND', 'Round', 'a')),
                 default = 'LINEAR') 
+                
             
     
 def initialize():
@@ -1445,4 +1460,5 @@ def uninitialize():
     #if hasattr(bpy.app.handlers, "object_activation" ) != 0:
         #bpy.app.handlers.object_activation.remove(updateValidTargets)
         #bpy.app.handlers.object_activation.remove(updateValidGrounds)
+       
     

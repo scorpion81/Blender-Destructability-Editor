@@ -226,9 +226,9 @@ def voronoiCube(context, obj, parts, vol, walls):
         x = values[i][0]
         y = values[i][1]
         z = values[i][2]
-       # if con.point_inside(x, y, z):
-        print("Inserting", x, y, z)
-        con.put(i, x, y, z)
+        if con.point_inside(x, y, z):
+            print("Inserting", x, y, z)
+            con.put(i, x, y, z)
     
   #  d.add_wall(colist)
         

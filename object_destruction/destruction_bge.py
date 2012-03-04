@@ -140,7 +140,7 @@ def calculateGrids():
     #firstShard.suspendDynamics()
     
     for o in scene.objects:
-        if isGroundConnectivity(o) or isGround(o):
+        if isGroundConnectivity(o) or (isGround(o) and not isDestructor(o)):
             print("ISGROUNDCONN")
             
             bbox = getFloats(o["gridbbox"])
@@ -220,7 +220,8 @@ def dissolve(obj, depth, maxdepth, owner):
        par = scene.objects[parent]
     else:
        par = ground
-          
+    
+    print("Owner:", owner, isRegistered(par, owner))      
     if isDestroyable(par) and isRegistered(par, owner) or isGround(par):
         
         grid = None
@@ -325,6 +326,11 @@ def isDestroyable(destroyable):
     if destroyable == None or "destroyable" not in destroyable.getPropertyNames():
         return False
     return destroyable["destroyable"]
+
+def isDestructor(obj):
+    if obj == None or "destructor" not in obj.getPropertyNames():
+        return False
+    return obj["destructor"]
 
 def isGround(obj):
     if "isGround" not in obj.getPropertyNames():
@@ -441,37 +447,3 @@ def destructionList(cell, destList):
     #in a radius around collision check whether this are shards of a destructible /or 
     #whether it is a destructible at all if it is activate cell children and reduce integrity of
     #cells if ground connectivity is taken care of
-
-#def calcAverages():
-#    
-#    #after building the parent relationships, unparent temporarily, set empty at average position
-#    #and re-parent
-#    scene = logic.getCurrentScene()
-#    visited = []
-#    for o in scene.objects:
-#        if o.parent != None:
-#            par = o.parent.parent
-#            if par != None and par.name != "Player" and par.name != "Eye" and \
-#            par.name != "Center":
-#                if par.name not in visited:
-#                    visited.append(par.name)
-#                    childs = []
-#                    sumx = 0
-#                    sumy = 0
-#                    sumz = 0
-#                    for c in par.children:
-#                        sumx += c.worldPosition[0]
-#                        sumy += c.worldPosition[1]
-#                        sumz += c.worldPosition[2]
-#                        childs.append(c)
-#                    length = len(par.children)
-#                    if length > 0:
-#                        for c in childs:
-#                            c.removeParent()
-#                        average = Vector((sumx / length, sumy / length, sumz / length))
-#                        par.worldPosition = average
-#                        print("Average: ", par.name, average)
-#                        for c in childs:
-#                            c.setParent(par, True, False)
-#                
-    

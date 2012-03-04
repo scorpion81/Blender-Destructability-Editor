@@ -109,7 +109,7 @@ def buildCellMesh(cells, name):
         obj = bpy.context.active_object
         obj.name = name
         obj.parent = bpy.context.scene.objects[name].parent
-        
+     #   obj.location += loc         
         
         mesh = obj.data
     #    print("Creating new mesh")
@@ -131,11 +131,12 @@ def buildCellMesh(cells, name):
         obj.data = nmesh
       #  obj.name = nmesh.name
       #  print("Mesh Done")
-        
+        obj.select = True
         ops.object.origin_set(type='ORIGIN_GEOMETRY')
+        obj.select = False
         ops.object.mode_set(mode = 'EDIT')
         ops.mesh.normals_make_consistent(inside=False)
-        ops.mesh.dissolve_limited()
+      #  ops.mesh.dissolve_limited()
         ops.object.mode_set(mode = 'OBJECT')
 
 def corners(obj):
@@ -158,7 +159,11 @@ def voronoiCube(context, obj, parts, vol, walls):
     
     #applyscale before
     loc = Vector(obj.location)
+    obj.destruction.tempLoc = loc
+    context.scene.objects.active = obj
+    obj.select = True
     ops.object.transform_apply(scale=True, location = True)
+    obj.select = False
    
     xmin, xmax, ymin, ymax, zmin, zmax = corners(obj)
           

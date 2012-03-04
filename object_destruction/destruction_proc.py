@@ -335,6 +335,8 @@ class Processor():
                 if o.destruction != None:
                     if o.destruction.is_backup_for == "P0_" + nameStart + ".000":
                         pos = o.location
+                        pos += Vector(o.destruction.tempLoc) #needed for voronoi
+                        o.destruction.tempLoc = Vector((0, 0, 0))
             print("EMPTY Pos: ", pos)
             context.active_object.location = pos
         else:
@@ -1110,7 +1112,8 @@ class Processor():
                 for cube in cubes:
                     self.knife(context, cube, parts, jitter, granularity, cut_type)
             
-            elif object.destruction.destructionMode == 'DESTROY_V':
+            elif object.destruction.destructionMode == 'DESTROY_V' or \
+                 object.destruction.destructionMode == 'DESTROY_VB':
                  volume = context.object.destruction.voro_volume
                  wall = context.object.destruction.wall
                  context.scene.objects.unlink(object)
@@ -1390,6 +1393,7 @@ class DestructionContext(types.PropertyGroup):
     voro_volume = props.StringProperty(name="volumeSelector")
     is_backup_for = props.StringProperty(name = "is_backup_for")
     wall = props.BoolProperty(name = "wall", default = True)
+    tempLoc = props.FloatVectorProperty(name = "tempLoc", default = (0, 0, 0))
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',

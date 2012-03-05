@@ -46,6 +46,7 @@ def setup():
     global firstparent
     global firstShard
     global ground
+    global children
     
     #temp hack
   #  player = scene.objects["Player"]
@@ -56,7 +57,8 @@ def setup():
         if o.name != "Player":
             if "myParent" in o.getPropertyNames():
                 parent = o["myParent"]
-                if parent.startswith("P0"):
+                if parent.startswith("P0") and \
+                scene.objects[parent] not in firstparent:
                     firstparent.append(scene.objects[parent])
                 print("Setting temp parent", o, parent)
                 o.setParent(scene.objects[parent])
@@ -64,7 +66,7 @@ def setup():
   #  print(firstparent)
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():  
-            print(o, o.parent) 
+            print(o, o.parent, len(firstparent)) 
             for fp in firstparent:
                 objname = o.name.split(".")[0]
                 if fp.name not in children.keys() and objname in fp.name:
@@ -81,6 +83,7 @@ def setup():
         if o.name != "Player" and o.name != "Launcher" and \
         o.name != "Eye":
             o.removeParent()
+    print(len(children))
       
     for i in children.items():
       #  scene.objects[i[0]].endObject()
@@ -92,12 +95,12 @@ def setup():
                     oldPar = scene.objects[i[0]]
                    # print("OLDPAR: ", oldPar.name)
                     objname = c.name.split(".")[0]
-                    print(objname, objname in oldPar.name)
+                    #print(objname, objname in oldPar.name)
                     if c["flatten_hierarchy"] and c not in firstShard and objname in oldPar.name:   #this should be a global setting....
-                        print("Setting parent", c, " -> ", firstShard[oldPar.name])
+                       # print("Setting parent", c, " -> ", firstShard[oldPar.name])
                         c.setParent(firstShard[oldPar.name], True, False)   
                     elif c not in firstShard and objname in oldPar.name:
-                        print("Setting parent hierarchically", c, " -> ", i[1][0])      
+                      #  print("Setting parent hierarchically", c, " -> ", i[1][0])      
                         c.setParent(i[1][0], True, False)
                         #set hierarchical masses...
                     totalMass += mass
@@ -106,7 +109,7 @@ def setup():
                     
                     #keep sticky if groundConnectivity is wanted
                     if isGroundConnectivity(oldPar):
-                        print("Setting Sticky")
+                      #  print("Setting Sticky")
                         c.suspendDynamics()
                         firstShard[oldPar.name].suspendDynamics()
                         ground = scene.objects["Ground"]
@@ -117,7 +120,7 @@ def setup():
     #    else:
     #        i[1][0].mass = totalMass
                     
-    
+#    print("Children:", len(children))
 def checkSpeed():
     #print("In checkSpeed")
     global gridValid
@@ -270,7 +273,7 @@ def activate(child, owner, grid):
      
      #if parent is hit, reparent all to first child if any
      #TODO: do this hierarchical
-     if child in firstShard and not isGroundConnectivity(par):
+     if child in firstShard.values() and not isGroundConnectivity(par):
          print("HIT PARENT", par)
          for ch in firstShard[par.name].children:
              ch.removeParent()

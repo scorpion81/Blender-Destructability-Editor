@@ -152,28 +152,28 @@ class DestructabilityPanel(types.Panel):
             row.operator("target.add", icon = 'ZOOMIN', text = "")
             row.active = context.object.destruction.destructor 
         
-        if isMesh or isParent:
-            row = layout.row()
-            row.prop_search(context.object.destruction, "custom_ball", context.scene, 
-                        "objects", icon = 'OBJECT_DATA', text = "Custom Ball:")
-            
-            row = layout.row()
-            col = row.column() 
+        #if isMesh or isParent:
+        row = layout.row()
+        row.prop_search(context.object.destruction, "custom_ball", context.scene, 
+                    "objects", icon = 'OBJECT_DATA', text = "Custom Ball:")
         
-            col.operator("player.setup")
-            col.active = not context.scene.player
-        
-            col = row.column()
-            col.operator("player.clear")
-            col.active = context.scene.player
-        
-            row = layout.row()
-        
-            txt = "To Editor Parenting"
-            if not context.scene.converted:
-                txt = "To Game Parenting"
-       
-            row.operator("parenting.convert", text = txt)
+        row = layout.row()
+        col = row.column() 
+    
+        col.operator("player.setup")
+        col.active = not context.scene.player
+    
+        col = row.column()
+        col.operator("player.clear")
+        col.active = context.scene.player
+    
+        row = layout.row()
+    
+        txt = "To Editor Parenting"
+        if not context.scene.converted:
+            txt = "To Game Parenting"
+   
+        row.operator("parenting.convert", text = txt)
         
 class AddGroundOperator(types.Operator):
     bl_idname = "ground.add"
@@ -418,13 +418,50 @@ class SetupPlayer(types.Operator):
         ops.logic.sensor_add(type = 'MOUSE', object = "Launcher")
         context.active_object.game.sensors[0].mouse_event = 'LEFTCLICK'
         
-        ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Shoot", object = "Launcher")
-        context.active_object.game.actuators[0].mode = 'ADDOBJECT'
-        context.active_object.game.actuators[0].object = ball
-        
         context.active_object.game.controllers[0].link(
-            context.active_object.game.sensors[0],
-            context.active_object.game.actuators[0])
+                context.active_object.game.sensors[0])
+        
+        launcher = context.active_object
+        i = 0
+        if len(ball.children) > 0:
+            childs = [c for c in ball.children]
+            context.scene.layers = [True, True, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False]
+            for b in childs:
+                b.select = True
+                context.scene.objects.active = b
+                ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+                ops.object.transform_apply(location = True, scale = True, rotation = True)
+               
+                ops.object.game_property_new()
+                b.game.properties[0].name = "myParent"
+                b.game.properties[0].type = 'STRING'
+                b.game.properties[0].value = ball.name
+                
+                b.select = False
+                
+                context.scene.objects.active = launcher
+                ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Shoot", object = "Launcher")
+                context.active_object.game.actuators[i].mode = 'ADDOBJECT'
+                context.active_object.game.actuators[i].object = b
+                
+                context.active_object.game.controllers[0].link(
+                    actuator = context.active_object.game.actuators[i])
+                
+                i += 1
+            context.scene.layers = [True, False, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False]
+            
+        ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Shoot", object = "Launcher")
+        context.active_object.game.actuators[i].mode = 'ADDOBJECT'
+        context.active_object.game.actuators[i].object = ball
+            
+        context.active_object.game.controllers[0].link(
+                actuator = context.active_object.game.actuators[i])
         
         #ball
         context.scene.objects.active = ball #data.objects["Ball"]
@@ -477,7 +514,17 @@ class ClearPlayer(types.Operator):
         data.objects["Player"].select = True
         data.objects["Eye"].select = True
         data.objects["Launcher"].select = True
-        data.objects["Ball"].select = True
+        
+        ballname = context.object.destruction.custom_ball
+        if ballname != None and ballname != "":
+            data.objects[ballname].select = True
+            for o in data.objects:
+                if "myParent" in o.game.properties:
+                    #it is always the first by now
+                    if ballname == o.game.properties[0].value:
+                        o.select = True
+        else:
+            data.objects["Ball"].select = True
         data.objects["Ground"].select = True
      
         ops.object.delete()
@@ -681,6 +728,10 @@ class ConvertParenting(types.Operator):
                     continue
                 
             o.select = True
+            context.scene.objects.active = o
+            print("Clearing parent: ", o)
+            #ctx = context.copy()
+            #ctx["object"] = o
             ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
             o.select = False
         

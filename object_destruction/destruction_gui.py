@@ -96,7 +96,7 @@ class DestructabilityPanel(types.Panel):
         
         layout.separator()
        
-        if isMesh:
+        if isMesh or isParent:
             layout.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
         
         if isParent:
@@ -125,7 +125,7 @@ class DestructabilityPanel(types.Panel):
             col.active = context.object.destruction.groundConnectivity
        
         layout.separator()
-        if isMesh: # or isParent: if destroyables were able to be dynamic....
+        if isMesh or isParent: #if destroyables were able to be dynamic....
             layout.prop(context.object.destruction, "destructor", text = "Destructor")
         
             row = layout.row()
@@ -153,6 +153,10 @@ class DestructabilityPanel(types.Panel):
             row.active = context.object.destruction.destructor 
         
         if isMesh or isParent:
+            row = layout.row()
+            row.prop_search(context.object.destruction, "custom_ball", context.scene, 
+                        "objects", icon = 'OBJECT_DATA', text = "Custom Ball:")
+            
             row = layout.row()
             col = row.column() 
         
@@ -298,16 +302,37 @@ class SetupPlayer(types.Operator):
         data.objects["Player"].select = True
         ops.transform.translate(value = (3, 0, 3))
        
-        
-        ops.mesh.primitive_ico_sphere_add(layers = [False, True, False, False, False,
-                                                    False, False, False, False, False,
-                                                    False, False, False, False, False,
-                                                    False, False, False, False, False])
-        context.active_object.name = "Ball"   
-        
-        context.active_object.game.physics_type = 'RIGID_BODY'
-        context.active_object.game.collision_bounds_type = 'SPHERE' 
-        context.active_object.game.mass = 100.0                                         
+        ballname = context.object.destruction.custom_ball
+        if ballname == None or ballname == "":
+            ops.mesh.primitive_ico_sphere_add(layers = [False, True, False, False, False,
+                                                        False, False, False, False, False,
+                                                        False, False, False, False, False,
+                                                        False, False, False, False, False])
+            context.active_object.name = "Ball"
+            ball = context.active_object 
+            ball.game.physics_type = 'RIGID_BODY'
+            ball.game.collision_bounds_type = 'SPHERE'
+            ball.game.mass = 100.0
+              
+        else:
+            ball = context.scene.objects[ballname] 
+            if ball.type == 'MESH':
+                context.scene.objects.active = ball
+                context.active_object.game.physics_type = 'RIGID_BODY'
+                context.active_object.game.collision_bounds_type = 'SPHERE' #what about non-spheres ?
+                context.active_object.game.mass = 100.0
+            elif ball.type == 'EMPTY' and len(ball.children) > 0 and ball.name != "Player" and \
+            ball.name != "Launcher":
+                for c in ball.children: 
+                    context.scene.objects.active = c
+                    context.active_object.game.physics_type = 'RIGID_BODY'
+                    context.active_object.game.collision_bounds_type = 'CONVEX_HULL'
+                    context.active_object.game.mass = 100.0
+                last = ball.children[-1]
+                last.game.use_collision_compound = True
+            else:
+                self.report({'ERROR_INVALID_INPUT'}, "The ball must be a mesh or a destroyable parent")
+                return {'CANCELLED'}                                         
         
         #load bge scripts
         print(__file__)
@@ -395,14 +420,14 @@ class SetupPlayer(types.Operator):
         
         ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Shoot", object = "Launcher")
         context.active_object.game.actuators[0].mode = 'ADDOBJECT'
-        context.active_object.game.actuators[0].object = data.objects["Ball"]
+        context.active_object.game.actuators[0].object = ball
         
         context.active_object.game.controllers[0].link(
             context.active_object.game.sensors[0],
             context.active_object.game.actuators[0])
         
         #ball
-        context.scene.objects.active = data.objects["Ball"]
+        context.scene.objects.active = ball #data.objects["Ball"]
         context.active_object.destruction.destructor = True
         
         for o in context.scene.objects:
@@ -547,7 +572,9 @@ class ConvertParenting(types.Operator):
             
                     context.active_object.game.controllers[controllers].link(
                     context.active_object.game.sensors[sensors])    
-                  
+        
+        dp.updateIsGround(context)
+        dp.updateDestructor(context)          
         for o in context.scene.objects: #data.objects:
             
             if context.scene.player:

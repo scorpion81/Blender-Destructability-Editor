@@ -33,8 +33,8 @@ integrity = 0.5
 children = {}
 scene = logic.getCurrentScene()
 gridValid = False
-firstparent = None
-firstShard = None
+firstparent = []
+firstShard = {}
 
 #TODO, temporary hack
 ground = None
@@ -57,23 +57,25 @@ def setup():
             if "myParent" in o.getPropertyNames():
                 parent = o["myParent"]
                 if parent.startswith("P0"):
-                    firstparent = scene.objects[parent]
-                print("Setting parent", o, parent)
+                    firstparent.append(scene.objects[parent])
+                print("Setting temp parent", o, parent)
                 o.setParent(scene.objects[parent])
     
   #  print(firstparent)
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():  
             print(o, o.parent) 
-            if firstparent.name not in children.keys():
-                children[firstparent.name] = list()
-                children[firstparent.name].append(o)
-                if o.name.startswith("P"):
-                    while len(o.children) != 0:
-                        o = o.children[0]
-                firstShard = o
-            else: 
-                children[firstparent.name].append(o)
+            for fp in firstparent:
+                objname = o.name.split(".")[0]
+                if fp.name not in children.keys() and objname in fp.name:
+                    children[fp.name] = list()
+                    children[fp.name].append(o)
+                    if o.name.startswith("P"):
+                        while len(o.children) != 0:
+                            o = o.children[0]
+                    firstShard[fp.name] = o
+                elif objname in fp.name:
+                    children[fp.name].append(o)
             
         #remove temporary parenting
         if o.name != "Player" and o.name != "Launcher" and \
@@ -87,22 +89,26 @@ def setup():
             if c != i[1][0]: 
                 if "flatten_hierarchy" in c.getPropertyNames():
                     mass = c.mass
-                    if c["flatten_hierarchy"] and c != firstShard:   #this should be a global setting....
-                        print("Setting parent", c, " -> ", firstShard)
-                        c.setParent(firstShard, True, False)   
-                    elif c != firstShard:
+                    oldPar = scene.objects[i[0]]
+                   # print("OLDPAR: ", oldPar.name)
+                    objname = c.name.split(".")[0]
+                    print(objname, objname in oldPar.name)
+                    if c["flatten_hierarchy"] and c not in firstShard and objname in oldPar.name:   #this should be a global setting....
+                        print("Setting parent", c, " -> ", firstShard[oldPar.name])
+                        c.setParent(firstShard[oldPar.name], True, False)   
+                    elif c not in firstShard and objname in oldPar.name:
                         print("Setting parent hierarchically", c, " -> ", i[1][0])      
                         c.setParent(i[1][0], True, False)
                         #set hierarchical masses...
                     totalMass += mass
                     
-                    oldPar = scene.objects[i[0]]
+                    #oldPar = scene.objects[i[0]]
                     
                     #keep sticky if groundConnectivity is wanted
                     if isGroundConnectivity(oldPar):
                         print("Setting Sticky")
                         c.suspendDynamics()
-                        firstShard.suspendDynamics()
+                        firstShard[oldPar.name].suspendDynamics()
                         ground = scene.objects["Ground"]
                         c.setParent(ground, True, False)
                         
@@ -148,25 +154,28 @@ def calculateGrids():
             
             grounds = getGrounds(o)
             groundObjs = [logic.getCurrentScene().objects[g.name] for g in grounds]
-            [g.setParent(firstparent, False, False) for g in groundObjs]
             
-            oldRot = Matrix(firstparent.worldOrientation)
-            firstparent.worldOrientation = Vector((0, 0, 0))
-            for g in grounds:
-                g.pos = Vector(logic.getCurrentScene().objects[g.name].worldPosition)
-                print(g.pos)
-                
-          #  firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
-        #    [g.removeParent() for g in groundObjs]
-            
-            grid = dd.Grid(dim, o.worldPosition, bbox, children[o.name], grounds)
-            grid.buildNeighborhood()
-            grid.findGroundCells() 
-            dd.DataStore.grids[o.name] = grid
-            
-           # firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
-            firstparent.worldOrientation = oldRot
-            [g.removeParent() for g in groundObjs]
+            for fp in firstparent:
+                if o.name in fp.name:
+                    [g.setParent(fp, False, False) for g in groundObjs]
+                    
+                    oldRot = Matrix(fp.worldOrientation)
+                    fp.worldOrientation = Vector((0, 0, 0))
+                    for g in grounds:
+                        g.pos = Vector(logic.getCurrentScene().objects[g.name].worldPosition)
+                        print(g.pos)
+                        
+                  #  firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
+                #    [g.removeParent() for g in groundObjs]
+                    
+                    grid = dd.Grid(dim, o.worldPosition, bbox, children[o.name], grounds)
+                    grid.buildNeighborhood()
+                    grid.findGroundCells() 
+                    dd.DataStore.grids[o.name] = grid
+                    
+                   # firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
+                    fp.worldOrientation = oldRot
+                    [g.removeParent() for g in groundObjs]
             
            # ground = groundObjs[0]
         
@@ -221,7 +230,7 @@ def dissolve(obj, depth, maxdepth, owner):
     else:
        par = ground
     
-    print("Owner:", owner, isRegistered(par, owner))      
+   # print("Owner:", owner, isRegistered(par, owner))      
     if isDestroyable(par) and isRegistered(par, owner) or isGround(par):
         
         grid = None
@@ -243,7 +252,7 @@ def dissolve(obj, depth, maxdepth, owner):
 
 def activate(child, owner, grid):
  #   if child.getDistanceTo(owner.worldPosition) < defaultRadius:         
-     print("activated: ", child)
+   #  print("activated: ", child)
      global integrity
      global firstShard
      
@@ -261,9 +270,9 @@ def activate(child, owner, grid):
      
      #if parent is hit, reparent all to first child if any
      #TODO: do this hierarchical
-     if child == firstShard and not isGroundConnectivity(par):
-         print("HIT PARENT")
-         for ch in firstShard.children:
+     if child in firstShard and not isGroundConnectivity(par):
+         print("HIT PARENT", par)
+         for ch in firstShard[par.name].children:
              ch.removeParent()
               #      ch.setParent(newParent, True, False)
          

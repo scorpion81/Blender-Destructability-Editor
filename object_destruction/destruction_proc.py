@@ -1218,27 +1218,49 @@ def updateWallThickness(self, context):
 def updatePieceGranularity(self, context):
     return None
 
-def updateIsGround(self, context):
-    updateValidGrounds(context.object)       
+def updateIsGround(context):
+    #updateValidGrounds(context.object) 
+    for c in context.object.children:
+        c.destruction.isGround = context.object.destruction.isGround      
     return None
 
 
 def updateGroundConnectivity(self, context):
     return None
 
-def updateDestructor(self, context):
+def updateDestructor(context):
+    
+    for c in context.object.children:
+        c.destruction.destructor = context.object.destruction.destructor
+        if c.destruction.destructor:
+            for p in context.object.destruction.destructorTargets:
+                prop = c.destruction.destructorTargets.add()
+                prop.name = p.name
+        else:
+            for p in context.object.destruction.destructorTargets:
+                index = 0
+                found = False
+                for prop in c.destruction.destructorTargets:
+                    if p.name == prop.name:
+                        found = True    
+                        break
+                    index += 1
+                    
+                if found:
+                    c.destruction.destructorTargets.remove(index)        
+                    
     return None
 
 
-def updateTransmitMode(self, context):
-   # print("TRANSMITMODE:", context.object.destruction.transmitMode)
-    return None 
+#def updateTransmitMode(self, context):
+#   # print("TRANSMITMODE:", context.object.destruction.transmitMode)
+#    return None 
 
 def updateTransmitMode(self, context):
     return None 
 
 def updateDestroyable(self, context):
-    updateValidTargets(context.object)
+   # updateValidTargets(context.object)
     return None 
 
 #disable decorator when persistence is not available
@@ -1361,10 +1383,10 @@ class DestructionContext(types.PropertyGroup):
     partCount = props.IntProperty(name = "partCount", default = 10, min = 1, max = 999, update = updatePartCount)
     destructionMode = props.EnumProperty(items = destModes, update = updateDestructionMode)
     destructor = props.BoolProperty(name = "destructor", 
-                        description = "This object can trigger destruction", update = updateDestructor)
+                        description = "This object can trigger destruction")#, update = updateDestructor)
     isGround = props.BoolProperty(name = "isGround", 
-     description = "This object serves as a hard point, objects not connected to it will be destroyed",
-     update = updateIsGround)
+     description = "This object serves as a hard point, objects not connected to it will be destroyed")
+     #update = updateIsGround)
      
     groundConnectivity = props.BoolProperty(name = "groundConnectivity", 
     description = "Determines whether connectivity of parts of this object is calculated, so only unconnected parts collapse according to their parent relations", update = updateGroundConnectivity)
@@ -1407,6 +1429,7 @@ class DestructionContext(types.PropertyGroup):
     is_backup_for = props.StringProperty(name = "is_backup_for")
     wall = props.BoolProperty(name = "wall", default = True)
     tempLoc = props.FloatVectorProperty(name = "tempLoc", default = (0, 0, 0))
+    custom_ball = props.StringProperty(name="custom_ball")
     
     
     # From pildanovak, fracture script

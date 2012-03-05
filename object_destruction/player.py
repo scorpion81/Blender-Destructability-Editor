@@ -23,7 +23,9 @@ def shoot():
     mouse = logic.mouse
     scene = logic.getCurrentScene()
     launcher = scene.objects["Launcher"]
-    control = launcher.controllers["Python"]
+    for c in launcher.controllers:
+        if "Python" in c.name:
+            control = c
     act = control.actuators["Shoot"]
     
     speed = 0
@@ -40,6 +42,8 @@ def shoot():
     
         act.linearVelocity = linVelocity
         control.activate(act)
+    
+    #here the ball is in the scene, change Parenting....TODO 
     
 def screenshot():
     Rasterizer.makeScreenshot("shot#")

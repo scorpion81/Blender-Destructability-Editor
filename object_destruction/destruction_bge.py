@@ -218,16 +218,27 @@ def collide():
     maxHierarchyDepth = owner["hierarchy_depth"]
     
     gridValid = False
+    
+    speed = 0
+    for p in children.keys():
+        for obj in children[p]:
+             tempspeed = obj.worldLinearVelocity.length
+             if tempspeed != 0:
+                pspeed = tempspeed
         
     for p in children.keys():
       #  print(children[p][0])
         for obj in children[p]:
-            if obj.getDistanceTo(owner) < 2.0:
+            ownerspeed = owner.worldLinearVelocity.length
+            if ownerspeed < 0.0001:
+                ownerspeed = speed # use objects speed then
+           # print(speed)
+            if obj.getDistanceTo(owner) < math.sqrt(ownerspeed / 2):
                 dissolve(obj, 1, maxHierarchyDepth, owner)
     
     if ground != None:            
         for c in ground.children:
-            if c.getDistanceTo(owner) < 2.0:
+            if c.getDistanceTo(owner) < math.sqrt(owner.worldLinearVelocity.length / 2):
                 dissolve(c, 1, maxHierarchyDepth, owner)
                  
 #recursively destroy parent relationships    

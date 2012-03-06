@@ -225,7 +225,7 @@ class Processor():
             obj.destruction.wall = wall
             
             #prepare parenting
-            parentName, nameStart, largest, bbox = self.prepareParenting(context)
+            parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = obj
          
             if obj.destruction.cubify:
@@ -234,7 +234,7 @@ class Processor():
                 voronoi.voronoiCube(context, obj, parts, volume, wall)
                     
             #do the parenting
-            self.doParenting(context, parentName, nameStart, bbox, backup, largest)     
+            self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)     
     
         
     def applyExplo(self, context, objects, parts, granularity, thickness, massive, pairwise):
@@ -246,7 +246,7 @@ class Processor():
             print("applyExplo", obj,  parts, granularity, thickness)
             
             #prepare parenting
-            parentName, nameStart, largest, bbox = self.prepareParenting(context)
+            parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = self.createBackup(context, obj)
             
             #if massive -> select all, region to loop, create faces, use self intersect
@@ -258,7 +258,7 @@ class Processor():
                 self.explo(context, obj, parts, granularity, thickness, massive, pairwise)
                     
             #do the parenting
-            self.doParenting(context, parentName, nameStart, bbox, backup, largest) 
+            self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj) 
        
     
     def separateExplo(self, context, thickness): 
@@ -299,7 +299,7 @@ class Processor():
         ops.object.mode_set()
         print("separated")        
     
-    def doParenting(self, context, parentName, nameStart, bbox, backup, largest):
+    def doParenting(self, context, parentName, nameStart, bbox, backup, largest, obj):
         print("Largest: ", largest)    
         
         parent = None
@@ -343,25 +343,25 @@ class Processor():
             pos = Vector((0.0, 0.0, 0.0)) 
         
         parent = context.active_object
-        parent.destruction.pos = context.object.destruction.pos
+        parent.destruction.pos = obj.destruction.pos
         parent.destruction.destroyable = True
-        parent.destruction.partCount = context.object.destruction.partCount
-        parent.destruction.wallThickness = context.object.destruction.wallThickness
-        parent.destruction.pieceGranularity = context.object.destruction.pieceGranularity
-        parent.destruction.destructionMode = context.object.destruction.destructionMode
-        parent.destruction.roughness = context.object.destruction.roughness
-        parent.destruction.crack_type = context.object.destruction.crack_type
+        parent.destruction.partCount = obj.destruction.partCount
+        parent.destruction.wallThickness = obj.destruction.wallThickness
+        parent.destruction.pieceGranularity = obj.destruction.pieceGranularity
+        parent.destruction.destructionMode = obj.destruction.destructionMode
+        parent.destruction.roughness = obj.destruction.roughness
+        parent.destruction.crack_type = obj.destruction.crack_type
         
-        parent.destruction.gridDim = context.object.destruction.gridDim
-        parent.destruction.isGround = context.object.destruction.isGround
-        parent.destruction.destructor = context.object.destruction.destructor
-        parent.destruction.cubify = context.object.destruction.cubify
+        parent.destruction.gridDim = obj.destruction.gridDim
+        parent.destruction.isGround = obj.destruction.isGround
+        parent.destruction.destructor = obj.destruction.destructor
+        parent.destruction.cubify = obj.destruction.cubify
         
         
         #distribute the object mass to the single pieces, equally for now
         print("Mass: ", backup.game.mass)
         mass = backup.game.mass / backup.destruction.partCount
-        context.scene.objects.active = context.object
+        context.scene.objects.active = obj
         [self.applyDataSet(context, c, largest, parentName, pos, mass, backup) for c in context.scene.objects if 
          self.isRelated(c, context, nameStart)] 
          
@@ -373,20 +373,20 @@ class Processor():
         lastChild = parent.children[len(parent.children) - 1]
         lastChild.game.use_collision_compound = True   
         
-        if parent.name not in context.scene.validTargets:
-            prop = bpy.context.scene.validTargets.add()
-            prop.name = parent.name
+        #if parent.name not in context.scene.validTargets:
+        #    prop = bpy.context.scene.validTargets.add()
+         #   prop.name = parent.name
         
         return parent
         
-    def prepareParenting(self, context):
+    def prepareParenting(self, context, obj):
         
-        context.object.destruction.pos = context.object.location.to_tuple()
-        bbox = context.object.bound_box.data.dimensions.to_tuple()
+        context.object.destruction.pos = obj.location.to_tuple()
+        bbox = obj.bound_box.data.dimensions.to_tuple()
         
-        context.scene.objects.active = context.object
+        context.scene.objects.active = obj
         
-        split = context.object.name.split(".")
+        split = obj.name.split(".")
         parentName = ""
         nameStart = ""
         nameEnd = ""
@@ -395,8 +395,8 @@ class Processor():
             nameStart = split[0]
             nameEnd = split[1]
         else:
-            nameStart = context.object.name
-            context.object.name = nameStart + ".000"
+            nameStart = obj.name
+            obj.name = nameStart + ".000"
             nameEnd = "000"
             
         parentName = "P0_" + nameStart + "." + nameEnd
@@ -408,19 +408,19 @@ class Processor():
         largest = nameEnd
         level = 0
       
-        if context.object.parent != None:
-            pLevel = context.object.parent.name.split("_")[0]
+        if obj.parent != None:
+            pLevel = obj.parent.name.split("_")[0]
             level = int(pLevel.lstrip("P"))
             level += 1
             #get child with lowest number, must search for it if its not child[0]
-            parentName = "P" + str(level) + "_" + context.object.name
+            parentName = "P" + str(level) + "_" + obj.name
             
             print("Subparenting...", children)
-            length = len(context.object.parent.children)
+            length = len(obj.parent.children)
             
             #get the largest child index number, hopefully it is the last one and hopefully
             #this scheme will not change in future releases !
-            largest = context.object.parent.children[length - 1].name.split(".")[1]   
+            largest = obj.parent.children[length - 1].name.split(".")[1]   
          
         return parentName, nameStart, largest, bbox    
         
@@ -477,7 +477,7 @@ class Processor():
     def applyFracture(self, context, objects, parts, roughness, crack_type):
         
         for obj in objects:
-            parentName, nameStart, largest, bbox = self.prepareParenting(context)
+            parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = self.createBackup(context, obj) 
             
             #fracture the sub objects if cubify is selected
@@ -487,7 +487,7 @@ class Processor():
             else:
                 fo.fracture_basic(context, [obj], parts, crack_type, roughness)
             
-            parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest)
+            parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)
             
             for c in parent.children:
                 c.destruction.groundConnectivity = False
@@ -514,15 +514,15 @@ class Processor():
     def applyKnife(self, context, objects, parts, jitter, granularity, cut_type):
         
         for obj in objects:
-            parentName, nameStart, largest, bbox = self.prepareParenting(context)
+            parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = self.createBackup(context, obj) 
             
             if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
             else:
                 self.knife(context, obj, parts, jitter, granularity, cut_type)
-               
-            parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest)
+              
+            parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)
             
             for c in parent.children:
                 c.destruction.groundConnectivity = False
@@ -1370,9 +1370,9 @@ class DestructionContext(types.PropertyGroup):
              
     
     transModes = [('T_SELF', 'This Object', 'Apply settings to this object only', 0), 
-             ('T_SELECTED', 'Selected', 'Apply settings to all selected objects as well', 1),
-             ('T_CHILDREN', 'Selected + Direct Children', 'Apply settings to direct children of selected objects as well', 2),
-             ('T_ALL_CHILDREN', 'Selected + All Descendants', 'Apply settings to all descendants of selected objects as well', 3)]
+             ('T_SELECTED', 'Selected', 'Apply settings to all selected objects as well', 1)]
+             #('T_CHILDREN', 'Selected + Direct Children', 'Apply settings to direct children of selected objects as well', 2),
+            # ('T_ALL_CHILDREN', 'Selected + All Descendants', 'Apply settings to all descendants of selected objects as well', 3)]
              #('T_LAYERS', 'Active Layers', 'Apply settings to all objects on active layers as well', 4), 
              #('T_ALL', 'All Objects', 'Apply settings to all objects as well', 5) ]
     
@@ -1430,6 +1430,7 @@ class DestructionContext(types.PropertyGroup):
     wall = props.BoolProperty(name = "wall", default = True)
     tempLoc = props.FloatVectorProperty(name = "tempLoc", default = (0, 0, 0))
     custom_ball = props.StringProperty(name="custom_ball")
+    voro_exact_shape = props.BoolProperty(name = "voro_exact_shape")
     
     
     # From pildanovak, fracture script

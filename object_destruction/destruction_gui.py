@@ -69,6 +69,7 @@ class DestructabilityPanel(types.Panel):
                 row = col.row()
                 row.prop_search(context.object.destruction, "voro_volume", 
                         context.scene, "objects", icon = 'OBJECT_DATA', text = "Volume:")
+                row.prop(context.object.destruction, "voro_exact_shape", text = "Use Exact Shape")
             
             row = layout.row()
             row.prop(context.object.destruction, "cubify", text = "Intersect with Grid")
@@ -719,10 +720,11 @@ class ConvertParenting(types.Operator):
             o.game.properties[index + 9].type = 'INT'
             o.game.properties[index + 9].value = o.destruction.hierarchy_depth
             
-            ops.object.game_property_new()
-            o.game.properties[index + 10].name = "flatten_hierarchy"
-            o.game.properties[index + 10].type = 'BOOL'
-            o.game.properties[index + 10].value = o.destruction.flatten_hierarchy
+            if o.parent != None:
+                ops.object.game_property_new()
+                o.game.properties[index + 10].name = "flatten_hierarchy"
+                o.game.properties[index + 10].type = 'BOOL'
+                o.game.properties[index + 10].value = o.parent.destruction.flatten_hierarchy
             
             
             

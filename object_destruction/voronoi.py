@@ -182,6 +182,10 @@ def voronoiCube(context, obj, parts, vol, walls):
 
     print(xmin, xmax, ymin, ymax, zmin, zmax)
     
+    if vol != None and vol != "" and context.object.destruction.voro_exact_shape:
+        volobj = context.scene.objects[vol]
+        particles = len(volobj.data.vertices)
+    
     #enlarge container a bit, so parts near the border wont be cut off
     theta = 0.25
     if walls:
@@ -217,19 +221,32 @@ def voronoiCube(context, obj, parts, vol, walls):
         con.add_wall(colist)
     
     values = []
-    for i in range(0, particles):# - len(verts)):
-        randX = random.uniform(xmin, xmax)
-        randY = random.uniform(ymin, ymax)
-        randZ = random.uniform(zmin, zmax)
-        values.append((randX, randY, randZ))
+    
+    if vol != None and vol != "" and context.object.destruction.voro_exact_shape:
+        volobj = context.scene.objects[vol]
+        
+        context.scene.objects.active = volobj
+        volobj.select = True
+        ops.object.transform_apply(scale=True)
+        volobj.select = False
+        
+        for v in volobj.data.vertices:
+            values.append((v.co[0], v.co[1], v.co[2]))
+        
+    else:    
+        for i in range(0, particles):
+            randX = random.uniform(xmin, xmax)
+            randY = random.uniform(ymin, ymax)
+            randZ = random.uniform(zmin, zmax)
+            values.append((randX, randY, randZ))
   
     for i in range(0, particles):
         x = values[i][0]
         y = values[i][1]
         z = values[i][2]
-        if con.point_inside(x, y, z):
-            print("Inserting", x, y, z)
-            con.put(i, x, y, z)
+        #if con.point_inside(x, y, z):
+        print("Inserting", x, y, z)
+        con.put(i, x, y, z)
     
   #  d.add_wall(colist)
         

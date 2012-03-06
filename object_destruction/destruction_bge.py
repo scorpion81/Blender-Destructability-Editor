@@ -66,18 +66,30 @@ def setup():
   #  print(firstparent)
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():  
-            print(o, o.parent, len(firstparent)) 
-            for fp in firstparent:
-                objname = o.name.split(".")[0]
-                if fp.name not in children.keys() and objname in fp.name:
-                    children[fp.name] = list()
-                    children[fp.name].append(o)
-                    if o.name.startswith("P"):
-                        while len(o.children) != 0:
-                            o = o.children[0]
-                    firstShard[fp.name] = o
-                elif objname in fp.name:
-                    children[fp.name].append(o)
+            print(o, o.parent, len(firstparent))
+            
+            if "flatten_hierarchy" in o.getPropertyNames():
+                if o["flatten_hierarchy"]:
+                    for fp in firstparent:
+                        objname = o.name.split(".")[0]
+                        if fp.name not in children.keys() and objname in fp.name:
+                            children[fp.name] = list()
+                            children[fp.name].append(o)
+                            if o.name.startswith("P"):
+                                while len(o.children) != 0:
+                                    o = o.children[0]
+                            firstShard[fp.name] = o
+                        elif objname in fp.name:
+                            children[fp.name].append(o)
+                else:
+                    if o.parent.name not in children.keys():
+                        children[o.parent.name] = list()
+                    if o.name.startswith("P") and len(o.children) > 0:
+                        ch = o.children[0]
+                    else:
+                        ch = o
+                    children[o.parent.name].append(ch)
+                     
             
         #remove temporary parenting
         if o.name != "Player" and o.name != "Launcher" and \
@@ -97,11 +109,12 @@ def setup():
                     objname = c.name.split(".")[0]
                     #print(objname, objname in oldPar.name)
                     if c["flatten_hierarchy"] and c not in firstShard and objname in oldPar.name:   #this should be a global setting....
-                       # print("Setting parent", c, " -> ", firstShard[oldPar.name])
+                        print("Setting parent", c, " -> ", firstShard[oldPar.name])
                         c.setParent(firstShard[oldPar.name], True, False)   
                     elif c not in firstShard and objname in oldPar.name:
-                      #  print("Setting parent hierarchically", c, " -> ", i[1][0])      
-                        c.setParent(i[1][0], True, False)
+                        parent = i[1][0]
+                        print("Setting parent hierarchically", c, " -> ", parent)      
+                        c.setParent(parent, True, False)
                         #set hierarchical masses...
                     totalMass += mass
                     

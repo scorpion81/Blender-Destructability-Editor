@@ -264,7 +264,10 @@ def voronoiCube(context, obj, parts, vol, walls):
             if o.name not in oldnames:
                 context.scene.objects.active = o
                 booleanIntersect(context, o, obj)
-                oldnames.append(o.name)
+                if len(o.data.vertices) == 0:
+                    context.scene.objects.unlink(o)
+                else:
+                    oldnames.append(o.name)
            
     context.scene.objects.unlink(obj) 
     

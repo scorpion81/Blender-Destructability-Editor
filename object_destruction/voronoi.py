@@ -161,7 +161,7 @@ def voronoiCube(context, obj, parts, vol, walls):
     obj.destruction.tempLoc = loc
     context.scene.objects.active = obj
     obj.select = True
-    ops.object.transform_apply(scale=True, location = True)
+    ops.object.transform_apply(scale=True, location=True)
     obj.select = False
    
     xmin, xmax, ymin, ymax, zmin, zmax = corners(obj)
@@ -265,7 +265,7 @@ def voronoiCube(context, obj, parts, vol, walls):
                 context.scene.objects.active = o
                 booleanIntersect(context, o, obj)
                 oldnames.append(o.name)
-               
+           
     context.scene.objects.unlink(obj) 
     
 def booleanIntersect(context, o, obj):

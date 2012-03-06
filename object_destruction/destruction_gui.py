@@ -822,7 +822,7 @@ class ConvertParenting(types.Operator):
                     #correct some parenting error -> children at wrong position
                     par = data.objects[o.game.properties[index].value]
                     if par.name.startswith("P0"):
-                        o.location -= pos
+                        o.location -= pos  
                     o.parent = par
                 else: 
                     props = 10
@@ -900,6 +900,9 @@ class UndestroyObject(types.Operator):
             if o.destruction != None:
                 if o.destruction.is_backup_for == context.object.name:
                     context.scene.objects.link(o)
+                    o.select = True
+                    ops.object.origin_set(type='GEOMETRY_ORIGIN')
+                    o.select = False      
                     o.destruction.is_backup_for == None
                     o.use_fake_user = False
         

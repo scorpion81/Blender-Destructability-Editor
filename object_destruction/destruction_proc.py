@@ -1431,6 +1431,7 @@ class DestructionContext(types.PropertyGroup):
     tempLoc = props.FloatVectorProperty(name = "tempLoc", default = (0, 0, 0))
     custom_ball = props.StringProperty(name="custom_ball")
     voro_exact_shape = props.BoolProperty(name = "voro_exact_shape")
+    voro_path = props.StringProperty(name="voro_path", default = "test.out")
     
     
     # From pildanovak, fracture script

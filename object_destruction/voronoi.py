@@ -1,5 +1,3 @@
-
-
 import platform
 
 if platform.architecture()[0] == "64bit":
@@ -250,7 +248,7 @@ def voronoiCube(context, obj, parts, vol, walls):
     
   #  d.add_wall(colist)
         
-    name = "test.out"
+    name = obj.destruction.voro_path
     con.print_custom("%P v %t", name )
     
     del con

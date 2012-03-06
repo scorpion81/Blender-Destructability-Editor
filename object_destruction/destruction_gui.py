@@ -70,6 +70,8 @@ class DestructabilityPanel(types.Panel):
                 row.prop_search(context.object.destruction, "voro_volume", 
                         context.scene, "objects", icon = 'OBJECT_DATA', text = "Volume:")
                 row.prop(context.object.destruction, "voro_exact_shape", text = "Use Exact Shape")
+                row = col.row()
+                row.prop(context.object.destruction, "voro_path", text="Intermediate File")
             
             row = layout.row()
             row.prop(context.object.destruction, "cubify", text = "Intersect with Grid")

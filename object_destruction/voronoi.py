@@ -133,6 +133,7 @@ def buildCellMesh(cells, name):
       #  print("Mesh Done")
         obj.select = True
         ops.object.origin_set(type='ORIGIN_GEOMETRY')
+        ops.object.material_slot_copy()
         obj.select = False
         ops.object.mode_set(mode = 'EDIT')
         ops.mesh.normals_make_consistent(inside=False)
@@ -239,6 +240,8 @@ def voronoiCube(context, obj, parts, vol, walls):
     
     oldnames = [o.name for o in context.scene.objects]
     records = parseFile(name)
+    
+    context.scene.objects.active = obj
     buildCellMesh(records, obj.name)
     
     if not walls:

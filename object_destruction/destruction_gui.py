@@ -186,7 +186,11 @@ class AddGroundOperator(types.Operator):
                 found = True
                 break
         if not found:
-            name = context.object.destruction.groundSelector 
+            name = context.object.destruction.groundSelector
+            if name == None or name == "":
+                self.report({'ERROR_INVALID_INPUT'}, "Please select an object first")
+                return {'CANCELLED'}  
+             
             obj = context.scene.objects[name]
             context.object.destruction.groundSelector = ""
             
@@ -231,7 +235,11 @@ class AddTargetOperator(types.Operator):
                 found = True
                 break
         if not found:
-            name = context.object.destruction.targetSelector 
+            name = context.object.destruction.targetSelector
+            if name == None or name == "":
+                self.report({'ERROR_INVALID_INPUT'}, "Please select an object first")
+                return {'CANCELLED'}  
+                 
             obj = context.scene.objects[name]
             context.object.destruction.targetSelector = ""
             
@@ -240,7 +248,7 @@ class AddTargetOperator(types.Operator):
                 propNew = context.object.destruction.destructorTargets.add()
                 propNew.name = name
             else:
-                self.report({'ERROR_INVALID_INPUT'}, "Object must be a destroyable empty with children")
+                self.report({'ERROR_INVALID_INPUT'}, "Object must be another destroyable empty with children")
                 return {'CANCELLED'}  
             
         return {'FINISHED'}   
@@ -524,8 +532,29 @@ class ClearPlayer(types.Operator):
                     if ballname == o.game.properties[0].value:
                         o.select = True
         else:
+            ballname = "Ball"
             data.objects["Ball"].select = True
         data.objects["Ground"].select = True
+        
+        for o in data.objects:
+            if "Ground" in o.destruction.grounds:
+                index = 0
+                for g in o.destruction.grounds:
+                    if g.name == "Ground":
+                        found = True
+                        break
+                    index += 1
+                if found:
+                    o.destruction.grounds.remove(index)
+            if ballname in o.destruction.destructorTargets:
+                index = 0
+                for b in o.destruction.destructorTargets:
+                    if b.name == ballname:
+                        found = True
+                        break
+                    index += 1
+                if found:
+                    o.destruction.destructorTargets.remove(index)
      
         ops.object.delete()
         

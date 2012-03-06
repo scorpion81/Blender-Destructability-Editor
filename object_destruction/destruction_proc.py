@@ -277,12 +277,12 @@ class Processor():
        
         ctx = context.copy()
         ctx["object"] = context.active_object
-        ops.object.modifier_apply(ctx, modifier = explode.name)
+        ops.object.modifier_apply(ctx, apply_as='DATA',  modifier = explode.name)
         
         if thickness > 0:
             ctx = context.copy()
             ctx["object"] = context.active_object
-            ops.object.modifier_apply(ctx, modifier = solidify.name)
+            ops.object.modifier_apply(ctx, apply_as='DATA', modifier = solidify.name)
         
         #must select particle system before somehow
         ctx = context.copy()

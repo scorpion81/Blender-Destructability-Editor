@@ -224,8 +224,9 @@ def collide():
         for obj in children[p]:
              tempspeed = obj.worldLinearVelocity.length
              if tempspeed != 0:
-                pspeed = tempspeed
-        
+                speed = tempspeed
+    
+    print("Speed", speed)    
     for p in children.keys():
       #  print(children[p][0])
         for obj in children[p]:

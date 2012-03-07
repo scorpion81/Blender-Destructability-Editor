@@ -63,6 +63,14 @@ def setup():
                 print("Setting temp parent", o, parent)
                 o.setParent(scene.objects[parent])
     
+    for o in scene.objects:
+        if "myParent" in o.getPropertyNames():
+            if o.name.endswith("backup"):
+                for c in o.parent.children:
+                    if c != o:
+                        print ("Visible = false")
+                        c.visible = False
+                
   #  print(firstparent)
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():  
@@ -90,11 +98,7 @@ def setup():
                         ch = o
                     children[o.parent.name].append(ch)
                     
-            if o.name.endswith("backup"):
-                for c in o.parent.children:
-                    print ("Visible = false")
-                    c.visible = False
-                o.visible = False
+            
                      
             
         #remove temporary parenting

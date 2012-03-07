@@ -10,6 +10,8 @@
 from mathutils import geometry, Vector
 import math
 
+startclock = 0
+
 class Cell:
     
     def __init__(self, gridPos, grid):

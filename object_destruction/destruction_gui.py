@@ -6,8 +6,8 @@ import math
 import os
 import bpy
 from mathutils import Vector
-import inspect
-
+#import inspect
+from time import clock
 
 class DestructabilityPanel(types.Panel):
     bl_idname = "OBJECT_PT_destructability"
@@ -178,6 +178,8 @@ class DestructabilityPanel(types.Panel):
             txt = "To Game Parenting"
    
         row.operator("parenting.convert", text = txt)
+        row = layout.row()
+        row.operator("game.start")
         
 class AddGroundOperator(types.Operator):
     bl_idname = "ground.add"
@@ -354,7 +356,6 @@ class SetupPlayer(types.Operator):
         print(ops.text.open(filepath = currentDir + "\destruction_bge.py", internal = False))
         print(ops.text.open(filepath = currentDir + "\player.py", internal = False))
         print(ops.text.open(filepath = currentDir + "\destruction_data.py", internal = False))
-        
         
         #setup logic bricks -player
         context.scene.objects.active = data.objects["Player"]
@@ -940,4 +941,15 @@ class UndestroyObject(types.Operator):
             if c != backup: 
                 c.select = True
             self.selectShards(c, backup)
+
+class GameStart(types.Operator):
+    bl_idname = "game.start"
+    bl_label = "Start Game Engine"
+    
+    def execute(self, context):
+  
+        dd.startclock = clock()
+        context.scene.game_settings.use_animation_record = True
+        ops.view3d.game_start()
+        return {'FINISHED'}
             

@@ -465,6 +465,9 @@ class Processor():
             c.game.physics_type = 'RIGID_BODY'
         else:
             c.game.physics_type = 'STATIC'
+        
+        #c.scale = [0.999, 0.999, 0.999]
+        
         c.game.collision_bounds_type = 'CONVEX_HULL'
         c.game.collision_margin = 0.0 
         c.game.radius = 0.01

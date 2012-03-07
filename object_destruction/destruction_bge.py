@@ -2,6 +2,9 @@ from bge import logic
 import destruction_data as dd
 import math
 from mathutils import Vector, Matrix
+from time import clock
+import bpy
+
 
 #this is the bge part of the destructability editor.
 #it actually executes the destruction according to its definition.
@@ -35,6 +38,9 @@ scene = logic.getCurrentScene()
 gridValid = False
 firstparent = []
 firstShard = {}
+bpyObjs = {}
+startclock = dd.startclock
+firstHit = False
 
 #TODO, temporary hack
 ground = None
@@ -47,11 +53,13 @@ def setup():
     global firstShard
     global ground
     global children
+   # global startclock
     
     #temp hack
   #  player = scene.objects["Player"]
 #    player.removeParent()
     
+  #  startclock = clock()
     #temporarily parent
     for o in scene.objects:
         if o.name != "Player":
@@ -62,14 +70,25 @@ def setup():
                     firstparent.append(scene.objects[parent])
                 print("Setting temp parent", o, parent)
                 o.setParent(scene.objects[parent])
+                bpyObjs[o.name] = bpy.context.scene.objects[o.name]
     
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():
             if o.name.endswith("backup"):
+                bpy.context.scene.frame_current = 0
                 for c in o.parent.children:
                     if c != o:
                         print ("Visible = false")
+                        bpyObjs[c.name].hide_render = True
+                        bpyObjs[c.name].hide = True
+                        bpyObjs[c.name].keyframe_insert("hide_render")
+                        bpyObjs[c.name].keyframe_insert("hide")
                         c.visible = False
+                bpyObjs[o.name].hide_render = False
+                bpyObjs[o.name].hide = False
+                bpyObjs[o.name].keyframe_insert("hide_render")
+                bpyObjs[o.name].keyframe_insert("hide")
+                o.visible = True
                 
   #  print(firstparent)
     for o in scene.objects:
@@ -255,13 +274,30 @@ def collide():
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
    
-   
-    for v in children.values():
-        for c in v:
-            if not c.name.endswith("backup"): 
-                c.visible = True
-            else:
-                c.visible = False
+    global startclock
+    global firstHit
+    
+    if not firstHit:
+        firstHit = True   
+        for v in children.values():
+            for c in v:
+                if not c.name.endswith("backup"): 
+                    c.visible = True
+                    bpyObjs[c.name].hide_render = False
+                    bpyObjs[c.name].hide = False
+                else:
+                    c.visible = False
+                    bpyObjs[c.name].hide_render = True
+                    bpyObjs[c.name].hide = True
+                
+                time = clock() - startclock
+                frame = time * bpy.context.scene.game_settings.fps
+               # frame = c.getActionFrame(1)
+                print(frame)   
+                bpy.context.scene.frame_current = frame
+                bpyObjs[c.name].keyframe_insert("hide_render")
+                bpyObjs[c.name].keyframe_insert("hide")
+            
          
     parent = None
     for p in children.keys():

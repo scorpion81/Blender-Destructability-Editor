@@ -913,7 +913,7 @@ class UndestroyObject(types.Operator):
             o.select = False
             
         context.object.select = True
-        self.selectShards(context.object)
+        self.selectShards(context.object, backup)
         ops.object.delete()
        
         return {'FINISHED'}
@@ -939,5 +939,5 @@ class UndestroyObject(types.Operator):
         for c in object.children:
             if c != backup: 
                 c.select = True
-            self.selectShards(c)
+            self.selectShards(c, backup)
             

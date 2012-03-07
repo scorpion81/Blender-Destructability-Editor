@@ -162,6 +162,7 @@ def voronoiCube(context, obj, parts, vol, walls):
     context.scene.objects.active = obj
     obj.select = True
     ops.object.transform_apply(scale=True, location=True)
+  #  ops.object.origin_set(type='GEOMETRY_ORIGIN')
     obj.select = False
    
     xmin, xmax, ymin, ymax, zmin, zmax = corners(obj)
@@ -260,6 +261,11 @@ def voronoiCube(context, obj, parts, vol, walls):
     buildCellMesh(records, obj.name)
     
     if not walls:
+        
+       # obj.modifiers.new("Remesh", 'REMESH')
+    #    context.scene.objects.active = obj
+     #   ops.object.modifier_apply(apply_as='DATA', modifier="Remesh")
+              
         for o in context.scene.objects:
             if o.name not in oldnames:
                 context.scene.objects.active = o
@@ -272,6 +278,7 @@ def voronoiCube(context, obj, parts, vol, walls):
   #  context.scene.objects.unlink(obj) 
     
 def booleanIntersect(context, o, obj):
+    #rem = o.modifiers.new("Remesh", 'REMESH')    
     bool = o.modifiers.new("Boolean", 'BOOLEAN')
     bool.object = obj
     bool.operation = 'INTERSECT'

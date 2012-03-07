@@ -269,7 +269,7 @@ def voronoiCube(context, obj, parts, vol, walls):
                 else:
                     oldnames.append(o.name)
            
-    context.scene.objects.unlink(obj) 
+  #  context.scene.objects.unlink(obj) 
     
 def booleanIntersect(context, o, obj):
     bool = o.modifiers.new("Boolean", 'BOOLEAN')

@@ -111,7 +111,11 @@ class Processor():
         ops.object.duplicate()
         backup = context.active_object
         backup.name = obj.name
-        context.scene.objects.unlink(backup)
+        
+        if obj.destruction.keep_backup_visible:
+            backup.game.use_ghost = True
+        else:
+            context.scene.objects.unlink(backup)
         print("Backup created: ", backup)
         
         for o in sel:
@@ -232,6 +236,11 @@ class Processor():
                 self.cubify(context, obj, bbox, parts)
             else:
                 voronoi.voronoiCube(context, obj, parts, volume, wall)
+            
+            if obj.destruction.keep_backup_visible:
+                backup.game.use_ghost = True
+            else:
+                context.scene.objects.unlink(backup)
                     
             #do the parenting
             self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)     
@@ -309,7 +318,7 @@ class Processor():
             parent = context.active_object.parent
         
         ops.object.add(type = 'EMPTY') 
-        context.active_object.game.physics_type = 'RIGID_BODY'            
+        context.active_object.game.physics_type = 'STATIC'            
         context.active_object.game.radius = 0.01  
         context.active_object.game.use_ghost = True
         
@@ -326,7 +335,6 @@ class Processor():
   
        # dd.DataStore.backups[context.active_object.name] = backup
         backup.destruction.is_backup_for = context.active_object.name
-        backup.use_fake_user = True
         
         #get the first backup, need that position
         if parent == None:
@@ -361,9 +369,18 @@ class Processor():
         #distribute the object mass to the single pieces, equally for now
         print("Mass: ", backup.game.mass)
         mass = backup.game.mass / backup.destruction.partCount
+        backupParent = context.active_object
         context.scene.objects.active = obj
         [self.applyDataSet(context, c, largest, parentName, pos, mass, backup) for c in context.scene.objects if 
-         self.isRelated(c, context, nameStart)] 
+         self.isRelated(c, context, nameStart) and not c.name.endswith("backup")] 
+         
+        
+        if obj.destruction.keep_backup_visible:
+            backup.parent = backupParent
+            backup.name += "backup"
+          #  backup.hide = True
+        else:
+            backup.use_fake_user = True 
          
         #deactivate old compound settings 
         if parent.parent != None:
@@ -431,19 +448,23 @@ class Processor():
     
     def applyDataSet(self, context, c, nameEnd, parentName, pos, mass, backup):
         print("NAME: ", c.name)
+        
         split = c.name.split(".")
         end = split[1]
         
         if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName):
-            self.assign(c, parentName, pos, mass, backup)  
+            self.assign(c, parentName, pos, mass, backup, context)  
         
-    def assign(self, c, parentName, pos, mass, backup):
+    def assign(self, c, parentName, pos, mass, backup, context):
          
         #correct a parenting "error": the parts are moved pos too far
         c.location -= pos
          
         c.parent = data.objects[parentName]
-        c.game.physics_type = 'RIGID_BODY'
+        if c != backup:
+            c.game.physics_type = 'RIGID_BODY'
+        else:
+            c.game.physics_type = 'STATIC'
         c.game.collision_bounds_type = 'CONVEX_HULL'
         c.game.collision_margin = 0.0 
         c.game.radius = 0.01
@@ -466,6 +487,9 @@ class Processor():
         for p in backup.destruction.destructorTargets:
             prop = c.destruction.destructorTargets.add()
             prop.name = p.name
+            
+        #if context.active_object.destruction.keep_backup_visible:
+        #    c.hide_render = True
         
     
     def isBeingSplit(self, c, parentName):
@@ -1432,6 +1456,7 @@ class DestructionContext(types.PropertyGroup):
     custom_ball = props.StringProperty(name="custom_ball")
     voro_exact_shape = props.BoolProperty(name = "voro_exact_shape")
     voro_path = props.StringProperty(name="voro_path", default = "test.out")
+    keep_backup_visible = props.BoolProperty(name = "keep_backup_visible")
     
     
     # From pildanovak, fracture script

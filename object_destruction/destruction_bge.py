@@ -19,10 +19,10 @@ from mathutils import Vector, Matrix
 
 #then wait for collision, if it is a registered destroyer, activate children according to speed an mass of destroyer (larger radius) for testing purposes create/register player balls as destroyer automatically. to each destroyable. 
 
-sensorName = "D_destructor" 
-massFactor = 4
-speedFactor = 2
-defaultRadius = 2
+#sensorName = "D_destructor" 
+#massFactor = 4
+#speedFactor = 2
+#defaultRadius = 2
 #define Parameters for each object ! here defined for testing purposes
 maxHierarchyDepth = 1 # this must be stored per destructor, how deep destruction shall be
 #otherwise 1 level each collision with destroyer / ground
@@ -66,7 +66,7 @@ def setup():
   #  print(firstparent)
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():  
-            print(o, o.parent, len(firstparent))
+            print(o, o.parent, len(o.parent.children))
             
             if "flatten_hierarchy" in o.getPropertyNames():
                 if o["flatten_hierarchy"]:
@@ -89,6 +89,12 @@ def setup():
                     else:
                         ch = o
                     children[o.parent.name].append(ch)
+                    
+            if o.name.endswith("backup"):
+                for c in o.parent.children:
+                    print ("Visible = false")
+                    c.visible = False
+                o.visible = False
                      
             
         #remove temporary parenting
@@ -226,7 +232,7 @@ def collide():
              if tempspeed != 0:
                 speed = tempspeed
     
-    print("Speed", speed)    
+   # print("Speed", speed)    
     for p in children.keys():
       #  print(children[p][0])
         for obj in children[p]:
@@ -244,7 +250,15 @@ def collide():
                  
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
-    
+   
+   
+    for v in children.values():
+        for c in v:
+            if not c.name.endswith("backup"): 
+                c.visible = True
+            else:
+                c.visible = False
+         
     parent = None
     for p in children.keys():
      #   print(p, children[p])

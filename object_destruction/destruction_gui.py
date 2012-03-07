@@ -90,11 +90,12 @@ class DestructabilityPanel(types.Panel):
             if o.destruction != None:
                 if o.destruction.is_backup_for != None:
                     names.append(o.destruction.is_backup_for)
-        
         if context.object.name in names and isParent:
             row.operator("object.undestroy")
         elif isMesh or (isParent and (context.object.transmitMode == context.object.transModes[2][0] or \
         context.object.transmitMode == context.object.transModes[3][0])):
+            row.prop(context.object.destruction, "keep_backup_visible", text = "Keep Backup Visible")
+            row = layout.row()
             row.operator("object.destroy")
         
         layout.separator()
@@ -670,7 +671,7 @@ class ConvertParenting(types.Operator):
                 o.game.properties[index].name = "myParent"
                 o.game.properties[index].type = 'STRING'
                 o.game.properties[index].value = o.parent.name
-          
+                
             ops.object.game_property_new()
             o.game.properties[index + 1].name = "destroyable"
             o.game.properties[index + 1].type = 'BOOL'
@@ -899,7 +900,9 @@ class UndestroyObject(types.Operator):
         for o in data.objects:
             if o.destruction != None:
                 if o.destruction.is_backup_for == context.object.name:
-                    context.scene.objects.link(o)
+                    backup = o
+                    if not o.destruction.keep_backup_visible:
+                        context.scene.objects.link(o)
                     o.select = True
                     ops.object.origin_set(type='GEOMETRY_ORIGIN')
                     o.select = False      
@@ -915,14 +918,14 @@ class UndestroyObject(types.Operator):
        
         return {'FINISHED'}
     
-    def selectShards(self, object):
-        if object.name in bpy.context.scene.validTargets:
-            index = 0
-            for ob in bpy.context.scene.validTargets:
-                if ob.name == object.name:
-                    break
-                index += 1
-            bpy.context.scene.validTargets.remove(index)
+    def selectShards(self, object, backup):
+#        if object.name in bpy.context.scene.validTargets:
+#            index = 0
+#            for ob in bpy.context.scene.validTargets:
+#                if ob.name == object.name:
+#                    break
+#                index += 1
+#            bpy.context.scene.validTargets.remove(index)
                 
         for o in bpy.context.scene.objects:
             if o.destruction.destructor and object.name in o.destruction.destructorTargets:
@@ -933,7 +936,8 @@ class UndestroyObject(types.Operator):
                     index += 1
                 o.destruction.destructorTargets.remove(index)
             
-        for c in object.children: 
-            c.select = True
+        for c in object.children:
+            if c != backup: 
+                c.select = True
             self.selectShards(c)
             

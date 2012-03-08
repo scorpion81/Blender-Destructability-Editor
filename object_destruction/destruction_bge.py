@@ -44,12 +44,13 @@ firstHit = False
 
 #TODO, temporary hack
 ground = None
+destructors = []
 
 
 def distance(p, a, b, c):
     n = (c-a).cross(b-a)
     
-    f = -n.dot(a) / n.dot(n)
+    f = -n.dot(p-a) / n.dot(n)
     q = p + f * n
     
     dist = (p - q).length
@@ -57,9 +58,10 @@ def distance(p, a, b, c):
 
 def getFaceDistance(a, b):
     
-    # hack, doesnt work right....
+    # hack
     #print(a, b)
-    if a == None:# scene.objects["Ground"]:
+    global destructors
+    if a in destructors and a.name != "Ball":
         mindist = 100000000
         obj = bpyObjs[a.name]
         for f in obj.data.polygons:
@@ -70,7 +72,7 @@ def getFaceDistance(a, b):
            dist = distance(b.worldPosition, v1, v2, v3)
            if dist < mindist:
                mindist = dist
-        print("MinDist", mindist)
+       # print("MinDist", mindist)
         return mindist
     else:
         return a.getDistanceTo(b)
@@ -85,6 +87,7 @@ def setup():
     global firstShard
     global ground
     global children
+    global destructors
    # global startclock
     
     #temp hack
@@ -105,6 +108,9 @@ def setup():
                 bpyObjs[o.name] = bpy.context.scene.objects[o.name]
                 o["activated"] = False
         if o.name == "Ground":
+            bpyObjs[o.name] = bpy.context.scene.objects[o.name]
+        if "destructor" in o.getPropertyNames():
+            destructors.append(o)
             bpyObjs[o.name] = bpy.context.scene.objects[o.name]
     
     for o in scene.objects:
@@ -284,10 +290,11 @@ def collide():
     gridValid = False
     
     speed = 0
-    for p in children.keys():
-        for obj in children[p]:
-             tempspeed = obj.worldLinearVelocity.length
-             if tempspeed != 0:
+    for p in children.values():
+        for obj in p:
+            tempspeed = obj.worldLinearVelocity.length
+            if tempspeed != 0:
+                #print("Temp", tempspeed)
                 speed = tempspeed
     
     #for p in sensor.hitObjectList:
@@ -297,7 +304,7 @@ def collide():
         for obj in children[p]:
             ownerspeed = owner.worldLinearVelocity.length
             if ownerspeed < 0.0001:
-                print(ownerspeed, speed)
+            #    print("Spd: ",ownerspeed, speed)
                 ownerspeed = speed # use objects speed then
             dist = getFaceDistance(owner, obj)
             
@@ -305,10 +312,10 @@ def collide():
 #                modSpeed = math.sqrt(ownerspeed / 5)
 #            else:
             modSpeed = math.sqrt(ownerspeed / 2)
-            
-          #  print(dist, modSpeed)
-            
-            if  dist < modSpeed:
+            if not isGroundConnectivity(scene.objects[p]) and not owner.name == "Ball":
+                modSpeed = 1
+          
+            if dist < modSpeed:
                 dissolve(obj, 1, maxHierarchyDepth, owner)
                
     if ground != None:            

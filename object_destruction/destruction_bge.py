@@ -45,7 +45,26 @@ firstHit = False
 #TODO, temporary hack
 ground = None
 destructors = []
+#facelist = []
 
+
+def compareNormals(faces, face):
+    for f in faces:
+        dot = round(f.normal.dot(face.normal), 5)
+        prod = round(f.normal.length * face.normal.length, 5)
+        #normals point in opposite directions
+        if dot == -prod:
+            return True
+    return False
+
+def changeMaterial(child):
+    for obj in scene.objects:
+        if "activated" in obj.getPropertyNames(): 
+            if obj.getDistanceTo(child) < 2 and not obj["activated"]:
+                o = bpyObjs[child.name]
+                for f in o.data.polygons:
+                    f.material_index = 0
+                    f.keyframe_insert("material_index")
 
 def distance(p, a, b, c):
     n = (c-a).cross(b-a)
@@ -88,6 +107,7 @@ def setup():
     global ground
     global children
     global destructors
+   # global facelist
    # global startclock
     
     #temp hack
@@ -107,6 +127,9 @@ def setup():
                 o.setParent(scene.objects[parent])
                 bpyObjs[o.name] = bpy.context.scene.objects[o.name]
                 o["activated"] = False
+               # obj = bpyObjs[o.name]
+            #    for f in obj.data.polygons:
+             #       facelist.append(f)
         if o.name == "Ground":
             bpyObjs[o.name] = bpy.context.scene.objects[o.name]
         if "destructor" in o.getPropertyNames():
@@ -275,6 +298,7 @@ def collide():
     
     global maxHierarchyDepth
     global ground
+   # global facelist
     #colliders have collision sensors attached, which trigger for registered destructibles only
     
     #first the script controller brick, its sensor and owner are needed
@@ -323,6 +347,17 @@ def collide():
             if getFaceDistance(owner, obj) < math.sqrt(owner.worldLinearVelocity.length / 2):
                 dissolve(c, 1, maxHierarchyDepth, owner)
     
+    #compare all normals of the non-active shards if they still have an opposite
+ #   for p in children.values():
+#        for obj in p:
+#            if not obj["activated"]:
+#                o = bpyObjs[obj.name]
+#                bpy.context.scene.objects.active = o
+#               # bpy.ops.object.mode_set(mode = 'EDIT')
+#                [setMaterialIndex(f) for f in facelist if not compareNormals(facelist, f)]
+#            #    bpy.ops.object.mode_set(mode = 'OBJECT') 
+                
+    
     #merge unactivated children together -> way too slow
 #    for p in children.keys():
 #        
@@ -353,6 +388,7 @@ def dissolve(obj, depth, maxdepth, owner):
    
     global startclock
     global firstHit
+    #global facelist
     
     if not firstHit:
         firstHit = True   
@@ -480,6 +516,8 @@ def activate(child, owner, grid):
      child.restoreDynamics()
      child["activated"] = True
      
+  #   changeMaterial(child)
+     
      if child in children[parent]:
         children[parent].remove(child)
            
@@ -581,6 +619,7 @@ def destroyCell(cell, cells):
         o.restoreDynamics()
         childs.remove(child)
         o["activated"] = True
+      #  changeMaterial(o)
             
     cell.children = childs      
     

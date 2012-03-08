@@ -71,6 +71,7 @@ def setup():
                 print("Setting temp parent", o, parent)
                 o.setParent(scene.objects[parent])
                 bpyObjs[o.name] = bpy.context.scene.objects[o.name]
+                o["activated"] = False
     
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():
@@ -81,13 +82,13 @@ def setup():
                         print ("Visible = false")
                         bpyObjs[c.name].hide_render = True
                         bpyObjs[c.name].hide = True
-                        bpyObjs[c.name].keyframe_insert("hide_render")
-                        bpyObjs[c.name].keyframe_insert("hide")
+                     #   bpyObjs[c.name].keyframe_insert("hide_render")
+                      #  bpyObjs[c.name].keyframe_insert("hide")
                         c.visible = False
                 bpyObjs[o.name].hide_render = False
                 bpyObjs[o.name].hide = False
-                bpyObjs[o.name].keyframe_insert("hide_render")
-                bpyObjs[o.name].keyframe_insert("hide")
+            #    bpyObjs[o.name].keyframe_insert("hide_render")
+           #     bpyObjs[o.name].keyframe_insert("hide")
                 o.visible = True
                 
   #  print(firstparent)
@@ -255,22 +256,48 @@ def collide():
              if tempspeed != 0:
                 speed = tempspeed
     
-   # print("Speed", speed)    
+    #for p in sensor.hitObjectList:
+    #    print("HIT", p)  #always the compound object...
+    
     for p in children.keys():
-      #  print(children[p][0])
         for obj in children[p]:
             ownerspeed = owner.worldLinearVelocity.length
             if ownerspeed < 0.0001:
+                print(ownerspeed, speed)
                 ownerspeed = speed # use objects speed then
-           # print(speed)
             if obj.getDistanceTo(owner) < math.sqrt(ownerspeed / 2):
                 dissolve(obj, 1, maxHierarchyDepth, owner)
-    
+               
     if ground != None:            
         for c in ground.children:
             if c.getDistanceTo(owner) < math.sqrt(owner.worldLinearVelocity.length / 2):
                 dissolve(c, 1, maxHierarchyDepth, owner)
-                 
+    
+    #merge unactivated children together -> way too slow
+#    for p in children.keys():
+#        
+#        for obj in children[p]:
+#            if not obj["activated"]:
+#                first = bpyObjs[obj.name]
+#                break
+#         
+#        if first == None:
+#            break
+#         
+#        first.select = True
+#        bpy.context.scene.objects.active = first
+#        
+#        for obj in children[p]:
+#            o = bpyObjs[obj.name]
+#            if first != o:
+#                o.select = True
+#    
+#  #  bpy.ops.object.duplicate()        
+#    bpy.ops.object.join()
+#    bpy.ops.object.mode_set(mode = 'EDIT')
+#    bpy.ops.mesh.remove_doubles()
+#    bpy.ops.object.mode_set(mode = 'OBJECT')
+            
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
    
@@ -293,10 +320,10 @@ def dissolve(obj, depth, maxdepth, owner):
                 time = clock() - startclock
                 frame = time * bpy.context.scene.game_settings.fps
                # frame = c.getActionFrame(1)
-                print(frame)   
+               # print(frame)   
                 bpy.context.scene.frame_current = frame
-                bpyObjs[c.name].keyframe_insert("hide_render")
-                bpyObjs[c.name].keyframe_insert("hide")
+                #bpyObjs[c.name].keyframe_insert("hide_render")
+                #bpyObjs[c.name].keyframe_insert("hide")
             
          
     parent = None
@@ -334,7 +361,7 @@ def dissolve(obj, depth, maxdepth, owner):
 
 def activate(child, owner, grid):
  #   if child.getDistanceTo(owner.worldPosition) < defaultRadius:         
-   #  print("activated: ", child)
+     print("activated: ", child)
      global integrity
      global firstShard
      
@@ -352,10 +379,10 @@ def activate(child, owner, grid):
      
      #if parent is hit, reparent all to first child if any
      #TODO: do this hierarchical
-     if child in firstShard.values() and not isGroundConnectivity(par):
-         print("HIT PARENT", par)
-         for ch in firstShard[par.name].children:
-             ch.removeParent()
+   #  if child in firstShard.values() and not isGroundConnectivity(par):
+#         print("HIT PARENT", par)
+#         for ch in firstShard[par.name].children:
+#             ch.removeParent()
               #      ch.setParent(newParent, True, False)
          
 #  #      mass = firstShard.mass
@@ -403,10 +430,11 @@ def activate(child, owner, grid):
     # if not isGroundConnectivity(par) or isGround(par):# or child != firstShard
      child.removeParent()
      child.restoreDynamics()
+     child["activated"] = True
      
      if child in children[parent]:
         children[parent].remove(child)
-     
+           
 
 def isGroundConnectivity(obj):
     if "groundConnectivity" not in obj.getPropertyNames():
@@ -504,6 +532,7 @@ def destroyCell(cell, cells):
         o.removeParent()
         o.restoreDynamics()
         childs.remove(child)
+        o["activated"] = True
             
     cell.children = childs      
     

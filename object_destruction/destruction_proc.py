@@ -484,10 +484,10 @@ class Processor():
             material = data.materials[materialname]
             c.material_slots[slots].material = material
             
-            print("Normals", normals)
+          #  print("Normals", normals)
             facelist = [f for f in c.data.polygons if not self.testNormal(f.normal, normals)]
             for f in facelist:
-                print("Assigning index", slots)
+        #        print("Assigning index", slots)
                 f.material_index = slots
         
         #update stale data

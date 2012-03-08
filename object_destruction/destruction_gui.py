@@ -953,6 +953,9 @@ class GameStart(types.Operator):
   
         dd.startclock = clock()
         context.scene.game_settings.use_animation_record = True
+        context.scene.game_settings.use_frame_rate = True
+        context.scene.game_settings.restrict_animation_updates = True
+        context.scene.game_settings.show_framerate_profile = True
         ops.view3d.game_start()
         return {'FINISHED'}
             

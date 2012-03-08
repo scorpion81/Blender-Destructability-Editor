@@ -120,7 +120,7 @@ def setup():
         if o.name != "Player":
             if "myParent" in o.getPropertyNames():
                 parent = o["myParent"]
-                if parent.startswith("P0") and \
+                if parent.startswith("P_0") and \
                 scene.objects[parent] not in firstparent:
                     firstparent.append(scene.objects[parent])
                 print("Setting temp parent", o, parent)
@@ -166,7 +166,7 @@ def setup():
                         if fp.name not in children.keys() and objname in fp.name:
                             children[fp.name] = list()
                             children[fp.name].append(o)
-                            if o.name.startswith("P"):
+                            if o.name.startswith("P_"):
                                 while len(o.children) != 0:
                                     o = o.children[0]
                             firstShard[fp.name] = o
@@ -175,7 +175,7 @@ def setup():
                 else:
                     if o.parent.name not in children.keys():
                         children[o.parent.name] = list()
-                    if o.name.startswith("P") and len(o.children) > 0:
+                    if o.name.startswith("P_") and len(o.children) > 0:
                         ch = o.children[0]
                     else:
                         ch = o
@@ -434,8 +434,8 @@ def dissolve(obj, depth, maxdepth, owner):
         
         #only activate objects at current depth
         if par != None:
-            digitEnd = par.name.index("_")
-            objDepth = int(par.name[1 : digitEnd]) + 1
+            digitEnd = par.name.index("_", 2)
+            objDepth = int(par.name[2 : digitEnd]) + 1
            # print(depth, objDepth)
             
             if depth == objDepth:

@@ -342,7 +342,7 @@ class Processor():
            # pos = dd.DataStore.backups["P0_" + nameStart + ".000"].location
             for o in data.objects:
                 if o.destruction != None:
-                    if o.destruction.is_backup_for == "P0_" + nameStart + ".000":
+                    if o.destruction.is_backup_for == "P_0_" + nameStart + ".000":
                         pos = o.location
                         pos += Vector(o.destruction.tempLoc) #needed for voronoi
                         o.destruction.tempLoc = Vector((0, 0, 0))
@@ -416,11 +416,11 @@ class Processor():
             nameStart = split[0]
             nameEnd = split[1]
         else:
-            nameStart = obj.name
+            nameStart = "S_" + obj.name
             obj.name = nameStart + ".000"
             nameEnd = "000"
             
-        parentName = "P0_" + nameStart + "." + nameEnd
+        parentName = "P_0_" + nameStart + "." + nameEnd
    
         #and parent them all to an empty created before -> this is the key
         #P_name = Parent of
@@ -430,11 +430,12 @@ class Processor():
         level = 0
       
         if obj.parent != None:
-            pLevel = obj.parent.name.split("_")[0]
-            level = int(pLevel.lstrip("P"))
+            pLevel = obj.parent.name.split("_")[1]
+            #temp = pLevel.lstrip("P")
+            level = int(pLevel)
             level += 1
             #get child with lowest number, must search for it if its not child[0]
-            parentName = "P" + str(level) + "_" + obj.name
+            parentName = "P_" + str(level) + "_" + obj.name
             
             print("Subparenting...", children)
             length = len(obj.parent.children)

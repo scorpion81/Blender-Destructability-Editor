@@ -44,6 +44,38 @@ firstHit = False
 
 #TODO, temporary hack
 ground = None
+
+
+def distance(p, a, b, c):
+    n = (c-a).cross(b-a)
+    
+    f = -n.dot(a) / n.dot(n)
+    q = p + f * n
+    
+    dist = (p - q).length
+    return dist
+
+def getFaceDistance(a, b):
+    
+    # hack, doesnt work right....
+    #print(a, b)
+    if a == None:# scene.objects["Ground"]:
+        mindist = 100000000
+        obj = bpyObjs[a.name]
+        for f in obj.data.polygons:
+           v1 = obj.data.vertices[f.vertices[0]].co
+           v2 = obj.data.vertices[f.vertices[1]].co
+           v3 = obj.data.vertices[f.vertices[2]].co
+           
+           dist = distance(b.worldPosition, v1, v2, v3)
+           if dist < mindist:
+               mindist = dist
+        print("MinDist", mindist)
+        return mindist
+    else:
+        return a.getDistanceTo(b)
+
+
 def setup():
     
     #doReturn = False
@@ -72,6 +104,8 @@ def setup():
                 o.setParent(scene.objects[parent])
                 bpyObjs[o.name] = bpy.context.scene.objects[o.name]
                 o["activated"] = False
+        if o.name == "Ground":
+            bpyObjs[o.name] = bpy.context.scene.objects[o.name]
     
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():
@@ -265,12 +299,21 @@ def collide():
             if ownerspeed < 0.0001:
                 print(ownerspeed, speed)
                 ownerspeed = speed # use objects speed then
-            if obj.getDistanceTo(owner) < math.sqrt(ownerspeed / 2):
+            dist = getFaceDistance(owner, obj)
+            
+#            if owner == ground:
+#                modSpeed = math.sqrt(ownerspeed / 5)
+#            else:
+            modSpeed = math.sqrt(ownerspeed / 2)
+            
+          #  print(dist, modSpeed)
+            
+            if  dist < modSpeed:
                 dissolve(obj, 1, maxHierarchyDepth, owner)
                
     if ground != None:            
         for c in ground.children:
-            if c.getDistanceTo(owner) < math.sqrt(owner.worldLinearVelocity.length / 2):
+            if getFaceDistance(owner, obj) < math.sqrt(owner.worldLinearVelocity.length / 2):
                 dissolve(c, 1, maxHierarchyDepth, owner)
     
     #merge unactivated children together -> way too slow

@@ -379,25 +379,23 @@ def activate(child, owner, grid):
      
      #if parent is hit, reparent all to first child if any
      #TODO: do this hierarchical
-   #  if child in firstShard.values() and not isGroundConnectivity(par):
+#     if child in firstShard.values() and not isGroundConnectivity(par):
 #         print("HIT PARENT", par)
+#         for c in firstShard[par.name].children:
+#            if not c["activated"]:
+#                newParent = c
+#                newParent.suspendDynamics()
+#                break
+#            
+#         bpyObjs[newParent.name].game.use_collision_compound = True
 #         for ch in firstShard[par.name].children:
-#             ch.removeParent()
-              #      ch.setParent(newParent, True, False)
+#             if not ch["activated"] and ch != newParent:
+           #    bpyObjs[ch.name].game.use_collision_compound = False
+#                ch.removeParent()
+               # ch.suspendDynamics()
+           #     ch.setParent(newParent, True, False)
          
-#  #      mass = firstShard.mass
-#         if len(firstShard.children) > 0:
-#             newParent = firstShard.children[0]
-#          #   newParent.compound = True
-#             newParent.suspendDynamics()
-#        #     newParent.setParent(ground, True, False)
-#             for ch in firstShard.children:
-#                if ch != newParent:
-#                    ch.removeParent()
-#                    ch.setParent(newParent, True, False)
-#                    
-#             newParent.mass = mass
-#             firstShard = newParent        
+         #newParent.restoreDynamics()
                  
      if isGroundConnectivity(par) or isGround(par) and gridValid:
          if grid != None:

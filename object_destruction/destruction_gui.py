@@ -94,6 +94,9 @@ class DestructabilityPanel(types.Panel):
             row.operator("object.undestroy")
         elif isMesh or (isParent and (context.object.transmitMode == context.object.transModes[2][0] or \
         context.object.transmitMode == context.object.transModes[3][0])):
+            row.prop_search(context.object.destruction, "inner_material", data, 
+                    "materials", icon = 'MATERIAL', text = "Inner Material:")
+            row = layout.row()
             row.prop(context.object.destruction, "keep_backup_visible", text = "Keep Backup Visible")
             row = layout.row()
             row.operator("object.destroy")

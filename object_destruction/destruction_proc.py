@@ -10,6 +10,7 @@ from operator import indexOf
 from mathutils import Vector, Quaternion, Euler, Matrix
 import math
 import bisect
+#import bmesh
 
 #since a modification of fracture_ops is necessary, redistribute it
 from . import fracture_ops as fo
@@ -371,10 +372,13 @@ class Processor():
         mass = backup.game.mass / backup.destruction.partCount
         backupParent = context.active_object
         context.scene.objects.active = obj
-        [self.applyDataSet(context, c, largest, parentName, pos, mass, backup) for c in context.scene.objects if 
-         self.isRelated(c, context, nameStart) and not c.name.endswith("backup")] 
-         
         
+        normalList = [p.normal for p in backup.data.polygons]
+    #    normals = set(normalList)
+        
+        [self.applyDataSet(context, c, largest, parentName, pos, mass, backup, normalList) for c in context.scene.objects if 
+         self.isRelated(c, context, nameStart) and not c.name.endswith("backup")] 
+           
         if obj.destruction.keep_backup_visible:
             backup.parent = backupParent
             backup.name += "backup"
@@ -446,27 +450,50 @@ class Processor():
     def valid(self,context, child):
         return child.name.startswith(context.object.name)
     
-    def applyDataSet(self, context, c, nameEnd, parentName, pos, mass, backup):
+    def applyDataSet(self, context, c, nameEnd, parentName, pos, mass, backup, normals):
         print("NAME: ", c.name)
         
         split = c.name.split(".")
         end = split[1]
         
         if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName):
-            self.assign(c, parentName, pos, mass, backup, context)  
+            self.assign(c, parentName, pos, mass, backup, context, normals)  
         
-    def assign(self, c, parentName, pos, mass, backup, context):
+    def assign(self, c, parentName, pos, mass, backup, context, normals):
          
         #correct a parenting "error": the parts are moved pos too far
         c.location -= pos
          
         c.parent = data.objects[parentName]
+        
         if c != backup:
             c.game.physics_type = 'RIGID_BODY'
         else:
             c.game.physics_type = 'STATIC'
         
         #c.scale = [0.999, 0.999, 0.999]
+        
+        materialname = backup.destruction.inner_material
+        print("Mat", materialname)
+        if materialname != None and materialname != "":
+            slots = len(c.material_slots)
+            ctx = context.copy()
+            ctx["object"] = c
+            bpy.ops.object.material_slot_add(ctx)
+        
+            material = data.materials[materialname]
+            c.material_slots[slots].material = material
+            
+            print("Normals", normals)
+            facelist = [f for f in c.data.polygons if not self.testNormal(f.normal, normals)]
+            for f in facelist:
+                print("Assigning index", slots)
+                f.material_index = slots
+        
+        #update stale data
+        context.scene.objects.active = c
+        ops.object.mode_set(mode = 'EDIT')
+        ops.object.mode_set(mode = 'OBJECT')
         
         c.game.collision_bounds_type = 'CONVEX_HULL'
         c.game.collision_margin = 0.0 
@@ -557,35 +584,44 @@ class Processor():
                 c.destruction.gridDim = (1,1,1)
         
         
-    def testNormalInside(self, ob):
+    def testNormal(self, normal, normals):
+        for n in normals:
+            dot = round(n.dot(normal), 5)
+            prod = round(n.length * normal.length, 5)
+            if dot == prod or n == normal:
+                #normals point in same direction
+                return True
+        return False
+               
         #get orthogonal projection of Vector between face(need center) and object.location AND
         #normal vector
         #pick the first face (since ALL faces should be consistent by now)
-        if len(ob.data.faces) == 0:
-            #hmm when getting an invalid object this may occur, so catch it
-            return False
+       # if len(ob.data.faces) == 0:
+        #    #hmm when getting an invalid object this may occur, so catch it
+        #    return False
         
         #find one selected face
-        face = None
-        for f in ob.data.faces:
-            if f.select:
-                face = f
-                break
+        #face = None
+        #for f in ob.data.faces:
+        #    if f.select:
+        #        face = f
+        #        break
             
-        if face == None:
-            return False
+        #if face == None:
+        #    return False
         
-        normal = face.normal
-        center = face.center
-        vecCL = center - ob.location
-        vecProj = vecCL.project(normal)
+       # for n in normals:
+      #  normal = face.normal
+    #    center = face.center
+     #   vecCL = center - ob.location
+      #  vecProj = vecCL.project(normal)
         
-        dot = round(normal.dot(vecProj), 2)
-        length = round(vecProj.length, 2)
+      #  dot = round(normal.dot(vecProj), 2)
+    #    length = round(vecProj.length, 2)
         
         #if vecProj and vecCL point to same direction (dot > 0) -> normal points inside, do flip
-        print("Dot/Length: ", dot , length)
-        return dot == length 
+     #   print("Dot/Length: ", dot , length)
+      #  return dot == length 
         
            
     def knife(self, context, ob, parts, jitter, granularity, cut_type):
@@ -1460,6 +1496,7 @@ class DestructionContext(types.PropertyGroup):
     voro_exact_shape = props.BoolProperty(name = "voro_exact_shape")
     voro_path = props.StringProperty(name="voro_path", default = "test.out")
     keep_backup_visible = props.BoolProperty(name = "keep_backup_visible")
+    inner_material = props.StringProperty(name = "inner_material")
     
     
     # From pildanovak, fracture script

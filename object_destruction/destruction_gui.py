@@ -625,7 +625,9 @@ class ConvertParenting(types.Operator):
         for o in context.scene.objects:
             
             if o.destruction.destructor:
+                o.select = True
                 ops.object.transform_apply(location = True, scale = True, rotation = True)
+                o.select = False
            
             if o.name.startswith("P_0"):
                 

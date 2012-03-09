@@ -176,11 +176,13 @@ class DestructabilityPanel(types.Panel):
     
         row = layout.row()
     
-        txt = "To Editor Parenting"
-        if not context.scene.converted:
-            txt = "To Game Parenting"
+        #txt = "To Editor Parenting"
+        txt = "To Game Parenting"
+        #if not context.scene.converted:
+        #    txt = "To Game Parenting"
    
         row.operator("parenting.convert", text = txt)
+        row.active = not context.scene.converted
         row = layout.row()
         row.operator("game.start")
         
@@ -284,8 +286,11 @@ class SetupPlayer(types.Operator):
     
     def execute(self, context):
         
+        undo = context.user_preferences.edit.use_global_undo
+        context.user_preferences.edit.use_global_undo = False
+        
         if context.scene.player:
-            return
+             return {'CANCELLED'}
         
         context.scene.player = True
        
@@ -508,6 +513,7 @@ class SetupPlayer(types.Operator):
 #        while len(context.scene.validTargets) > 0:
 #           # print("Deleting valid target")
 #            context.scene.validTargets.remove(0)
+        context.user_preferences.edit.use_global_undo = undo
         return {'FINISHED'}
     
 class ClearPlayer(types.Operator):
@@ -516,8 +522,12 @@ class ClearPlayer(types.Operator):
     
     def execute(self, context):
         
+        undo = context.user_preferences.edit.use_global_undo
+        context.user_preferences.edit.use_global_undo = False
+        
+        
         if not context.scene.player:
-            return
+            return {'CANCELLED'}
         context.scene.player = False
         
         for o in data.objects:
@@ -570,10 +580,12 @@ class ClearPlayer(types.Operator):
                                 False, False, False, False, False,
                                 False, False, False, False, False,
                                 False, False, False, False, False]
-                                
+        
+        data.texts.remove(data.texts["destruction_data.py"])                        
         data.texts.remove(data.texts["destruction_bge.py"])
         data.texts.remove(data.texts["player.py"])                        
         
+        context.user_preferences.edit.use_global_undo = undo
         return {'FINISHED'}
     
         
@@ -582,15 +594,26 @@ class ConvertParenting(types.Operator):
     bl_label = "Convert Parenting"
     
     def execute(self, context):
+        
+        
         if not context.scene.converted:
+            undo = context.user_preferences.edit.use_global_undo
+            context.user_preferences.edit.use_global_undo = False
             self.convert(context)
+            context.scene.converted = True
+            context.user_preferences.edit.use_global_undo = undo
         else:
-            self.unconvert(context)
-        context.scene.converted = not context.scene.converted
+          #  context.user_preferences.edit.use_global_undo = undo
+            self.report({'INFO'}, "Hit Undo Key to undo conversion")
+            return {'CANCELLED'}
+            #context.scene.objects.active = context.object
+            #self.unconvert(context)
+      #  context.scene.converted = not context.scene.converted
         return {'FINISHED'}
         
     
     def convert(self, context):
+        
         
         #temporarily parent all grounds to the parent object
         #rotate back, unparent with keep transform
@@ -600,8 +623,11 @@ class ConvertParenting(types.Operator):
         grounds = []
       
         for o in context.scene.objects:
-            if o.name.startswith("P0"):
-                
+            
+            if o.destruction.destructor:
+                ops.object.transform_apply(location = True, scale = True, rotation = True)
+           
+            if o.name.startswith("P_0"):
                 
                 parent = o
                 groundNames = self.grounds(context, o, True)
@@ -629,9 +655,7 @@ class ConvertParenting(types.Operator):
                     ops.object.transform_apply(rotation = True)
                     
                     #apply scale and location also, AFTER rotation
-                    ops.object.transform_apply(scale = True)
-                    ops.object.transform_apply(location = True)
-                 # NOT the scale!  ops.object.transform_apply(scale = True)
+                    ops.object.transform_apply(scale = True, location = True)
                      
                     ground.select = False
                 break
@@ -640,7 +664,7 @@ class ConvertParenting(types.Operator):
         for o in context.scene.objects:    
             #poll speed of ANY destroyable object's child
             if o.parent != None:
-                if o.parent.name.startswith("P") and o.parent.name != "Player":             #regexp PNumber !!
+                if o.parent.name.startswith("P_") and o.parent.name != "Player":             #regexp PNumber !!
                     context.scene.objects.active = o
                     
                     controllers = len(context.active_object.game.controllers)
@@ -797,53 +821,56 @@ class ConvertParenting(types.Operator):
                 context.active_object.game.sensors[sensors])                   
                        
     def unconvert(self, context):
-        pos = Vector((0.0, 0.0, 0.0))
-        posFound = False
-        for o in context.scene.objects:
-             if o.name.startswith("P0"):
-                 for obj in data.objects:
-                     if obj.destruction != None:
-                         if obj.destruction.is_backup_for == o.name:
-                            pos = obj.location
-                            posFound = True
-                            break
-             if posFound:
-                 break
         
-        for o in context.scene.objects:
-            
-            if context.scene.player:
-                if o.name == "Player" or o.name == "Eye" or \
-                   o.name == "Launcher":# or o.name == "Ground":
-                       continue
-            
-            context.scene.objects.active = o
-            
-            index = 0
-            if len(o.game.properties) > 10:
-                if "myParent" in o.game.properties:
-                    props = 11
-                    index = len(o.game.properties) - props
-                    #correct some parenting error -> children at wrong position
-                    par = data.objects[o.game.properties[index].value]
-                    if par.name.startswith("P0"):
-                        o.location -= pos  
-                    o.parent = par
-                else: 
-                    props = 10
-                    index = len(o.game.properties) - props
-                    
-            while len(o.game.properties) > index:
-                ops.object.game_property_remove()
-            
-            #delete the last ones added
-            if o.parent != None: #here we have an additional always sensor
-                ops.logic.controller_remove(controller = "Python", object = o.name)
-                ops.logic.sensor_remove(sensor = "Always", object = o.name)
-            if o.destruction.destructor:
-                #and here should be the collision sensor
-                ops.logic.controller_remove(controller = "Python1", object = o.name)
-                ops.logic.sensor_remove(sensor = "Collision", object = o.name)
+        bpy.ops.ed.undo()
+        
+#        pos = Vector((0.0, 0.0, 0.0))
+#        posFound = False
+#        for o in context.scene.objects:
+#             if o.name.startswith("P0"):
+#                 for obj in data.objects:
+#                     if obj.destruction != None:
+#                         if obj.destruction.is_backup_for == o.name:
+#                            pos = obj.location
+#                            posFound = True
+#                            break
+#             if posFound:
+#                 break
+#        
+#        for o in context.scene.objects:
+#            
+#            if context.scene.player:
+#                if o.name == "Player" or o.name == "Eye" or \
+#                   o.name == "Launcher":# or o.name == "Ground":
+#                       continue
+#            
+#            context.scene.objects.active = o
+#            
+#            index = 0
+#            if len(o.game.properties) > 10:
+#                if "myParent" in o.game.properties:
+#                    props = 11
+#                    index = len(o.game.properties) - props
+#                    #correct some parenting error -> children at wrong position
+#                    par = data.objects[o.game.properties[index].value]
+#                    if par.name.startswith("P_0"):
+#                        o.location -= pos  
+#                    o.parent = par
+#                else: 
+#                    props = 10
+#                    index = len(o.game.properties) - props
+#                    
+#            while len(o.game.properties) > index:
+#                ops.object.game_property_remove()
+#            
+#            #delete the last ones added
+#            if o.parent != None: #here we have an additional always sensor
+#                ops.logic.controller_remove(controller = "Python", object = o.name)
+#                ops.logic.sensor_remove(sensor = "Always", object = o.name)
+#            if o.destruction.destructor:
+#                #and here should be the collision sensor
+#                ops.logic.controller_remove(controller = "Python1", object = o.name)
+#                ops.logic.sensor_remove(sensor = "Collision", object = o.name)
     
     def grounds(self, context, o, namesOnly = False):
        retVal = ""
@@ -881,6 +908,8 @@ class DestroyObject(types.Operator):
     
     def execute(self, context):
         
+        undo = context.user_preferences.edit.use_global_undo
+        context.user_preferences.edit.use_global_undo = False
         #set a heavy mass as workaround, until mass update works correctly...
         context.object.game.mass = 1000
         
@@ -893,7 +922,8 @@ class DestroyObject(types.Operator):
                    self.report({'ERROR_INVALID_INPUT'},"Object must be a mesh other than the original object")
                    return {'CANCELLED'}  
                            
-        dd.DataStore.proc.processDestruction(context)         
+        dd.DataStore.proc.processDestruction(context)    
+        context.user_preferences.edit.use_global_undo = undo     
         return {'FINISHED'}
 
 class UndestroyObject(types.Operator):
@@ -901,6 +931,10 @@ class UndestroyObject(types.Operator):
     bl_label = "Undestroy Object"
     
     def execute(self, context):
+        
+        undo = context.user_preferences.edit.use_global_undo
+        context.user_preferences.edit.use_global_undo = False
+        
         for o in data.objects:
             if o.destruction != None:
                 if o.destruction.is_backup_for == context.object.name:
@@ -919,7 +953,8 @@ class UndestroyObject(types.Operator):
         context.object.select = True
         self.selectShards(context.object, backup)
         ops.object.delete()
-       
+        
+        context.user_preferences.edit.use_global_undo = undo     
         return {'FINISHED'}
     
     def selectShards(self, object, backup):

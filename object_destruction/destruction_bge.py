@@ -322,13 +322,13 @@ def collide():
     gridValid = False
     
     speed = 0
-    for p in children.values():
-        for obj in p:
-            tempspeed = obj.worldLinearVelocity.length
-            if tempspeed != 0:
-                #print("Temp", tempspeed)
-                speed = tempspeed
-    
+    if owner.name != "Ball":
+        for p in children.values():
+            for obj in p:
+                tempspeed = obj.worldLinearVelocity.length
+                if tempspeed != 0:
+                    #print("Temp", tempspeed)
+                    speed = tempspeed    
     #for p in sensor.hitObjectList:
     #    print("HIT", p)  #always the compound object...
     
@@ -350,10 +350,10 @@ def collide():
             if dist < modSpeed:
                 dissolve(obj, 1, maxHierarchyDepth, owner)
                
-    if ground != None:            
-        for c in ground.children:
-            if getFaceDistance(owner, obj) < math.sqrt(owner.worldLinearVelocity.length / 2):
-                dissolve(c, 1, maxHierarchyDepth, owner)
+#    if ground != None:            
+#        for c in ground.children:
+#            if getFaceDistance(owner, obj) < owner.worldLinearVelocity.length / 2:
+#                dissolve(c, 1, maxHierarchyDepth, owner)
     
     #compare all normals of the non-active shards if they still have an opposite
  #   for p in children.values():
@@ -398,26 +398,26 @@ def dissolve(obj, depth, maxdepth, owner):
     global firstHit
     #global facelist
     
-    if not firstHit:
-        firstHit = True   
-        for v in children.values():
-            for c in v:
-                if not c.name.endswith("backup"): 
-                    c.visible = True
-                    bpyObjs[c.name].hide_render = False
-                    bpyObjs[c.name].hide = False
-                else:
-                    c.visible = False
-                    bpyObjs[c.name].hide_render = True
-                    bpyObjs[c.name].hide = True
-                
-                time = clock() - startclock
-                frame = time * bpy.context.scene.game_settings.fps
-               # frame = c.getActionFrame(1)
-               # print(frame)   
-                bpy.context.scene.frame_current = frame
-                #bpyObjs[c.name].keyframe_insert("hide_render")
-                #bpyObjs[c.name].keyframe_insert("hide")
+#    if not firstHit:
+#        firstHit = True   
+#        for v in children.values():
+#            for c in v:
+#                if not c.name.endswith("backup"): 
+#                    c.visible = True
+#                    bpyObjs[c.name].hide_render = False
+#                    bpyObjs[c.name].hide = False
+#                else:
+#                    c.visible = False
+#                    bpyObjs[c.name].hide_render = True
+#                    bpyObjs[c.name].hide = True
+#                
+#                time = clock() - startclock
+#                frame = time * bpy.context.scene.game_settings.fps
+#               # frame = c.getActionFrame(1)
+#               # print(frame)   
+#                bpy.context.scene.frame_current = frame
+#                #bpyObjs[c.name].keyframe_insert("hide_render")
+#                #bpyObjs[c.name].keyframe_insert("hide")
             
          
     parent = None

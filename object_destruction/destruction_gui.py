@@ -626,6 +626,7 @@ class ConvertParenting(types.Operator):
             
             if o.destruction.destructor:
                 o.select = True
+                print("Applying Destr Transform", o)
                 ops.object.transform_apply(location = True, scale = True, rotation = True)
                 o.select = False
            

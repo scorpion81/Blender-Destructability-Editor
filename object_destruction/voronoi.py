@@ -194,7 +194,12 @@ def voronoiCube(context, obj, parts, vol, walls):
     if vol == None or vol == "":
         pass
     else:
-        xmin, xmax, ymin, ymax, zmin, zmax = corners(context.scene.objects[vol])
+        volobj = context.scene.objects[vol]
+        volobj.select = True
+        ops.object.transform_apply(scale=True, location = True, rotation = True)
+        volobj.select = False
+        
+        xmin, xmax, ymin, ymax, zmin, zmax = corners(volobj)
         xmin += loc[0]
         xmax += loc[0]
         ymin += loc[1]
@@ -225,9 +230,9 @@ def voronoiCube(context, obj, parts, vol, walls):
         volobj = context.scene.objects[vol]
         
         context.scene.objects.active = volobj
-        volobj.select = True
-        ops.object.transform_apply(scale=True)
-        volobj.select = False
+#        volobj.select = True
+#        ops.object.transform_apply(scale=True)
+#        volobj.select = False
         
         for v in volobj.data.vertices:
             values.append((v.co[0], v.co[1], v.co[2]))

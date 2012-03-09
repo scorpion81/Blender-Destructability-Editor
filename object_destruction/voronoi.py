@@ -161,8 +161,8 @@ def voronoiCube(context, obj, parts, vol, walls):
     obj.destruction.tempLoc = loc
     context.scene.objects.active = obj
     obj.select = True
-    ops.object.transform_apply(scale=True, location=True, rotation=True)
-  #  ops.object.origin_set(type='GEOMETRY_ORIGIN')
+    ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
+    ops.object.transform_apply(scale=True, location = True, rotation=True)
     obj.select = False
    
     xmin, xmax, ymin, ymax, zmin, zmax = corners(obj)
@@ -262,10 +262,18 @@ def voronoiCube(context, obj, parts, vol, walls):
     
     if not walls:
         
-       # obj.modifiers.new("Remesh", 'REMESH')
-    #    context.scene.objects.active = obj
-     #   ops.object.modifier_apply(apply_as='DATA', modifier="Remesh")
-              
+        if obj.destruction.remesh_depth > 0:
+            rem = obj.modifiers.new("Remesh", 'REMESH')
+            rem.mode = 'SHARP'
+            rem.octree_depth = obj.destruction.remesh_depth
+            rem.scale = 0.9
+            rem.sharpness = 1.0
+            rem.remove_disconnected_pieces = False
+            #  rem.threshold = 1.0
+       
+            context.scene.objects.active = obj
+            ops.object.modifier_apply(apply_as='DATA', modifier="Remesh")
+               
         for o in context.scene.objects:
             if o.name not in oldnames:
                 context.scene.objects.active = o
@@ -294,8 +302,13 @@ def booleanIntersect(context, o, obj):
     if (old_mesh.users == 0):
         bpy.data.meshes.remove(old_mesh)  
             
-    o.data = mesh 
+    o.data = mesh  
     o.modifiers.remove(bool)
+    
+    ops.object.mode_set(mode = 'EDIT')
+    ops.mesh.separate(type = 'LOOSE')
+    ops.object.mode_set(mode = 'OBJECT')
+    
     o.select = True
     ops.object.origin_set(type='ORIGIN_GEOMETRY')
     o.select = False

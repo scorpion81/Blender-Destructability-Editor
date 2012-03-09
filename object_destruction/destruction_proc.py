@@ -232,6 +232,7 @@ class Processor():
             #prepare parenting
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = obj
+           # backup = self.createBackup(context, obj)
          
             if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
@@ -1498,7 +1499,7 @@ class DestructionContext(types.PropertyGroup):
     voro_path = props.StringProperty(name="voro_path", default = "test.out")
     keep_backup_visible = props.BoolProperty(name = "keep_backup_visible")
     inner_material = props.StringProperty(name = "inner_material")
-    
+    remesh_depth = props.IntProperty(name="remesh_depth", default = 5, min = 0, max = 10)
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',

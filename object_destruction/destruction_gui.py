@@ -72,7 +72,9 @@ class DestructabilityPanel(types.Panel):
                 row.prop(context.object.destruction, "voro_exact_shape", text = "Use Exact Shape")
                 row = col.row()
                 row.prop(context.object.destruction, "voro_path", text="Intermediate File")
-            
+            if context.object.destruction.destructionMode == 'DESTROY_VB':
+                row = col.row()
+                row.prop(context.object.destruction, "remesh_depth", text="Remesh Depth")
             row = layout.row()
             row.prop(context.object.destruction, "cubify", text = "Intersect with Grid")
             

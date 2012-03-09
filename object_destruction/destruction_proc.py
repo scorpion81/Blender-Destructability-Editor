@@ -412,11 +412,18 @@ class Processor():
         nameStart = ""
         nameEnd = ""
         
-        if len(split) == 2:
-            nameStart = split[0]
-            nameEnd = split[1]
+        if len(split) > 2:
+            s = ""
+            for i in split[:-1]:
+                s = s + "." + i
+            s = s.lstrip(".")
+            nameStart =  s
+            nameEnd = split[-1]
         else:
-            nameStart = "S_" + obj.name
+            if not obj.name.startswith("S_"):
+                nameStart = "S_" + obj.name
+            else:
+                nameStart = obj.name
             obj.name = nameStart + ".000"
             nameEnd = "000"
             
@@ -1118,21 +1125,14 @@ class Processor():
     
     def isRelated(self, c, context, nameStart):
         
-#        if c.parent != None:
-#            nameLevel = c.parent.name.split("_")[0]
-#            cLevel = int(nameLevel.lstrip("P"))
-#            levelOk = cLevel < level
-#        else:
-#            levelOk = True 
- #       print(c.name, c.parent)
-        
-        return (c.name.startswith(nameStart)) and (context.object.parent == c.parent)
-    
-    # and not self.isChild(context,c)) or self.isChild(context, c)    
-        
-#    def isChild(self, context, child):
-#        return context.active_object.destruction.transmitMode == 'T_CHILDREN' and \
-#              child.parent == context.active_object
+        split = c.name.split(".")
+        objname = ""
+        for s in split[:-1]:
+            objname = objname + "." + s
+        objname = objname.lstrip(".")
+        print("OBJ", objname, nameStart)
+        return objname == nameStart
+        #return (c.name.startswith(nameStart)) # and (context.active_object.parent == c.parent)
               
     def endStr(self, nr):
         if nr < 10:

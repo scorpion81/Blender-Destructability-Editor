@@ -162,15 +162,19 @@ def setup():
             if "flatten_hierarchy" in o.getPropertyNames():
                 if o["flatten_hierarchy"]:
                     for fp in firstparent:
-                        objname = o.name.split(".")[0]
-                        if fp.name not in children.keys() and objname in fp.name:
+                        split = o.name.split(".")
+                        objname = ""
+                        for s in split[:-1]:
+                            objname = objname + "." + s
+                        objname = objname.lstrip(".")
+                        if fp.name not in children.keys() and fp.name.endswith(objname + ".000"):
                             children[fp.name] = list()
                             children[fp.name].append(o)
                             if o.name.startswith("P_"):
                                 while len(o.children) != 0:
                                     o = o.children[0]
                             firstShard[fp.name] = o
-                        elif objname in fp.name:
+                        elif fp.name.endswith(objname + ".000"):
                             children[fp.name].append(o)
                 else:
                     if o.parent.name not in children.keys():
@@ -198,13 +202,17 @@ def setup():
                 if "flatten_hierarchy" in c.getPropertyNames():
                     mass = c.mass
                     oldPar = scene.objects[i[0]]
-                   # print("OLDPAR: ", oldPar.name)
-                    objname = c.name.split(".")[0]
-                    #print(objname, objname in oldPar.name)
-                    if c["flatten_hierarchy"] and c not in firstShard and objname in oldPar.name:   #this should be a global setting....
+                    split = c.name.split(".")
+                    objname = ""
+                    for s in split[:-1]:
+                        objname = objname + "." + s
+                    objname = objname.lstrip(".")
+                    print("OBJNAME", objname, oldPar)
+                    if c["flatten_hierarchy"] and c not in firstShard and \
+                    oldPar.name.endswith(objname + ".000"):   #this should be a global setting....
                         print("Setting parent", c, " -> ", firstShard[oldPar.name])
                         c.setParent(firstShard[oldPar.name], True, False)   
-                    elif c not in firstShard and objname in oldPar.name:
+                    elif c not in firstShard and oldPar.name.endswith(objname + ".000"):
                         parent = i[1][0]
                         print("Setting parent hierarchically", c, " -> ", parent)      
                         c.setParent(parent, True, False)

@@ -277,7 +277,9 @@ def voronoiCube(context, obj, parts, vol, walls):
             #  rem.threshold = 1.0
        
             context.scene.objects.active = obj
-            ops.object.modifier_apply(apply_as='DATA', modifier="Remesh")
+            ctx = context.copy()
+            ctx["object"] = obj
+            ops.object.modifier_apply(ctx, apply_as='DATA', modifier="Remesh")
                
         for o in context.scene.objects:
             if o.name not in oldnames:

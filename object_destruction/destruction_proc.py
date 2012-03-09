@@ -10,7 +10,7 @@ from operator import indexOf
 from mathutils import Vector, Quaternion, Euler, Matrix
 import math
 import bisect
-#import bmesh
+import sys
 
 #since a modification of fracture_ops is necessary, redistribute it
 from . import fracture_ops as fo
@@ -387,13 +387,24 @@ class Processor():
         else:
             backup.use_fake_user = True 
          
-        #deactivate old compound settings 
+        #deactivate old compound settings
+        mindist = sys.maxsize
+        closest = None 
         if parent.parent != None:
             for c in parent.parent.children:
                 c.game.use_collision_compound = False
-         
-        lastChild = parent.children[len(parent.children) - 1]
-        lastChild.game.use_collision_compound = True   
+        
+        loc = Vector((0, 0, 0))
+        for c in parent.children:
+            dist = (loc - c.location).length
+            print(mindist, dist, c)
+            if dist < mindist:
+                mindist = dist
+                closest = c         
+                
+        #lastChild = parent.children[len(parent.children) - 1]
+        print("Closest", closest.name)
+        closest.game.use_collision_compound = True   
         
         #if parent.name not in context.scene.validTargets:
         #    prop = bpy.context.scene.validTargets.add()

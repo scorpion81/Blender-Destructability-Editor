@@ -167,13 +167,16 @@ def setup():
                         for s in split[:-1]:
                             objname = objname + "." + s
                         objname = objname.lstrip(".")
+                        
+                        if bpyObjs[o.name].game.use_collision_compound:
+                            firstShard[fp.name] = o
+                                
                         if fp.name not in children.keys() and fp.name.endswith(objname + ".000"):
                             children[fp.name] = list()
                             children[fp.name].append(o)
-                            if o.name.startswith("P_"):
-                                while len(o.children) != 0:
-                                    o = o.children[0]
-                            firstShard[fp.name] = o
+                            #if o.name.startswith("P_"):
+                            #    while len(o.children) != 0:
+                            #        o = o.children[0]
                         elif fp.name.endswith(objname + ".000"):
                             children[fp.name].append(o)
                 else:

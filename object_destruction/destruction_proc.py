@@ -379,7 +379,8 @@ class Processor():
         
         [self.applyDataSet(context, c, largest, parentName, pos, mass, backup, normalList) for c in context.scene.objects if 
          self.isRelated(c, context, nameStart) and not c.name.endswith("backup")] 
-           
+        
+       # self.applyDataSet(context, obj, largest, parentName, pos, mass, backup, normalList)        
         if obj.destruction.keep_backup_visible:
             backup.parent = backupParent
             backup.name += "backup"
@@ -397,13 +398,13 @@ class Processor():
         loc = Vector((0, 0, 0))
         for c in parent.children:
             dist = (loc - c.location).length
-            print(mindist, dist, c)
+           # print(mindist, dist, c)
             if dist < mindist:
                 mindist = dist
                 closest = c         
                 
         #lastChild = parent.children[len(parent.children) - 1]
-        print("Closest", closest.name)
+        #print("Closest", closest.name)
         closest.game.use_collision_compound = True   
         
         #if parent.name not in context.scene.validTargets:
@@ -471,7 +472,7 @@ class Processor():
         return child.name.startswith(context.object.name)
     
     def applyDataSet(self, context, c, nameEnd, parentName, pos, mass, backup, normals):
-        print("NAME: ", c.name)
+       # print("NAME: ", c.name)
         
         split = c.name.split(".")
         end = split[1]
@@ -494,7 +495,7 @@ class Processor():
         #c.scale = [0.999, 0.999, 0.999]
         
         materialname = backup.destruction.inner_material
-        print("Mat", materialname)
+       # print("Mat", materialname)
         if materialname != None and materialname != "":
             slots = len(c.material_slots)
             ctx = context.copy()
@@ -512,8 +513,8 @@ class Processor():
         
         #update stale data
         context.scene.objects.active = c
-        ops.object.mode_set(mode = 'EDIT')
-        ops.object.mode_set(mode = 'OBJECT')
+     #   ops.object.mode_set(mode = 'EDIT')
+    #    ops.object.mode_set(mode = 'OBJECT')
         
         c.game.collision_bounds_type = 'CONVEX_HULL'
         c.game.collision_margin = 0.0 
@@ -1142,7 +1143,7 @@ class Processor():
         for s in split[:-1]:
             objname = objname + "." + s
         objname = objname.lstrip(".")
-        print("OBJ", objname, nameStart)
+      #  print("OBJ", objname, nameStart)
         return objname == nameStart
         #return (c.name.startswith(nameStart)) # and (context.active_object.parent == c.parent)
               

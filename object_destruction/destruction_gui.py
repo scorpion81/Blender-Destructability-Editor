@@ -926,8 +926,9 @@ class DestroyObject(types.Operator):
                 if obj.type != "MESH" or obj == context.object:
                    self.report({'ERROR_INVALID_INPUT'},"Object must be a mesh other than the original object")
                    return {'CANCELLED'}  
-                           
-        dd.DataStore.proc.processDestruction(context)    
+        start = clock()                   
+        dd.DataStore.proc.processDestruction(context)
+        print("Decomposition Time:" , clock() - start)    
         context.user_preferences.edit.use_global_undo = undo     
         return {'FINISHED'}
 

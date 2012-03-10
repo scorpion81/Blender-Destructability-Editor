@@ -1,4 +1,7 @@
 import platform
+from time import clock
+#from concurrent.futures import ProcessPoolExecutor, wait
+#from multiprocessing import Process, Queue
 
 if platform.architecture()[0] == "64bit":
     if platform.architecture()[1] == "ELF":
@@ -68,75 +71,94 @@ def parseFile(name):
        #  print("VERTSFACES:", verts, faces) 
          records.append({"v": verts, "f": faces})
      return records    
+
+def buildCell(cell, name):
+ # for each face
+    verts = []
+    faces = []
+    edges = []
+    
+    length = 0
+    for i in range(0, len(cell["f"])):
+        v = []
+        #get corresponding vertices
+        for index in cell["f"][i]:
+          #  print(index)
+            vert = cell["v"][index]
+            v.append(vert)
+            if vert not in verts:
+                verts.append(vert)
+                    
+        for j in range(1, len(v)-1):
+            index = verts.index(v[0])
+            index1 = verts.index(v[j])
+            index2 = verts.index(v[j+1]) 
+            
+           # edges.append([index, index1])
+        #    edges.append([index1, index2])
+         #   edges.append([index2, index])   
+            if (index == index1) or (index == index2) or \
+            (index2 == index1):
+                continue
+            else: 
+                faces.append([index, index1, index2])
+            #assert(len(set(faces[-1])) == 3)
+                  
+   # mesh = obj.data
+    nmesh = bpy.data.meshes.new(name = name)
+    nmesh.from_pydata(verts, edges, faces)
+  #  meshes.put(nmesh.name)
+    
+    ops.mesh.primitive_cube_add()
+    obj = bpy.context.active_object
+    obj.name = name
+    obj.parent = bpy.context.scene.objects[name].parent
+   
+    obj.data = None
+    nmesh.update(calc_edges=True) 
+#    nmesh.validate()    
+    obj.data = nmesh
+    obj.select = True
+    ops.object.origin_set(type='ORIGIN_GEOMETRY')
+    ops.object.material_slot_copy()
+    obj.select = False
+    ops.object.mode_set(mode = 'EDIT')
+    ops.mesh.normals_make_consistent(inside=False)
+  #  ops.mesh.dissolve_limited()
+    ops.object.mode_set(mode = 'OBJECT')
+    
+
          
 def buildCellMesh(cells, name):      
-     
-    for cell in cells:
-        # for each face
-        verts = []
-        faces = []
-        edges = []
+    
+#    meshes = Queue()
+#    for cell in cells:
+#        p = Process(target=buildCell, args=(cell, name, meshes))
+#        p.start()
+#        p.join()
+#        print(meshes.qsize())    
+#    
+#        ops.mesh.primitive_cube_add()
+#        obj = bpy.context.active_object
+#        obj.name = name
+#        obj.parent = bpy.context.scene.objects[name].parent
+#        obj.data = None
+#        
+#        nmesh = bpy.data.meshes[meshes.get()]
+#        
+#        nmesh.update(calc_edges=True)  
+#        obj.data = nmesh
+#        obj.select = True
+#        ops.object.origin_set(type='ORIGIN_GEOMETRY')
+#        ops.object.material_slot_copy()
+#        obj.select = False
+#        ops.object.mode_set(mode = 'EDIT')
+#        ops.mesh.normals_make_consistent(inside=False)
+#        ops.object.mode_set(mode = 'OBJECT')
+#        print("Mesh done", len(nmesh.vertices))
+    for cell in cells: 
+        buildCell(cell, name)
         
-        length = 0
-        for i in range(0, len(cell["f"])):
-            v = []
-            #get corresponding vertices
-            for index in cell["f"][i]:
-              #  print(index)
-                vert = cell["v"][index]
-                v.append(vert)
-                if vert not in verts:
-                    verts.append(vert)
-                        
-            for j in range(1, len(v)-1):
-                index = verts.index(v[0])
-                index1 = verts.index(v[j])
-                index2 = verts.index(v[j+1]) 
-                
-               # edges.append([index, index1])
-            #    edges.append([index1, index2])
-             #   edges.append([index2, index])   
-                if (index == index1) or (index == index2) or \
-                (index2 == index1):
-                    continue
-                else: 
-                    faces.append([index, index1, index2])
-                #assert(len(set(faces[-1])) == 3)
-                    
-        ops.mesh.primitive_cube_add()
-        obj = bpy.context.active_object
-        obj.name = name
-        obj.parent = bpy.context.scene.objects[name].parent
-     #   obj.location += loc         
-        
-        mesh = obj.data
-    #    print("Creating new mesh")
-        nmesh = bpy.data.meshes.new(name = name)
-        
-   #     print("Building new mesh")
-       # print(edges, faces)
-        nmesh.from_pydata(verts, edges, faces)
-   
-   #     print("Removing old mesh")    
-        obj.data = None
-        #mesh.user_clear()
-        #if (mesh.users == 0):
-        #    bpy.data.meshes.remove(mesh)
-   
-       # print("Assigning new mesh")
-        nmesh.update(calc_edges=True) 
-        nmesh.validate()    
-        obj.data = nmesh
-      #  obj.name = nmesh.name
-      #  print("Mesh Done")
-        obj.select = True
-        ops.object.origin_set(type='ORIGIN_GEOMETRY')
-        ops.object.material_slot_copy()
-        obj.select = False
-        ops.object.mode_set(mode = 'EDIT')
-        ops.mesh.normals_make_consistent(inside=False)
-      #  ops.mesh.dissolve_limited()
-        ops.object.mode_set(mode = 'OBJECT')
 
 def corners(obj):
     
@@ -157,6 +179,7 @@ def corners(obj):
 def voronoiCube(context, obj, parts, vol, walls):
     
     #applyscale before
+    start = clock()
     loc = Vector(obj.location)
     obj.destruction.tempLoc = loc
     context.scene.objects.active = obj
@@ -260,10 +283,20 @@ def voronoiCube(context, obj, parts, vol, walls):
     del con
     
     oldnames = [o.name for o in context.scene.objects]
+   
+    print("Library Time ", clock() - start)
+    start = clock()
+    
     records = parseFile(name)
+    print("Parsing Time ", clock() - start)
+    start = clock()
+    
     
     context.scene.objects.active = obj
     buildCellMesh(records, obj.name)
+    
+    print("Mesh Construction Time ", clock() - start)
+    start = clock()
     
     if not walls:
         
@@ -289,7 +322,8 @@ def voronoiCube(context, obj, parts, vol, walls):
                     context.scene.objects.unlink(o)
                 else:
                     oldnames.append(o.name)
-           
+        
+        print("Boolean Time ", clock() - start)      
   #  context.scene.objects.unlink(obj) 
     
 def booleanIntersect(context, o, obj):

@@ -2,6 +2,7 @@ import platform
 from time import clock
 #from concurrent.futures import ProcessPoolExecutor, wait
 #from multiprocessing import Process, Queue
+import math
 
 if platform.architecture()[0] == "64bit":
     if platform.architecture()[1] == "ELF":
@@ -72,13 +73,13 @@ def parseFile(name):
          records.append({"v": verts, "f": faces})
      return records    
 
-def buildCell(cell, name):
+def buildCell(cell, name, walls):
  # for each face
     verts = []
     faces = []
     edges = []
     
-    length = 0
+  #  length = 0
     for i in range(0, len(cell["f"])):
         v = []
         #get corresponding vertices
@@ -124,12 +125,14 @@ def buildCell(cell, name):
     obj.select = False
     ops.object.mode_set(mode = 'EDIT')
     ops.mesh.normals_make_consistent(inside=False)
-  #  ops.mesh.dissolve_limited()
+    
+    if walls:
+        ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))
     ops.object.mode_set(mode = 'OBJECT')
     
 
          
-def buildCellMesh(cells, name):      
+def buildCellMesh(cells, name, walls):      
     
 #    meshes = Queue()
 #    for cell in cells:
@@ -157,7 +160,7 @@ def buildCellMesh(cells, name):
 #        ops.object.mode_set(mode = 'OBJECT')
 #        print("Mesh done", len(nmesh.vertices))
     for cell in cells: 
-        buildCell(cell, name)
+        buildCell(cell, name, walls)
         
 
 def corners(obj):
@@ -293,7 +296,7 @@ def voronoiCube(context, obj, parts, vol, walls):
     
     
     context.scene.objects.active = obj
-    buildCellMesh(records, obj.name)
+    buildCellMesh(records, obj.name, walls)
     
     print("Mesh Construction Time ", clock() - start)
     start = clock()
@@ -347,6 +350,7 @@ def booleanIntersect(context, o, obj):
     o.modifiers.remove(bool)
     
     ops.object.mode_set(mode = 'EDIT')
+    ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))
     ops.mesh.separate(type = 'LOOSE')
     ops.object.mode_set(mode = 'OBJECT')
     

@@ -1,14 +1,13 @@
 import platform
 from time import clock
-#from concurrent.futures import ProcessPoolExecutor, wait
-#from multiprocessing import Process, Queue
+#from concurrent.futures import ThreadPoolExecutor, wait
+import threading
 import math
 
 if platform.architecture()[0] == "64bit":
     if platform.architecture()[1] == "ELF":
         from object_destruction.libvoro.linux64 import voronoi
     elif platform.architecture()[1] == "WindowsPE":
-        extname = "win64/voronoi"
         from object_destruction.libvoro.win64 import voronoi
     else:
         from object_destruction.libvoro.osx64 import voronoi
@@ -26,6 +25,8 @@ from mathutils import Vector
 import bpy
 from bpy import ops
 #import bmesh
+
+#start = 0
 
 def bracketPair(line, lastIndex):
     opening = line.index("(", lastIndex)
@@ -75,11 +76,12 @@ def parseFile(name):
 
 def buildCell(cell, name, walls):
  # for each face
+    #global start
+    
     verts = []
     faces = []
     edges = []
     
-  #  length = 0
     for i in range(0, len(cell["f"])):
         v = []
         #get corresponding vertices
@@ -95,20 +97,17 @@ def buildCell(cell, name, walls):
             index1 = verts.index(v[j])
             index2 = verts.index(v[j+1]) 
             
-           # edges.append([index, index1])
-        #    edges.append([index1, index2])
-         #   edges.append([index2, index])   
             if (index == index1) or (index == index2) or \
             (index2 == index1):
                 continue
             else: 
                 faces.append([index, index1, index2])
             #assert(len(set(faces[-1])) == 3)
-                  
-   # mesh = obj.data
+            
+  #  lock.acquire()
+     
     nmesh = bpy.data.meshes.new(name = name)
     nmesh.from_pydata(verts, edges, faces)
-  #  meshes.put(nmesh.name)
     
     ops.mesh.primitive_cube_add()
     obj = bpy.context.active_object
@@ -117,12 +116,13 @@ def buildCell(cell, name, walls):
    
     obj.data = None
     nmesh.update(calc_edges=True) 
-#    nmesh.validate()    
+ #   nmesh.validate()    
     obj.data = nmesh
     obj.select = True
     ops.object.origin_set(type='ORIGIN_GEOMETRY')
     ops.object.material_slot_copy()
     obj.select = False
+    
     ops.object.mode_set(mode = 'EDIT')
     ops.mesh.normals_make_consistent(inside=False)
     
@@ -130,35 +130,30 @@ def buildCell(cell, name, walls):
         ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))
     ops.object.mode_set(mode = 'OBJECT')
     
-
+#    lock.release()
+    
+   
+    
+    #print("Object assignment Time ", clock() - start)
+   # start = clock()
+    
          
 def buildCellMesh(cells, name, walls):      
     
-#    meshes = Queue()
-#    for cell in cells:
-#        p = Process(target=buildCell, args=(cell, name, meshes))
-#        p.start()
-#        p.join()
-#        print(meshes.qsize())    
-#    
-#        ops.mesh.primitive_cube_add()
-#        obj = bpy.context.active_object
-#        obj.name = name
-#        obj.parent = bpy.context.scene.objects[name].parent
-#        obj.data = None
+
+#     lock = threading.Lock()     
+#     threads = [threading.Thread(target=buildCell, args=(cell, name, walls, lock)) for cell in cells]
+#
+#     print("Starting threads...")
 #        
-#        nmesh = bpy.data.meshes[meshes.get()]
+#     for t in threads:
+#        t.start()
 #        
-#        nmesh.update(calc_edges=True)  
-#        obj.data = nmesh
-#        obj.select = True
-#        ops.object.origin_set(type='ORIGIN_GEOMETRY')
-#        ops.object.material_slot_copy()
-#        obj.select = False
-#        ops.object.mode_set(mode = 'EDIT')
-#        ops.mesh.normals_make_consistent(inside=False)
-#        ops.object.mode_set(mode = 'OBJECT')
-#        print("Mesh done", len(nmesh.vertices))
+#     print("Waiting for threads to finish...")
+#        
+#     for t in threads:
+#        t.join()       
+       
     for cell in cells: 
         buildCell(cell, name, walls)
         
@@ -182,6 +177,7 @@ def corners(obj):
 def voronoiCube(context, obj, parts, vol, walls):
     
     #applyscale before
+   # global start
     start = clock()
     loc = Vector(obj.location)
     obj.destruction.tempLoc = loc

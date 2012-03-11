@@ -183,7 +183,11 @@ def setup():
                     if o.parent.name not in children.keys():
                         children[o.parent.name] = list()
                     if o.name.startswith("P_") and len(o.children) > 0:
-                        ch = o.children[0]
+                        for c in o.children:
+                            if bpyObjs[c.name].game.use_collision_compound:
+                            #ch = o.children[0]
+                                ch = c
+                                break
                     else:
                         ch = o
                     children[o.parent.name].append(ch)
@@ -199,9 +203,15 @@ def setup():
       
     for i in children.items():
       #  scene.objects[i[0]].endObject()
-        for c in i[1]: 
-            totalMass = i[1][0].mass
-            if c != i[1][0]: 
+        parent = None
+        for c in i[1]:    
+           if bpyObjs[c.name].game.use_collision_compound:
+                parent = c
+                break
+            
+        for c in i[1]:
+            totalMass = parent.mass
+            if c != parent: 
                 if "flatten_hierarchy" in c.getPropertyNames():
                     mass = c.mass
                     oldPar = scene.objects[i[0]]
@@ -213,10 +223,10 @@ def setup():
                     print("OBJNAME", objname, oldPar)
                     if c["flatten_hierarchy"] and c not in firstShard and \
                     oldPar.name.endswith(objname + ".000"):   #this should be a global setting....
-                        print("Setting parent", c, " -> ", firstShard[oldPar.name])
-                        c.setParent(firstShard[oldPar.name], True, False)   
+                        parent = firstShard[oldPar.name]
+                        print("Setting parent", c, " -> ", parent)
+                        c.setParent(parent, True, False)   
                     elif c not in firstShard and oldPar.name.endswith(objname + ".000"):
-                        parent = i[1][0]
                         print("Setting parent hierarchically", c, " -> ", parent)      
                         c.setParent(parent, True, False)
                         #set hierarchical masses...
@@ -228,7 +238,7 @@ def setup():
                     if isGroundConnectivity(oldPar):
                       #  print("Setting Sticky")
                         c.suspendDynamics()
-                        firstShard[oldPar.name].suspendDynamics()
+                        parent.suspendDynamics()
                         ground = scene.objects["Ground"]
                         c.setParent(ground, True, False)
                         
@@ -244,6 +254,9 @@ def checkSpeed():
     control = logic.getCurrentController()
     owner = control.sensors["Always"].owner #name it correctly
     
+    if owner.name.startswith("P_"):
+        return
+        
     vel = owner.linearVelocity
     thresh = 0.001
     if math.fabs(vel[0]) < thresh and math.fabs(vel[1]) < thresh and math.fabs(vel[2]) < thresh:

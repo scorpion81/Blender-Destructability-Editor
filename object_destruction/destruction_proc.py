@@ -404,7 +404,7 @@ class Processor():
                 closest = c         
                 
         #lastChild = parent.children[len(parent.children) - 1]
-        #print("Closest", closest.name)
+        print("Closest", closest.name)
         closest.game.use_collision_compound = True   
         
         #if parent.name not in context.scene.validTargets:

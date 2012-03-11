@@ -323,12 +323,7 @@ class Processor():
         context.active_object.game.physics_type = 'STATIC'            
         context.active_object.game.radius = 0.01  
         context.active_object.game.use_ghost = True
-        
-        #context.active_object.game.use_collision_bounds = True
-        #context.active_object.game.use_collision_compound = True
-        #context.active_object.game.collision_bounds_type = 'CONVEX_HULL'
-        #context.active_object.game.collision_margin = 0.0         
-        
+              
         context.active_object.name = parentName   
         
         print("PARENT: ", parent)
@@ -351,6 +346,7 @@ class Processor():
             context.active_object.location = pos
         else:
             pos = Vector((0.0, 0.0, 0.0)) 
+        oldPar = parent
         
         parent = context.active_object
         parent.destruction.pos = obj.destruction.pos
@@ -378,7 +374,7 @@ class Processor():
     #    normals = set(normalList)
         
         [self.applyDataSet(context, c, largest, parentName, pos, mass, backup, normalList) for c in context.scene.objects if 
-         self.isRelated(c, context, nameStart) and not c.name.endswith("backup")] 
+         self.isRelated(c, context, nameStart, oldPar) and not c.name.endswith("backup")] 
         
        # self.applyDataSet(context, obj, largest, parentName, pos, mass, backup, normalList)        
         if obj.destruction.keep_backup_visible:
@@ -407,10 +403,6 @@ class Processor():
         print("Closest", closest.name)
         closest.game.use_collision_compound = True   
         
-        #if parent.name not in context.scene.validTargets:
-        #    prop = bpy.context.scene.validTargets.add()
-         #   prop.name = parent.name
-        
         return parent
         
     def prepareParenting(self, context, obj):
@@ -425,7 +417,7 @@ class Processor():
         nameStart = ""
         nameEnd = ""
         
-        if len(split) > 2:
+        if len(split) > 1:
             s = ""
             for i in split[:-1]:
                 s = s + "." + i
@@ -437,9 +429,9 @@ class Processor():
                 nameStart = "S_" + obj.name
             else:
                 nameStart = obj.name
-            obj.name = nameStart + ".000"
+            obj.name = nameStart# + ".000"
             nameEnd = "000"
-            
+        
         parentName = "P_0_" + nameStart + "." + nameEnd
    
         #and parent them all to an empty created before -> this is the key
@@ -456,7 +448,7 @@ class Processor():
             level += 1
             #get child with lowest number, must search for it if its not child[0]
             parentName = "P_" + str(level) + "_" + obj.name
-            
+           # nameStart = "S_" + str(level) + "_" + obj.name
             print("Subparenting...", children)
             length = len(obj.parent.children)
             
@@ -532,12 +524,6 @@ class Processor():
         c.destruction.wallThickness = 0.01
         c.destruction.pieceGranularity = 0
         c.destruction.destructionMode = 'DESTROY_F'
-        
-        c.destruction.isGround = backup.destruction.isGround
-        c.destruction.destructor = backup.destruction.destructor
-        for p in backup.destruction.destructorTargets:
-            prop = c.destruction.destructorTargets.add()
-            prop.name = p.name
             
         #if context.active_object.destruction.keep_backup_visible:
         #    c.hide_render = True
@@ -1136,16 +1122,16 @@ class Processor():
         return ret
             
     
-    def isRelated(self, c, context, nameStart):
+    def isRelated(self, c, context, nameStart, parent):
         
         split = c.name.split(".")
+        nameEnd = split[-1]
         objname = ""
         for s in split[:-1]:
             objname = objname + "." + s
         objname = objname.lstrip(".")
       #  print("OBJ", objname, nameStart)
-        return objname == nameStart
-        #return (c.name.startswith(nameStart)) # and (context.active_object.parent == c.parent)
+        return objname == nameStart and c.parent == parent
               
     def endStr(self, nr):
         if nr < 10:

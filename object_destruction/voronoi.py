@@ -184,7 +184,7 @@ def voronoiCube(context, obj, parts, vol, walls):
     context.scene.objects.active = obj
     obj.select = True
     ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
-    ops.object.transform_apply(scale=True, location = True, rotation=True)
+    ops.object.transform_apply(scale=True, location=True, rotation=True)
     obj.select = False
    
     xmin, xmax, ymin, ymax, zmin, zmax = corners(obj)
@@ -311,7 +311,7 @@ def voronoiCube(context, obj, parts, vol, walls):
             context.scene.objects.active = obj
             ctx = context.copy()
             ctx["object"] = obj
-            ops.object.modifier_apply(ctx, apply_as='DATA', modifier="Remesh")
+            ops.object.modifier_apply(ctx, apply_as='DATA', modifier = rem.name)
                
         for o in context.scene.objects:
             if o.name not in oldnames:
@@ -331,19 +331,22 @@ def booleanIntersect(context, o, obj):
     bool.object = obj
     bool.operation = 'INTERSECT'
     
-    mesh = o.to_mesh(context.scene, 
-                    apply_modifiers=True, 
-                    settings='PREVIEW')
+#    mesh = o.to_mesh(context.scene, 
+#                    apply_modifiers=True, 
+#                    settings='PREVIEW')
+    ctx = context.copy()
+    ctx["object"] = o
+    ops.object.modifier_apply(ctx, apply_as='DATA', modifier = bool.name)
                          
-    old_mesh = o.data
-    o.data = None
-    old_mesh.user_clear()
-        
-    if (old_mesh.users == 0):
-        bpy.data.meshes.remove(old_mesh)  
-            
-    o.data = mesh  
-    o.modifiers.remove(bool)
+#    old_mesh = o.data
+#    o.data = None
+#    old_mesh.user_clear()
+#        
+#    if (old_mesh.users == 0):
+#        bpy.data.meshes.remove(old_mesh)  
+#            
+#    o.data = mesh  
+#    o.modifiers.remove(bool)
     
     ops.object.mode_set(mode = 'EDIT')
     ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))

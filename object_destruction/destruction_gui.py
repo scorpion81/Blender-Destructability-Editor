@@ -959,7 +959,7 @@ class UndestroyObject(types.Operator):
                     if not o.destruction.keep_backup_visible:
                         context.scene.objects.link(o)
                     o.select = True
-                    ops.object.origin_set(type='GEOMETRY_ORIGIN')
+                    ops.object.origin_set(type='ORIGIN_GEOMETRY')
                     o.select = False      
                     o.destruction.is_backup_for == None
                     o.use_fake_user = False

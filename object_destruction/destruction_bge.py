@@ -22,14 +22,8 @@ import bpy
 
 #then wait for collision, if it is a registered destroyer, activate children according to speed an mass of destroyer (larger radius) for testing purposes create/register player balls as destroyer automatically. to each destroyable. 
 
-#sensorName = "D_destructor" 
-#massFactor = 4
-#speedFactor = 2
-#defaultRadius = 2
 #define Parameters for each object ! here defined for testing purposes
 maxHierarchyDepth = 1 # this must be stored per destructor, how deep destruction shall be
-#otherwise 1 level each collision with destroyer / ground
-#maxHierarchyDepth = 2  #this must be stored in scene
 doReturn = False
 integrity = 0.5
 
@@ -45,26 +39,25 @@ firstHit = False
 #TODO, temporary hack
 ground = None
 destructors = []
-#facelist = []
 
 
-def compareNormals(faces, face):
-    for f in faces:
-        dot = round(f.normal.dot(face.normal), 5)
-        prod = round(f.normal.length * face.normal.length, 5)
-        #normals point in opposite directions
-        if dot == -prod:
-            return True
-    return False
-
-def changeMaterial(child):
-    for obj in scene.objects:
-        if "activated" in obj.getPropertyNames(): 
-            if obj.getDistanceTo(child) < 2 and not obj["activated"]:
-                o = bpyObjs[child.name]
-                for f in o.data.polygons:
-                    f.material_index = 0
-                    f.keyframe_insert("material_index")
+#def compareNormals(faces, face):
+#    for f in faces:
+#        dot = round(f.normal.dot(face.normal), 5)
+#        prod = round(f.normal.length * face.normal.length, 5)
+#        #normals point in opposite directions
+#        if dot == -prod:
+#            return True
+#    return False
+#
+#def changeMaterial(child):
+#    for obj in scene.objects:
+#        if "activated" in obj.getPropertyNames(): 
+#            if obj.getDistanceTo(child) < 2 and not obj["activated"]:
+#                o = bpyObjs[child.name]
+#                for f in o.data.polygons:
+#                    f.material_index = 0
+#                    f.keyframe_insert("material_index")
 
 def project(p, n):
     
@@ -187,20 +180,15 @@ def setup():
             if "flatten_hierarchy" in o.getPropertyNames():
                 if o["flatten_hierarchy"]:
                     for fp in firstparent:
-                        split = o.name.split(".")
-                        objname = ""
-                        for s in split[:-1]:
-                            objname = objname + "." + s
-                        objname = objname.lstrip(".")
                         
-                        if bpyObjs[o.name].game.use_collision_compound and fp.name.endswith(objname + ".000"):
+                        if bpyObjs[o.name].game.use_collision_compound and o in fp.children:
                             firstShard[fp.name] = o
                                 
-                        if fp.name not in children.keys() and fp.name.endswith(objname + ".000"):
+                        if fp.name not in children.keys() and o in fp.children:
                             children[fp.name] = list()
                             children[fp.name].append(o)
                             
-                        elif fp.name.endswith(objname + ".000"):
+                        elif o in fp.children:
                             children[fp.name].append(o)
                 else:
                     if o.parent.name not in children.keys():
@@ -222,61 +210,32 @@ def setup():
     print(len(children))
       
     for i in children.items():
-      #  scene.objects[i[0]].endObject()
         parent = None
         oldPar = scene.objects[i[0]]
         for c in i[1]:    
-            
-            split = c.name.split(".")
-            objname = ""
-            for s in split[:-1]:
-                objname = objname + "." + s
-            objname = objname.lstrip(".")
                      
-            if bpyObjs[c.name].game.use_collision_compound and \
-            oldPar.name.endswith(objname + ".000"):
+            if bpyObjs[c.name].game.use_collision_compound:
                 parent = c
                 break
             
         for c in i[1]:
-           # totalMass = parent.mass
             if c != parent: 
                 if "flatten_hierarchy" in c.getPropertyNames():
-                    mass = c.mass
-                    oldPar = scene.objects[i[0]]
-                    split = c.name.split(".")
-                    objname = ""
-                    for s in split[:-1]:
-                        objname = objname + "." + s
-                    objname = objname.lstrip(".")
-                    print("OBJNAME", objname, oldPar)
-                    if c["flatten_hierarchy"] and c not in firstShard and \
-                    oldPar.name.endswith(objname + ".000"):   #this should be a global setting....
+                    if c["flatten_hierarchy"] and c not in firstShard: 
                         parent = firstShard[oldPar.name]
                         print("Setting parent", c, " -> ", parent)
                         c.setParent(parent, True, False)   
-                    elif c not in firstShard and oldPar.name.endswith(objname + ".000"):
+                    elif c not in firstShard:
                         print("Setting parent hierarchically", c, " -> ", parent)      
                         c.setParent(parent, True, False)
-                        #set hierarchical masses...
-                #    totalMass += mass
-                    
-                    #oldPar = scene.objects[i[0]]
-                    
+                        
                     #keep sticky if groundConnectivity is wanted
                     if isGroundConnectivity(oldPar):
-                      #  print("Setting Sticky")
                         c.suspendDynamics()
                         parent.suspendDynamics()
                         ground = scene.objects["Ground"]
                         c.setParent(ground, True, False)
                         
-    #    if "flatten_hierarchy" in i[1][0].getPropertyNames():
-    #        firstShard.mass = totalMass
-    #    else:
-    #        i[1][0].mass = totalMass
-                    
-#    print("Children:", len(children))
 def checkSpeed():
     #print("In checkSpeed")
     global gridValid

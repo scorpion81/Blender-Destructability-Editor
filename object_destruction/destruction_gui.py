@@ -623,6 +623,16 @@ class ConvertParenting(types.Operator):
         groundNames = None
         oldRot = None
         grounds = []
+        
+        #copy ground/destructor settings over to children
+        for o in context.scene.objects:
+            if o.name.startswith("P_"):
+                for c in o.children:  
+                    c.destruction.isGround = o.destruction.isGround
+                    c.destruction.destructor = o.destruction.destructor
+                    for p in o.destruction.destructorTargets:
+                        prop = c.destruction.destructorTargets.add()
+                        prop.name = p.name
       
         for o in context.scene.objects:
             

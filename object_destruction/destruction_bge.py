@@ -136,7 +136,7 @@ def getFaceDistance(a, b):
     # hack
     #print(a, b)
     global destructors
-    if a in destructors and a.name != "Ball":
+    if a in destructors and isGround(a):
         mindist = 10000000000
         obj = bpyObjs[a.name]
         for f in obj.data.polygons:
@@ -193,23 +193,23 @@ def setup():
             destructors.append(o)
             bpyObjs[o.name] = bpy.context.scene.objects[o.name]
     
-    for o in scene.objects:
-        if "myParent" in o.getPropertyNames():
-            if o.name.endswith("backup"):
-                bpy.context.scene.frame_current = 0
-                for c in o.parent.children:
-                    if c != o:
-                        print ("Visible = false")
-                        bpyObjs[c.name].hide_render = True
-                        bpyObjs[c.name].hide = True
-                     #   bpyObjs[c.name].keyframe_insert("hide_render")
-                      #  bpyObjs[c.name].keyframe_insert("hide")
-                        c.visible = False
-                bpyObjs[o.name].hide_render = False
-                bpyObjs[o.name].hide = False
-            #    bpyObjs[o.name].keyframe_insert("hide_render")
-           #     bpyObjs[o.name].keyframe_insert("hide")
-                o.visible = True
+#    for o in scene.objects:
+#        if "myParent" in o.getPropertyNames():
+#            if o.name.endswith("backup"):
+#                bpy.context.scene.frame_current = 0
+#                for c in o.parent.children:
+#                    if c != o:
+#                        print ("Visible = false")
+#                        bpyObjs[c.name].hide_render = True
+#                        bpyObjs[c.name].hide = True
+#                     #   bpyObjs[c.name].keyframe_insert("hide_render")
+#                      #  bpyObjs[c.name].keyframe_insert("hide")
+#                        c.visible = False
+#                bpyObjs[o.name].hide_render = False
+#                bpyObjs[o.name].hide = False
+#            #    bpyObjs[o.name].keyframe_insert("hide_render")
+#           #     bpyObjs[o.name].keyframe_insert("hide")
+#                o.visible = True
                 
   #  print(firstparent)
     for o in scene.objects:
@@ -225,7 +225,7 @@ def setup():
                             objname = objname + "." + s
                         objname = objname.lstrip(".")
                         
-                        if bpyObjs[o.name].game.use_collision_compound:
+                        if bpyObjs[o.name].game.use_collision_compound and fp.name.endswith(objname + ".000"):
                             firstShard[fp.name] = o
                                 
                         if fp.name not in children.keys() and fp.name.endswith(objname + ".000"):
@@ -248,10 +248,7 @@ def setup():
                     else:
                         ch = o
                     children[o.parent.name].append(ch)
-                    
-            
-                     
-            
+                       
         #remove temporary parenting
         if o.name != "Player" and o.name != "Launcher" and \
         o.name != "Eye":
@@ -261,8 +258,17 @@ def setup():
     for i in children.items():
       #  scene.objects[i[0]].endObject()
         parent = None
+        oldPar = scene.objects[i[0]]
         for c in i[1]:    
-           if bpyObjs[c.name].game.use_collision_compound:
+            
+            split = c.name.split(".")
+            objname = ""
+            for s in split[:-1]:
+                objname = objname + "." + s
+            objname = objname.lstrip(".")
+                     
+            if bpyObjs[c.name].game.use_collision_compound and \
+            oldPar.name.endswith(objname + ".000"):
                 parent = c
                 break
             
@@ -311,8 +317,10 @@ def checkSpeed():
     control = logic.getCurrentController()
     owner = control.sensors["Always"].owner #name it correctly
     
-    if owner.name.startswith("P_"):
-        return
+    for p in children.keys():
+        for obj in children[p]:
+            if obj == owner and not isGroundConnectivity(scene.objects[p]):
+                return 
         
     vel = owner.linearVelocity
     thresh = 0.001
@@ -394,30 +402,27 @@ def collide():
     
     gridValid = False
     
-    speed = 0
-    if owner.name != "Ball":
-        for p in children.values():
-            for obj in p:
-                tempspeed = obj.worldLinearVelocity.length
-                if tempspeed != 0:
-                    #print("Temp", tempspeed)
-                    speed = tempspeed    
+#    speed = 0
+#    if owner.name != "Ball":
+#        for p in children.values():
+#            for obj in p:
+#                tempspeed = obj.worldLinearVelocity.length
+#                if tempspeed != 0:
+#                    #print("Temp", tempspeed)
+#                    speed = tempspeed    
     #for p in sensor.hitObjectList:
     #    print("HIT", p)  #always the compound object...
     
     for p in children.keys():
         for obj in children[p]:
-            ownerspeed = owner.worldLinearVelocity.length
-            if ownerspeed < 0.0001:
-            #    print("Spd: ",ownerspeed, speed)
-                ownerspeed = speed # use objects speed then
+            speed = (owner.worldLinearVelocity - obj.worldLinearVelocity).length
             dist = getFaceDistance(owner, obj)
             
+            modSpeed = 1 + speed
+            if owner.name == "Ball":
+                modSpeed = math.sqrt(speed / 2)
             
-            modSpeed = math.sqrt(ownerspeed / 5)
-           # if not isGroundConnectivity(scene.objects[p]) and not owner.name == "Ball":
-        #        modSpeed = 1
-          
+          #  print(dist, modSpeed)    
             if dist < modSpeed:
                 dissolve(obj, 1, maxHierarchyDepth, owner)
                

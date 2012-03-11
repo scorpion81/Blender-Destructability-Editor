@@ -183,7 +183,10 @@ def voronoiCube(context, obj, parts, vol, walls):
     obj.destruction.tempLoc = loc
     context.scene.objects.active = obj
     obj.select = True
-    ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
+    if not walls:
+        ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
+    else:
+        ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
     ops.object.transform_apply(scale=True, location=True, rotation=True)
     obj.select = False
    

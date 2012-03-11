@@ -66,13 +66,69 @@ def changeMaterial(child):
                     f.material_index = 0
                     f.keyframe_insert("material_index")
 
-def distance(p, a, b, c):
+def project(p, n):
+    
+    #project point / plane by omitting coordinate which is the largest in the normal vector
+    max = 0
+    maxindex = 2
+    for i in range(0, 3):
+        co = math.fabs(n[i])
+        if co > max:
+            maxindex = i
+            max = co
+    
+    if maxindex == 0:
+        v1 = 1
+        v2 = 2
+    elif maxindex == 1:
+        v1 = 0
+        v2 = 2
+    elif maxindex == 2:
+        v1 = 0
+        v2 = 1
+    
+ #   print(p)
+    p1 = Vector((p[v1], p[v2]))
+    
+    return p1
+
+def isLeft(a, b, p):
+    
+    return (b[0] - a[0]) * (p[1] - a[1]) - (p[0] - a[0]) * (b[1] - a[1]) 
+
+def inside(p, n, obj):
+    #print(obj)
+    verts = obj.data.vertices
+    edges = obj.data.edges
+    wn = 0
+    for e in edges:
+        v1 = verts[e.vertices[0]]
+        v2 = verts[e.vertices[1]]
+        
+        vp1 = project(v1.co, n)
+        vp2 = project(v2.co, n)
+        p1 = project(p, n)
+        
+        if (vp1[1] <= p1[1]):                         # start y <= P.y
+            if (vp2[1] > p1[1]):                      # an upward crossing
+                if (isLeft( vp1, vp2, p1) > 0):       # P left of edge
+                    wn += 1                           # have a valid up intersect
+        
+        else:                                         # start y > P.y (no test needed)
+            if (vp2[1] <= p1[1]):                     # a downward crossing
+                if (isLeft( vp1, vp2, p1) < 0):       # P right of edge
+                    wn -= 1                           # have a valid down intersect
+    return wn != 0
+        
+def distance(p, a, b, c, obj):
     n = (c-a).cross(b-a)
     
     f = -n.dot(p-a) / n.dot(n)
     q = p + f * n
     
-    dist = (p - q).length
+    dist = 10000000000
+    if inside(q, n, obj):
+        dist = (p - q).length
     return dist
 
 def getFaceDistance(a, b):
@@ -81,14 +137,15 @@ def getFaceDistance(a, b):
     #print(a, b)
     global destructors
     if a in destructors and a.name != "Ball":
-        mindist = 100000000
+        mindist = 10000000000
         obj = bpyObjs[a.name]
         for f in obj.data.polygons:
            v1 = obj.data.vertices[f.vertices[0]].co
            v2 = obj.data.vertices[f.vertices[1]].co
            v3 = obj.data.vertices[f.vertices[2]].co
            
-           dist = distance(b.worldPosition, v1, v2, v3)
+           dist = distance(b.worldPosition, v1, v2, v3, obj)
+           
            if dist < mindist:
                mindist = dist
        # print("MinDist", mindist)
@@ -356,12 +413,10 @@ def collide():
                 ownerspeed = speed # use objects speed then
             dist = getFaceDistance(owner, obj)
             
-#            if owner == ground:
-#                modSpeed = math.sqrt(ownerspeed / 5)
-#            else:
-            modSpeed = math.sqrt(ownerspeed / 2)
-            if not isGroundConnectivity(scene.objects[p]) and not owner.name == "Ball":
-                modSpeed = 1
+            
+            modSpeed = math.sqrt(ownerspeed / 5)
+           # if not isGroundConnectivity(scene.objects[p]) and not owner.name == "Ball":
+        #        modSpeed = 1
           
             if dist < modSpeed:
                 dissolve(obj, 1, maxHierarchyDepth, owner)
@@ -370,42 +425,6 @@ def collide():
 #        for c in ground.children:
 #            if getFaceDistance(owner, obj) < owner.worldLinearVelocity.length / 2:
 #                dissolve(c, 1, maxHierarchyDepth, owner)
-    
-    #compare all normals of the non-active shards if they still have an opposite
- #   for p in children.values():
-#        for obj in p:
-#            if not obj["activated"]:
-#                o = bpyObjs[obj.name]
-#                bpy.context.scene.objects.active = o
-#               # bpy.ops.object.mode_set(mode = 'EDIT')
-#                [setMaterialIndex(f) for f in facelist if not compareNormals(facelist, f)]
-#            #    bpy.ops.object.mode_set(mode = 'OBJECT') 
-                
-    
-    #merge unactivated children together -> way too slow
-#    for p in children.keys():
-#        
-#        for obj in children[p]:
-#            if not obj["activated"]:
-#                first = bpyObjs[obj.name]
-#                break
-#         
-#        if first == None:
-#            break
-#         
-#        first.select = True
-#        bpy.context.scene.objects.active = first
-#        
-#        for obj in children[p]:
-#            o = bpyObjs[obj.name]
-#            if first != o:
-#                o.select = True
-#    
-#  #  bpy.ops.object.duplicate()        
-#    bpy.ops.object.join()
-#    bpy.ops.object.mode_set(mode = 'EDIT')
-#    bpy.ops.mesh.remove_doubles()
-#    bpy.ops.object.mode_set(mode = 'OBJECT')
             
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
@@ -471,7 +490,7 @@ def dissolve(obj, depth, maxdepth, owner):
 
 def activate(child, owner, grid):
  #   if child.getDistanceTo(owner.worldPosition) < defaultRadius:         
-     print("activated: ", child)
+    # print("activated: ", child)
      global integrity
      global firstShard
      

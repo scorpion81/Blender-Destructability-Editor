@@ -627,7 +627,8 @@ class ConvertParenting(types.Operator):
         #copy ground/destructor settings over to children
         for o in context.scene.objects:
             if o.name.startswith("P_"):
-                for c in o.children:  
+                for c in o.children: 
+                    c.destruction.flatten_hierarchy = o.destruction.flatten_hierarchy 
                     c.destruction.isGround = o.destruction.isGround
                     c.destruction.destructor = o.destruction.destructor
                     for p in o.destruction.destructorTargets:
@@ -636,7 +637,7 @@ class ConvertParenting(types.Operator):
       
         for o in context.scene.objects:
             
-            if o.destruction.destructor:
+            if o.destruction.destructor and o.destruction.isGround:
                 o.select = True
                 print("Applying Destr Transform", o)
                 ops.object.transform_apply(location = True, scale = True, rotation = True)

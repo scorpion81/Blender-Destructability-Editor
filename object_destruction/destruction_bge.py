@@ -156,22 +156,12 @@ def getFaceDistance(a, b):
 
 def setup():
     
-    #doReturn = False
-    #scene = logic.getCurrentScene()    
-    
     global firstparent
     global firstShard
     global ground
     global children
     global destructors
-   # global facelist
-   # global startclock
-    
-    #temp hack
-  #  player = scene.objects["Player"]
-#    player.removeParent()
-    
-  #  startclock = clock()
+
     #temporarily parent
     for o in scene.objects:
         if o.name != "Player":
@@ -184,34 +174,12 @@ def setup():
                 o.setParent(scene.objects[parent])
                 bpyObjs[o.name] = bpy.context.scene.objects[o.name]
                 o["activated"] = False
-               # obj = bpyObjs[o.name]
-            #    for f in obj.data.polygons:
-             #       facelist.append(f)
         if o.name == "Ground":
             bpyObjs[o.name] = bpy.context.scene.objects[o.name]
         if "destructor" in o.getPropertyNames():
             destructors.append(o)
             bpyObjs[o.name] = bpy.context.scene.objects[o.name]
     
-#    for o in scene.objects:
-#        if "myParent" in o.getPropertyNames():
-#            if o.name.endswith("backup"):
-#                bpy.context.scene.frame_current = 0
-#                for c in o.parent.children:
-#                    if c != o:
-#                        print ("Visible = false")
-#                        bpyObjs[c.name].hide_render = True
-#                        bpyObjs[c.name].hide = True
-#                     #   bpyObjs[c.name].keyframe_insert("hide_render")
-#                      #  bpyObjs[c.name].keyframe_insert("hide")
-#                        c.visible = False
-#                bpyObjs[o.name].hide_render = False
-#                bpyObjs[o.name].hide = False
-#            #    bpyObjs[o.name].keyframe_insert("hide_render")
-#           #     bpyObjs[o.name].keyframe_insert("hide")
-#                o.visible = True
-                
-  #  print(firstparent)
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():  
             print(o, o.parent, len(o.parent.children))
@@ -231,9 +199,7 @@ def setup():
                         if fp.name not in children.keys() and fp.name.endswith(objname + ".000"):
                             children[fp.name] = list()
                             children[fp.name].append(o)
-                            #if o.name.startswith("P_"):
-                            #    while len(o.children) != 0:
-                            #        o = o.children[0]
+                            
                         elif fp.name.endswith(objname + ".000"):
                             children[fp.name].append(o)
                 else:
@@ -273,7 +239,7 @@ def setup():
                 break
             
         for c in i[1]:
-            totalMass = parent.mass
+           # totalMass = parent.mass
             if c != parent: 
                 if "flatten_hierarchy" in c.getPropertyNames():
                     mass = c.mass
@@ -293,7 +259,7 @@ def setup():
                         print("Setting parent hierarchically", c, " -> ", parent)      
                         c.setParent(parent, True, False)
                         #set hierarchical masses...
-                    totalMass += mass
+                #    totalMass += mass
                     
                     #oldPar = scene.objects[i[0]]
                     
@@ -316,6 +282,10 @@ def checkSpeed():
     global gridValid
     control = logic.getCurrentController()
     owner = control.sensors["Always"].owner #name it correctly
+    
+    
+    if owner.name.startswith("P_"):
+        return
     
     for p in children.keys():
         for obj in children[p]:
@@ -436,28 +406,6 @@ def dissolve(obj, depth, maxdepth, owner):
    
     global startclock
     global firstHit
-    #global facelist
-    
-#    if not firstHit:
-#        firstHit = True   
-#        for v in children.values():
-#            for c in v:
-#                if not c.name.endswith("backup"): 
-#                    c.visible = True
-#                    bpyObjs[c.name].hide_render = False
-#                    bpyObjs[c.name].hide = False
-#                else:
-#                    c.visible = False
-#                    bpyObjs[c.name].hide_render = True
-#                    bpyObjs[c.name].hide = True
-#                
-#                time = clock() - startclock
-#                frame = time * bpy.context.scene.game_settings.fps
-#               # frame = c.getActionFrame(1)
-#               # print(frame)   
-#                bpy.context.scene.frame_current = frame
-#                #bpyObjs[c.name].keyframe_insert("hide_render")
-#                #bpyObjs[c.name].keyframe_insert("hide")
             
          
     parent = None
@@ -490,12 +438,12 @@ def dissolve(obj, depth, maxdepth, owner):
                 #[activate(c, owner, grid) for c in obj.parent.children]
                 activate(obj, owner, grid)
        
-        if depth < maxdepth: 
-            [dissolve(c, depth + 1, maxdepth, owner) for c in children[parent]]
+    if depth < maxdepth: 
+        [dissolve(c, depth + 1, maxdepth, owner) for c in children[parent]]
 
 def activate(child, owner, grid):
  #   if child.getDistanceTo(owner.worldPosition) < defaultRadius:         
-    # print("activated: ", child)
+     print("activated: ", child)
      global integrity
      global firstShard
      
@@ -510,28 +458,9 @@ def activate(child, owner, grid):
          par = ground
      else:
          par = scene.objects[parent]
-     
-     #if parent is hit, reparent all to first child if any
-     #TODO: do this hierarchical
-#     if child in firstShard.values() and not isGroundConnectivity(par):
-#         print("HIT PARENT", par)
-#         for c in firstShard[par.name].children:
-#            if not c["activated"]:
-#                newParent = c
-#                newParent.suspendDynamics()
-#                break
-#            
-#         bpyObjs[newParent.name].game.use_collision_compound = True
-#         for ch in firstShard[par.name].children:
-#             if not ch["activated"] and ch != newParent:
-           #    bpyObjs[ch.name].game.use_collision_compound = False
-#                ch.removeParent()
-               # ch.suspendDynamics()
-           #     ch.setParent(newParent, True, False)
-         
-         #newParent.restoreDynamics()
                  
-     if isGroundConnectivity(par) or isGround(par) and gridValid:
+     #if isGroundConnectivity(par) or isGround(par) and gridValid:
+     if isGroundConnectivity(par) and gridValid:
          if grid != None:
              cells = dict(grid.cells)
              gridPos = grid.getCellByName(child.name)

@@ -44,10 +44,10 @@ def create_cutter(context, crack_type, scale, roughness):
         if crack_type == 'FLAT_ROUGH':
             bpy.ops.mesh.subdivide(
                 number_cuts=ncuts,
-                fractal=roughness * 7 * scale,
-                smoothness=0)
+                fractal=0.0,
+                smoothness=0)#roughness *  scale
 
-            bpy.ops.mesh.vertices_smooth(repeat=5)
+            bpy.ops.mesh.vertices_smooth(repeat=1)
 
         bpy.ops.object.editmode_toggle()
 
@@ -69,28 +69,14 @@ def create_cutter(context, crack_type, scale, roughness):
             v.co[0] += 1.0
             v.co *= scale
 
-        if crack_type == 'SPHERE_ROUGH':
-            for v in context.scene.objects.active.data.vertices:
-                v.co[0] += roughness * scale * 0.2 * (random.random() - 0.5)
-                v.co[1] += roughness * scale * 0.1 * (random.random() - 0.5)
-                v.co[2] += roughness * scale * 0.1 * (random.random() - 0.5)
+    if crack_type == 'SPHERE_ROUGH' or crack_type =='FLAT_ROUGH':
+        for v in context.scene.objects.active.data.vertices:
+            v.co[0] += roughness * scale * 0.2 * (random.random() - 0.5)
+            v.co[1] += roughness * scale * 0.1 * (random.random() - 0.5)
+            v.co[2] += roughness * scale * 0.1 * (random.random() - 0.5)
 
     bpy.context.active_object.select = True
 #    bpy.context.scene.objects.active.select = True
-
-    '''
-    # Adding fracture material
-    # @todo Doesn't work at all yet.
-    sce = bpy.context.scene
-    if bpy.data.materials.get('fracture') is None:
-        bpy.ops.material.new()
-        bpy.ops.object.material_slot_add()
-        sce.objects.active.material_slots[0].material.name = 'fracture'
-    else:
-        bpy.ops.object.material_slot_add()
-        sce.objects.active.material_slots[0].material
-            = bpy.data.materials['fracture']
-    '''
 
 
 #UNWRAP
@@ -121,7 +107,6 @@ def getIslands(shard):
             while len(gproc) > 0:
                 i = gproc.pop(0)
                 for f in sm.faces:
-                    #if i in f.vertices:
                     for v in f.vertices:
                         if v == i:
                             for v1 in f.vertices:
@@ -133,8 +118,6 @@ def getIslands(shard):
                             fgroups[gindex].append(f.index)
 
             gindex += 1
-
-    #print( gindex)
 
     if gindex == 1:
         shards = [shard]
@@ -156,8 +139,6 @@ def getIslands(shard):
 
             for x in range(len(sm.vertices) - 1, -1, -1):
                 if vgi[x] != gi:
-                    #print('getIslands: selecting')
-                    #print('getIslands: ' + str(x))
                     a.data.vertices[x].select = True
 
             print(bpy.context.scene.objects.active.name)
@@ -189,22 +170,21 @@ def boolop(ob, cutter, op):
     sce.objects.active = ob
     cutter.select = False
 
-   # bpy.ops.object.modifier_add(type='BOOLEAN')
+    bpy.ops.object.duplicate(linked=False, mode='DUMMY')
     a = sce.objects.active
-    a.modifiers.new("Boolean", 'BOOLEAN')
-    a.modifiers['Boolean'].object = cutter
-    a.modifiers['Boolean'].operation = op
-
-    nmesh = a.to_mesh(sce, apply_modifiers=True, settings='PREVIEW')
+    mod = a.modifiers.new("Boolean", 'BOOLEAN')
+    mod.object = cutter
+    mod.operation = op
+    
+    ctx = bpy.context.copy()
+    ctx["object"] = a
+    bpy.ops.object.modifier_apply(ctx, apply_as='DATA', modifier=mod.name)
+    nmesh=a.data
 
     if len(nmesh.vertices) > 0:
-        a.modifiers.remove(a.modifiers['Boolean'])
-        bpy.ops.object.duplicate(linked=False, mode='DUMMY')
+        #a.modifiers.remove(mod)
 
         new_shard = sce.objects.active
-        new_shard.data = nmesh
-        #scene.objects.link(new_shard)
-
         new_shard.location = a.location
         bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
 
@@ -229,6 +209,7 @@ def boolop(ob, cutter, op):
             sce.objects.unlink(new_shard)
 
     else:
+        sce.objects.unlink(a)
         fault = 2
 
     return fault, new_shards
@@ -310,176 +291,3 @@ def fracture_basic(context, objects, nshards, crack_type, roughness):
 
         iter += 1
 
-
-def fracture_group(context, group):
-    tobesplit = []
-    shards = []
-
-    for ob in context.scene.objects:
-        if (ob.select
-            and (len(ob.users_group) == 0 or ob.users_group[0].name != group)):
-            tobesplit.append(ob)
-
-    cutters = bpy.data.groups[group].objects
-
-    # @todo This can be optimized.
-    # Avoid booleans on obs where bbox doesn't intersect.
-    i = 0
-    for ob in tobesplit:
-        for cutter in cutters:
-            fault, newshards = boolop(ob, cutter, 'INTERSECT')
-            shards.extend(newshards)
-
-            if fault == 1:
-               # Delete all shards in case of fault from previous operation.
-                for s in shards:
-                    bpy.context.scene.objects.unlink(s)
-
-                #print('fracture_group: fault')
-                #print('fracture_group: ' + str(i))
-
-                return
-
-            i += 1
-
-
-class FractureSimple(bpy.types.Operator):
-    '''Split object with boolean operations for simulation, uses an object.'''
-    bl_idname = "object.fracture_simple"
-    bl_label = "Fracture Object"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    exe = BoolProperty(name="Execute",
-        description="If it shall actually run, for optimal performance...",
-        default=False)
-
-    hierarchy = BoolProperty(name="Generate hierarchy",
-        description="Hierarchy is useful for simulation of objects" \
-                    " breaking in motion",
-        default=False)
-
-    nshards = IntProperty(name="Number of shards",
-        description="Number of shards the object should be split into",
-        min=2,
-        default=5)
-
-    crack_type = EnumProperty(name='Crack type',
-        items=(
-            ('FLAT', 'Flat', 'a'),
-            ('FLAT_ROUGH', 'Flat rough', 'a'),
-            ('SPHERE', 'Spherical', 'a'),
-            ('SPHERE_ROUGH', 'Spherical rough', 'a')),
-        description='Look of the fracture surface',
-        default='FLAT')
-
-    roughness = FloatProperty(name="Roughness",
-        description="Roughness of the fracture surface",
-        min=0.0,
-        max=3.0,
-        default=0.5)
-
-    def execute(self, context):
-        #getIslands(context.object)
-        if self.exe:
-            fracture_basic(context,
-                    self.nshards,
-                    self.crack_type,
-                    self.roughness)
-
-        return {'FINISHED'}
-
-
-class FractureGroup(bpy.types.Operator):
-    '''Split object with boolean operations for simulation, uses a group.'''
-    bl_idname = "object.fracture_group"
-    bl_label = "Fracture Object (Group)"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    exe = BoolProperty(name="Execute",
-                       description="If it shall actually run, for optimal performance...",
-                       default=False)
-
-    group = StringProperty(name="Group",
-                           description="Specify the group used for fracturing")
-
-#    e = []
-#    for i, g in enumerate(bpy.data.groups):
-#        e.append((g.name, g.name, ''))
-#    group = EnumProperty(name='Group (hit F8 to refresh list)',
-#                         items=e,
-#                         description='Specify the group used for fracturing')
-
-    def execute(self, context):
-        #getIslands(context.object)
-
-        if self.exe and self.group:
-            fracture_group(context, self.group)
-
-        return {'FINISHED'}
-
-    def draw(self, context):
-        layout = self.layout
-        layout.prop(self, "exe")
-        layout.prop_search(self, "group", bpy.data, "groups")
-
-#####################################################################
-# Import Functions
-
-def import_object(obname):
-    opath = "//data.blend\\Object\\" + obname
-    s = os.sep
-    dpath = bpy.utils.script_paths()[0] + \
-        '%saddons%sobject_fracture%sdata.blend\\Object\\' % (s, s, s)
-
-    # DEBUG
-    #print('import_object: ' + opath)
-
-    bpy.ops.wm.link_append(
-            filepath=opath,
-            filename=obname,
-            directory=dpath,
-            filemode=1,
-            link=False,
-            autoselect=True,
-            active_layer=True,
-            instance_groups=True,
-            relative_path=True)
-
-    for ob in bpy.context.selected_objects:
-        ob.location = bpy.context.scene.cursor_location
-
-
-class ImportFractureRecorder(bpy.types.Operator):
-    '''Imports a rigidbody recorder'''
-    bl_idname = "object.import_fracture_recorder"
-    bl_label = "Add Rigidbody Recorder (Fracture)"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context):
-        import_object("RECORDER")
-
-        return {'FINISHED'}
-
-
-class ImportFractureBomb(bpy.types.Operator):
-    '''Import a bomb'''
-    bl_idname = "object.import_fracture_bomb"
-    bl_label = "Add Bomb (Fracture)"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context):
-        import_object("BOMB")
-
-        return {'FINISHED'}
-
-
-class ImportFractureProjectile(bpy.types.Operator, ):
-    '''Imports a projectile'''
-    bl_idname = "object.import_fracture_projectile"
-    bl_label = "Add Projectile (Fracture)"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context):
-        import_object("PROJECTILE")
-
-        return {'FINISHED'}

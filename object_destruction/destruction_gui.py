@@ -978,7 +978,7 @@ class UndestroyObject(types.Operator):
             if o.destruction != None:
                 if o.destruction.is_backup_for == context.object.name:
                     backup = o    
-                    if context.scene.hideLayer == 1 and o.name != volobj.name:
+                    if context.scene.hideLayer == 1 and o != volobj:
                        # print("LINK", o.name) 
                         context.scene.objects.link(o)
                     o.select = True

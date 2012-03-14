@@ -181,12 +181,31 @@ def voronoiCube(context, obj, parts, vol, walls):
     start = clock()
     loc = Vector(obj.location)
     obj.destruction.tempLoc = loc
-    context.scene.objects.active = obj
+    
+    if vol != None and vol != "":
+        print("USING VOL")
+        volobj = context.scene.objects[vol]
+        volobj.select = True
+        ops.object.origin_set(type='GEOMETRY_ORIGIN')
+        ops.object.transform_apply(scale=True, rotation = True)
+        volobj.select = False
+        
+        vxmin, vxmax, vymin, vymax, vzmin, vzmax = corners(volobj)
+        vxmin += loc[0]
+        vxmax += loc[0]
+        vymin += loc[1]
+        vymax += loc[1]
+        vzmin += loc[2]
+        vzmax += loc[2] 
+        
+      
+    context.scene.objects.active = obj    
     obj.select = True
     if not walls:
         ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
     else:
         ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+        
     ops.object.transform_apply(scale=True, location=True, rotation=True)
     obj.select = False
    
@@ -223,21 +242,14 @@ def voronoiCube(context, obj, parts, vol, walls):
         theta = 10
     con = voronoi.domain(xmin-theta,xmax+theta,ymin-theta,ymax+theta,zmin-theta,zmax+theta,nx,ny,nz,False, False, False, particles)
     
-    if vol == None or vol == "":
-        pass
-    else:
-        volobj = context.scene.objects[vol]
-        volobj.select = True
-        ops.object.transform_apply(scale=True, location = True, rotation = True)
-        volobj.select = False
+    if vol != None and vol != "":
+        xmin = vxmin
+        xmax = vxmax
+        ymin = vymin
+        ymax = vymax
+        zmin = vzmin
+        zmax = vzmax
         
-        xmin, xmax, ymin, ymax, zmin, zmax = corners(volobj)
-        xmin += loc[0]
-        xmax += loc[0]
-        ymin += loc[1]
-        ymax += loc[1]
-        zmin += loc[2]
-        zmax += loc[2] 
     
     bm = obj.data
     
@@ -260,19 +272,22 @@ def voronoiCube(context, obj, parts, vol, walls):
     
     if vol != None and vol != "" and context.object.destruction.voro_exact_shape:
         volobj = context.scene.objects[vol]
-        
         context.scene.objects.active = volobj
-#        volobj.select = True
-#        ops.object.transform_apply(scale=True)
-#        volobj.select = False
         
+        volobj.select = True
+        ops.object.transform_apply(scale=True, location = True, rotation = True)
+        volobj.select = False
+                
         for v in volobj.data.vertices:
             values.append((v.co[0], v.co[1], v.co[2]))
+            
     elif partsystem != None:
         for p in partsystem.particles:
             values.append((p.location[0], p.location[1], p.location[2]))    
     else:    
         for i in range(0, particles):
+            
+            print (xmin, xmax, ymin, ymax, zmin, zmax)
             randX = random.uniform(xmin, xmax)
             randY = random.uniform(ymin, ymax)
             randZ = random.uniform(zmin, zmax)

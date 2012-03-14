@@ -279,7 +279,7 @@ def setup():
                     #keep sticky if groundConnectivity is wanted
                     if isGroundConnectivity(oldPar):
                         o.suspendDynamics()
-                        scene.objects[parent].suspendDynamics()
+                     #   scene.objects[parent].suspendDynamics()
                         ground = scene.objects["Ground"]
                         o.setParent(ground, True, False)
         
@@ -419,8 +419,8 @@ def collide():
             if not objname.startswith("P_"):
                 objs.append(objname)
             
-    for obj in objs:
-        obj = scene.objects[objname]
+    for ob in objs:
+        obj = scene.objects[ob]
         if distSpeed(owner, obj):   
             dissolve(obj, 1, maxHierarchyDepth, owner)
     

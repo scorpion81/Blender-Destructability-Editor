@@ -24,7 +24,7 @@ except ImportError:
 #do the actual non-bge processing here
 
 class Processor():
-                  
+          
     def processDestruction(self, context):
            
         modes = {DestructionContext.destModes[0][0]: 
@@ -113,9 +113,13 @@ class Processor():
         backup = context.active_object
         backup.name = obj.name
         
-        if obj.destruction.keep_backup_visible:
-            backup.game.use_ghost = True
-        else:
+        if len(backup.name.split(".")) == 1:
+            backup.name += ".000"
+        
+#        if obj.destruction.keep_backup_visible:
+#            backup.game.use_ghost = True
+#        else:
+        if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
             context.scene.objects.unlink(backup)
         print("Backup created: ", backup)
         
@@ -232,6 +236,10 @@ class Processor():
             #prepare parenting
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = obj
+            
+           # print("LEN: ", len(backup.name.split(".")))
+            if len(backup.name.split(".")) == 1:
+                backup.name += ".000"
            # backup = self.createBackup(context, obj)
          
             if obj.destruction.cubify:
@@ -239,9 +247,10 @@ class Processor():
             else:
                 voronoi.voronoiCube(context, obj, parts, volume, wall)
             
-            if obj.destruction.keep_backup_visible:
-                backup.game.use_ghost = True
-            else:
+         #   if obj.destruction.keep_backup_visible:
+        #        backup.game.use_ghost = True
+         #   else:
+            if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                 context.scene.objects.unlink(backup)
                     
             #do the parenting
@@ -308,7 +317,16 @@ class Processor():
         ops.mesh.select_all(action = 'SELECT')
         ops.mesh.separate(type = 'LOOSE')
         ops.object.mode_set()
-        print("separated")        
+        print("separated") 
+        
+    def layer(self, n):
+        ret = []
+        for i in range(0, 20):
+            if i == n-1:
+                ret.append(True)
+            else:
+                ret.append(False)
+        return ret       
     
     def doParenting(self, context, parentName, nameStart, bbox, backup, largest, obj):
         print("Largest: ", largest)    
@@ -362,6 +380,8 @@ class Processor():
         parent.destruction.isGround = obj.destruction.isGround
         parent.destruction.destructor = obj.destruction.destructor
         parent.destruction.cubify = obj.destruction.cubify
+        parent.destruction.flatten_hierarchy = obj.destruction.flatten_hierarchy
+        parent.destruction.backup = backup.name
         
         
         #distribute the object mass to the single pieces, equally for now
@@ -372,38 +392,70 @@ class Processor():
         
         normalList = [p.normal for p in backup.data.polygons]
     #    normals = set(normalList)
-        
-        [self.applyDataSet(context, c, largest, parentName, pos, mass, backup, normalList) for c in context.scene.objects if 
-         self.isRelated(c, context, nameStart, oldPar) and not c.name.endswith("backup")] 
-        
-       # self.applyDataSet(context, obj, largest, parentName, pos, mass, backup, normalList)        
-        if obj.destruction.keep_backup_visible:
-            backup.parent = backupParent
-            backup.name += "backup"
-          #  backup.hide = True
-        else:
-            backup.use_fake_user = True 
          
-        #deactivate old compound settings
-        mindist = sys.maxsize
-        closest = None 
-        if parent.parent != None:
-            for c in parent.parent.children:
-                c.game.use_collision_compound = False
+        if not obj.destruction.flatten_hierarchy:
+            parent.layers = self.layer(context.scene.hideLayer)
+    
+        [self.applyDataSet(context, c, largest, parentName, pos, mass, backup, normalList) for c in context.scene.objects if 
+         self.isRelated(c, context, nameStart, oldPar)] 
+         
+        if (not obj.destruction.flatten_hierarchy) and context.scene.hideLayer != 1:
+           # backup.name += "backup"
+            backup.parent = backupParent
+            if backupParent.name.startswith("P_0_"):
+                backup.layers = self.layer(1)
+        else:
+            backup.use_fake_user = True
+          
+        #deactivate old compound settings always (not only if flatten hierarchy)
+        if parent.parent != None and context.scene.hideLayer == 1:
+            self.delCompound(parent.parent)
         
-        loc = Vector((0, 0, 0))
-        for c in parent.children:
-            dist = (loc - c.location).length
-           # print(mindist, dist, c)
-            if dist < mindist:
-                mindist = dist
-                closest = c         
-                
-        #lastChild = parent.children[len(parent.children) - 1]
-        print("Closest", closest.name)
-        closest.game.use_collision_compound = True   
+        
+        if backup.name not in context.scene.backups:
+            prop = context.scene.backups.add()
+            prop.name = backup.name
+        
+        #re-assign compound if parent is fractured     
+        if backup.game.use_collision_compound and context.scene.hideLayer != 1:
+            self.setCompound(parent.parent)
+             
+        self.setCompound(parent)
+        
+        if not obj.destruction.flatten_hierarchy and context.scene.hideLayer != 1:
+            backup.game.use_collision_compound = False
+            if backup.name.endswith(".000"):
+                backup.select = True
+                ops.object.origin_set(type = "GEOMETRY_ORIGIN")
+                backup.select = False
         
         return parent
+    
+    def delCompound(self, parent):
+        for c in parent.children:
+            if c.game.use_collision_compound:
+                print("WasCompound", c.name)
+                c.destruction.wasCompound = True
+                c.game.use_collision_compound = False
+            self.delCompound(c)
+    
+    def setCompound(self, parent):
+        loc = Vector((0, 0, 0)) 
+        mindist = sys.maxsize
+        closest = None
+            
+        for c in parent.children:
+            if c.type == 'MESH' and c.name not in bpy.context.scene.backups:# and not c.name.endswith("backup"):
+                dist = (loc - c.location).length
+                # print(mindist, dist, c)
+                if dist < mindist:
+                    mindist = dist
+                    closest = c         
+                
+        #lastChild = parent.children[len(parent.children) - 1]
+        if closest != None:
+            print("Closest", closest.name)
+            closest.game.use_collision_compound = True   
         
     def prepareParenting(self, context, obj):
         
@@ -454,7 +506,10 @@ class Processor():
             
             #get the largest child index number, hopefully it is the last one and hopefully
             #this scheme will not change in future releases !
-            largest = obj.parent.children[length - 1].name.split(".")[1]   
+            #if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
+            largest = obj.parent.children[length - 1].name.split(".")[1]
+            #else:
+             #   largest = obj.parent.children[length - 2].name.split(".")[1]   #hack, TODO
          
         return parentName, nameStart, largest, bbox    
         
@@ -464,12 +519,14 @@ class Processor():
         return child.name.startswith(context.object.name)
     
     def applyDataSet(self, context, c, nameEnd, parentName, pos, mass, backup, normals):
-       # print("NAME: ", c.name)
+        print("NAME: ", c.name)
         
-        split = c.name.split(".")
-        end = split[1]
+        end = 0
+        if not c.name.endswith("backup"):
+            split = c.name.split(".")
+            end = split[1]
         
-        if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName):
+        if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName) and c.parent == None:
             self.assign(c, parentName, pos, mass, backup, context, normals)  
         
     def assign(self, c, parentName, pos, mass, backup, context, normals):
@@ -479,10 +536,10 @@ class Processor():
          
         c.parent = data.objects[parentName]
         
-        if c != backup:
-            c.game.physics_type = 'RIGID_BODY'
-        else:
-            c.game.physics_type = 'STATIC'
+    #    if c != backup:
+        c.game.physics_type = 'RIGID_BODY'
+     #   else:
+      #      c.game.physics_type = 'STATIC'
         
         #c.scale = [0.999, 0.999, 0.999]
         
@@ -505,8 +562,8 @@ class Processor():
         
         #update stale data
         context.scene.objects.active = c
-     #   ops.object.mode_set(mode = 'EDIT')
-    #    ops.object.mode_set(mode = 'OBJECT')
+        ops.object.mode_set(mode = 'EDIT')
+        ops.object.mode_set(mode = 'OBJECT')
         
         c.game.collision_bounds_type = 'CONVEX_HULL'
         c.game.collision_margin = 0.0 
@@ -524,12 +581,16 @@ class Processor():
         c.destruction.wallThickness = 0.01
         c.destruction.pieceGranularity = 0
         c.destruction.destructionMode = 'DESTROY_F'
+        c.destruction.flatten_hierarchy = c.parent.destruction.flatten_hierarchy
+        c.layers = c.parent.layers
             
         #if context.active_object.destruction.keep_backup_visible:
         #    c.hide_render = True
         
     
     def isBeingSplit(self, c, parentName):
+        if c.name.endswith("backup"):
+            return False
         if parentName.split(".")[1] == c.name.split(".")[1]:
             return True
         return False
@@ -1131,7 +1192,8 @@ class Processor():
             objname = objname + "." + s
         objname = objname.lstrip(".")
       #  print("OBJ", objname, nameStart)
-        return objname == nameStart and c.parent == parent
+        print("Related: ", c.name, c.parent, parent)
+        return (objname == nameStart) and c.parent == parent
               
     def endStr(self, nr):
         if nr < 10:
@@ -1495,9 +1557,12 @@ class DestructionContext(types.PropertyGroup):
     custom_ball = props.StringProperty(name="custom_ball")
     voro_exact_shape = props.BoolProperty(name = "voro_exact_shape")
     voro_path = props.StringProperty(name="voro_path", default = "test.out")
-    keep_backup_visible = props.BoolProperty(name = "keep_backup_visible")
+   # keep_backup_visible = props.BoolProperty(name = "keep_backup_visible")
     inner_material = props.StringProperty(name = "inner_material")
     remesh_depth = props.IntProperty(name="remesh_depth", default = 5, min = 0, max = 10)
+    wasCompound = props.BoolProperty(name="wasCompound", default = False)
+    children = props.CollectionProperty(type = types.PropertyGroup, name = "children")
+    backup = props.StringProperty(name = "backup")
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',
@@ -1535,9 +1600,11 @@ def initialize():
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")
     Scene.player = props.BoolProperty(name = "player")
     Scene.converted = props.BoolProperty(name = "converted")
-    Scene.validTargets = props.CollectionProperty(name = "validTargets", type = types.PropertyGroup)
-    Scene.validGrounds = props.CollectionProperty(name = "validGrounds", type = types.PropertyGroup)
+ #   Scene.validTargets = props.CollectionProperty(name = "validTargets", type = types.PropertyGroup)
+#    Scene.validGrounds = props.CollectionProperty(name = "validGrounds", type = types.PropertyGroup)
  #   Scene.validVolumes = props.CollectionProperty(name = "validVolumes", type = types.PropertyGroup)
+    Scene.hideLayer = props.IntProperty(name = "hideLayer", min = 1, max = 20, default = 1)
+    Scene.backups = props.CollectionProperty(name = "backups", type = types.PropertyGroup)
     dd.DataStore.proc = Processor()  
   
     #if hasattr(bpy.app.handlers, "object_activation" ) != 0:

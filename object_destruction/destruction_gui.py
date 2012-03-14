@@ -37,7 +37,6 @@ class DestructabilityPanel(types.Panel):
         if isParent:
             row = layout.row()
             row.prop(context.object.destruction, "destroyable", text = "Destroyable")
-            row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
         
         if isMesh:
             row = layout.row()
@@ -99,7 +98,10 @@ class DestructabilityPanel(types.Panel):
             row.prop_search(context.object.destruction, "inner_material", data, 
                     "materials", icon = 'MATERIAL', text = "Inner Material:")
             row = layout.row()
-            row.prop(context.object.destruction, "keep_backup_visible", text = "Keep Backup Visible")
+           # row.prop(context.object.destruction, "keep_backup_visible", text = "Keep Backup Visible")
+            row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
+            row = layout.row()
+            row.prop(context.scene, "hideLayer", text = "Hierarchy Layer")
             row = layout.row()
             row.operator("object.destroy")
         
@@ -804,14 +806,19 @@ class ConvertParenting(types.Operator):
                 if o.name == "Player" or o.name == "Eye" or \
                    o.name == "Launcher" or o.name == "Ground":
                     continue
-                
-            o.select = True
-            context.scene.objects.active = o
-            print("Clearing parent: ", o)
-            #ctx = context.copy()
-            #ctx["object"] = o
-            ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
-            o.select = False
+            
+            if o.parent != None:
+                if o.parent.name.startswith("P_"):    
+                    o.select = True
+                    context.scene.objects.active = o
+                    print("Clearing parent: ", o)
+                    #ctx = context.copy()
+                    #ctx["object"] = o
+                    o.hide = False
+                    propNew = o.parent.destruction.children.add()
+                    propNew.name = o.name
+                    ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+                    o.select = False
         
         
         #destructors
@@ -956,8 +963,8 @@ class UndestroyObject(types.Operator):
             if o.destruction != None:
                 if o.destruction.is_backup_for == context.object.name:
                     backup = o
-                    if not o.destruction.keep_backup_visible:
-                        context.scene.objects.link(o)
+                    #if not o.destruction.keep_backup_visible:
+                    context.scene.objects.link(o)
                     o.select = True
                     ops.object.origin_set(type='ORIGIN_GEOMETRY')
                     o.select = False      
@@ -995,6 +1002,9 @@ class UndestroyObject(types.Operator):
         for c in object.children:
             if c != backup: 
                 c.select = True
+                if c.name in bpy.context.scene.backups:
+                    index = context.scene.backups[c.name]
+                    context.scene.backups.remove(index)
             self.selectShards(c, backup)
 
 class GameStart(types.Operator):
@@ -1003,11 +1013,21 @@ class GameStart(types.Operator):
     
     def execute(self, context):
   
-        dd.startclock = clock()
-        context.scene.game_settings.use_animation_record = True
+        #dd.startclock = clock()
+       # context.scene.game_settings.use_animation_record = True
         context.scene.game_settings.use_frame_rate = True
         context.scene.game_settings.restrict_animation_updates = True
         context.scene.game_settings.show_framerate_profile = True
+     #   compounds = [o for o in context.scene.objects if o.game.use_collision_compound]
+      #  nonghosts = [o for o in context.scene.objects if not o.game.use_ghost]
         ops.view3d.game_start()
+        
+       # for c in compounds:
+        #    c.game.use_collision_compound = True
+        
+    #    for c in nonghosts:
+     #       c.game.use_ghost = False
+      #  print("After game engine exit")
+        
         return {'FINISHED'}
             

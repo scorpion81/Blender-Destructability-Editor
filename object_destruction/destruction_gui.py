@@ -69,6 +69,11 @@ class DestructabilityPanel(types.Panel):
                 row.prop_search(context.object.destruction, "voro_volume", 
                         context.scene, "objects", icon = 'OBJECT_DATA', text = "Volume:")
                 row.prop(context.object.destruction, "voro_exact_shape", text = "Use Exact Shape")
+                if context.object.destruction.voro_volume != "":
+                    vol = context.object.destruction.voro_volume 
+                    row = col.row()            
+                    row.prop_search(context.object.destruction, "voro_particles",
+                        data.objects[vol],  "particle_systems", icon = 'PARTICLES', text = "Particle System")
                 row = col.row()
                 row.prop(context.object.destruction, "voro_path", text="Intermediate File")
             if context.object.destruction.destructionMode == 'DESTROY_VB':
@@ -959,12 +964,23 @@ class UndestroyObject(types.Operator):
         undo = context.user_preferences.edit.use_global_undo
         context.user_preferences.edit.use_global_undo = False
         
+        volobj = None
         for o in data.objects:
             if o.destruction != None:
                 if o.destruction.is_backup_for == context.object.name:
                     backup = o
-                    #if not o.destruction.keep_backup_visible:
-                    context.scene.objects.link(o)
+                    vol = o.destruction.voro_volume 
+                    if vol != "":
+                        volobj = context.scene.objects[vol]
+                        #print("VOL", volobj.name) 
+        
+        for o in data.objects:
+            if o.destruction != None:
+                if o.destruction.is_backup_for == context.object.name:
+                    backup = o    
+                    if context.scene.hideLayer == 1 and o.name != volobj.name:
+                       # print("LINK", o.name) 
+                        context.scene.objects.link(o)
                     o.select = True
                     ops.object.origin_set(type='ORIGIN_GEOMETRY')
                     o.select = False      
@@ -1003,8 +1019,13 @@ class UndestroyObject(types.Operator):
             if c != backup: 
                 c.select = True
                 if c.name in bpy.context.scene.backups:
-                    index = context.scene.backups[c.name]
-                    context.scene.backups.remove(index)
+                    index = 0
+                    for n in bpy.context.scene.backups:
+                        if n == c.name:
+                            break
+                        index += 1
+                        
+                    bpy.context.scene.backups.remove(index)
             self.selectShards(c, backup)
 
 class GameStart(types.Operator):

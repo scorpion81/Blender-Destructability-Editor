@@ -237,6 +237,8 @@ class Processor():
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = obj
             
+            print("BACKUP", backup.name)
+            
            # print("LEN: ", len(backup.name.split(".")))
             if len(backup.name.split(".")) == 1:
                 backup.name += ".000"
@@ -1556,6 +1558,7 @@ class DestructionContext(types.PropertyGroup):
     tempLoc = props.FloatVectorProperty(name = "tempLoc", default = (0, 0, 0))
     custom_ball = props.StringProperty(name="custom_ball")
     voro_exact_shape = props.BoolProperty(name = "voro_exact_shape")
+    voro_particles = props.StringProperty(name = "voro_particles")
     voro_path = props.StringProperty(name="voro_path", default = "test.out")
    # keep_backup_visible = props.BoolProperty(name = "keep_backup_visible")
     inner_material = props.StringProperty(name = "inner_material")

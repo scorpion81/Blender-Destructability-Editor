@@ -210,6 +210,13 @@ def voronoiCube(context, obj, parts, vol, walls):
         volobj = context.scene.objects[vol]
         particles = len(volobj.data.vertices)
     
+    partsystem = None    
+    if context.object.destruction.voro_particles != "":
+        partsystemname = context.object.destruction.voro_particles
+        volobj = context.scene.objects[vol]
+        partsystem = volobj.particle_systems[partsystemname]
+        particles = len(partsystem.particles)
+    
     #enlarge container a bit, so parts near the border wont be cut off
     theta = 0.25
     if walls:
@@ -261,7 +268,9 @@ def voronoiCube(context, obj, parts, vol, walls):
         
         for v in volobj.data.vertices:
             values.append((v.co[0], v.co[1], v.co[2]))
-        
+    elif partsystem != None:
+        for p in partsystem.particles:
+            values.append((p.location[0], p.location[1], p.location[2]))    
     else:    
         for i in range(0, particles):
             randX = random.uniform(xmin, xmax)

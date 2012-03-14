@@ -1194,7 +1194,7 @@ class Processor():
             objname = objname + "." + s
         objname = objname.lstrip(".")
       #  print("OBJ", objname, nameStart)
-        print("Related: ", c.name, c.parent, parent)
+      #  print("Related: ", c.name, c.parent, parent)
         return (objname == nameStart) and c.parent == parent
               
     def endStr(self, nr):

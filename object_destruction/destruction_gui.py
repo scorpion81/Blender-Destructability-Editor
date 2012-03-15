@@ -43,7 +43,8 @@ class DestructabilityPanel(types.Panel):
             row.prop(context.object.destruction, "destructionMode", text = "Mode")
 
             col = layout.column()
-            col.prop(context.object.destruction, "partCount", text = "Parts")
+            if context.object.destruction.destructionMode != 'DESTROY_L':
+                col.prop(context.object.destruction, "partCount", text = "Parts")
             
             if context.object.destruction.destructionMode == 'DESTROY_F':
                 col.prop(context.object.destruction, "roughness", text = "Roughness")
@@ -76,15 +77,17 @@ class DestructabilityPanel(types.Panel):
                         data.objects[vol],  "particle_systems", icon = 'PARTICLES', text = "Particle System")
                 row = col.row()
                 row.prop(context.object.destruction, "voro_path", text="Intermediate File")
-            if context.object.destruction.destructionMode == 'DESTROY_VB':
-                row = col.row()
-                row.prop(context.object.destruction, "remesh_depth", text="Remesh Depth")
-            row = layout.row()
-            row.prop(context.object.destruction, "cubify", text = "Intersect with Grid")
+                if context.object.destruction.destructionMode == 'DESTROY_VB':
+                    row = col.row()
+                    row.prop(context.object.destruction, "remesh_depth", text="Remesh Depth")
+            if context.object.destruction.destructionMode != 'DESTROY_L':        
+                row = layout.row()
+                row.prop(context.object.destruction, "cubify", text = "Intersect with Grid")
             
-            row = layout.row()
-            col = row.column()
-            col.prop(context.object.destruction, "cubifyDim", text = "Intersection Grid")
+            if context.object.destruction.destructionMode != 'DESTROY_L':
+                row = layout.row()
+                col = row.column()
+                col.prop(context.object.destruction, "cubifyDim", text = "Intersection Grid")
         
         if isMesh or isParent:
             row = layout.row()
@@ -98,13 +101,15 @@ class DestructabilityPanel(types.Panel):
                     names.append(o.destruction.is_backup_for)
         if context.object.name in names and isParent:
             row.operator("object.undestroy")
-        elif isMesh or (isParent and (context.object.transmitMode == context.object.transModes[2][0] or \
-        context.object.transmitMode == context.object.transModes[3][0])):
-            row.prop_search(context.object.destruction, "inner_material", data, 
-                    "materials", icon = 'MATERIAL', text = "Inner Material:")
-            row = layout.row()
-           # row.prop(context.object.destruction, "keep_backup_visible", text = "Keep Backup Visible")
-            row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
+        elif isMesh: # or (isParent and (context.object.destruction.transmitMode == context.object.destruction.transModes[2][0] or \
+        #context.object.destruction.transmitMode == context.object.destruction.transModes[3][0])):
+            
+            if context.object.destruction.destructionMode != 'DESTROY_L':
+                row.prop_search(context.object.destruction, "inner_material", data, 
+                        "materials", icon = 'MATERIAL', text = "Inner Material:")
+                row = layout.row()
+                row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
+                
             row = layout.row()
             row.prop(context.scene, "hideLayer", text = "Hierarchy Layer")
             row = layout.row()
@@ -948,7 +953,13 @@ class DestroyObject(types.Operator):
                 obj = context.scene.objects[vol]
                 if obj.type != "MESH" or obj == context.object:
                    self.report({'ERROR_INVALID_INPUT'},"Object must be a mesh other than the original object")
-                   return {'CANCELLED'}  
+                   return {'CANCELLED'}
+        
+        if context.object.destruction.destructionMode == 'DESTROY_L':        
+            if context.object.parent == None or context.object.parent.type != "EMPTY":
+                self.report({'ERROR_INVALID_INPUT'},"Object must be parented to an empty before")
+                return {'CANCELLED'}
+                  
         start = clock()                   
         dd.DataStore.proc.processDestruction(context)
         print("Decomposition Time:" , clock() - start)    
@@ -1035,20 +1046,11 @@ class GameStart(types.Operator):
     def execute(self, context):
   
         #dd.startclock = clock()
-       # context.scene.game_settings.use_animation_record = True
+        context.scene.game_settings.use_animation_record = True
         context.scene.game_settings.use_frame_rate = True
         context.scene.game_settings.restrict_animation_updates = True
         context.scene.game_settings.show_framerate_profile = True
-     #   compounds = [o for o in context.scene.objects if o.game.use_collision_compound]
-      #  nonghosts = [o for o in context.scene.objects if not o.game.use_ghost]
         ops.view3d.game_start()
-        
-       # for c in compounds:
-        #    c.game.use_collision_compound = True
-        
-    #    for c in nonghosts:
-     #       c.game.use_ghost = False
-      #  print("After game engine exit")
         
         return {'FINISHED'}
             

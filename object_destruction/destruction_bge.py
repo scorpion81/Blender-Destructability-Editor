@@ -152,24 +152,6 @@ def descendants(p):
     for c in p.children:
         ret.extend(descendants(c))
     return ret 
-
-
-#def setup():
-#    
-#    if bpy.context.scene.hideLayer == 1:
-#        setupAll()
-#        
-#    else:
-#        for o in bpyObjects:
-#            if "myParent" in o.getPropertyNames():
-#                parent = o["myParent"]
-#                
-#                if o.name not in children.keys():
-#                    children[o.name] = list()
-#            
-#            else
-#            children[fp.name].append(o.name)
-            
         
 
 def setup():
@@ -245,8 +227,14 @@ def setup():
     for i in children.items():
         parent = None
         oldPar = scene.objects[i[0]]  
-        temp = oldPar.name.split(".")[0]
-        start = temp.split("_")[3] 
+        split = oldPar.name.split(".")
+        temp = split[0]
+        
+        if len(split) >= 4:
+            start = temp.split("_")[3]
+        else:
+            start = temp
+         
         
         #backup = bpyObjs[oldPar.name].destruction.backup
         
@@ -388,7 +376,7 @@ def distSpeed(owner, obj):
     if owner.name == "Ball": # and bpy.context.scene.hideLayer == 1:
         modSpeed = math.sqrt(speed / 2)
     
-    #print(dist, modSpeed)    
+   # print(dist, modSpeed)    
     return dist < modSpeed
     
 def collide():
@@ -485,7 +473,7 @@ def swapBackup(obj):
             
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
-    #print("dissolve")               
+   # print("dissolve")               
     parent = None
     for p in children.keys():
         if obj.name in children[p]:
@@ -513,7 +501,7 @@ def dissolve(obj, depth, maxdepth, owner):
             
            # 
             #swap and re-check distance
-           # print(depth, objDepth+1)
+          #  print(depth, objDepth+1, bDepth+1)
             if bpy.context.scene.hideLayer != 1 and depth == bDepth + 1 and isBackup(obj):
                 print(depth, bDepth+1)
                 objs = swapBackup(obj)

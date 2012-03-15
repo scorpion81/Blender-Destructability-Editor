@@ -206,7 +206,7 @@ def voronoiCube(context, obj, parts, vol, walls):
     else:
         ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
         
-    ops.object.transform_apply(scale=True, location=True, rotation=True)
+    ops.object.transform_apply(scale=True, location = True, rotation=True)
     obj.select = False
    
     xmin, xmax, ymin, ymax, zmin, zmax = corners(obj)

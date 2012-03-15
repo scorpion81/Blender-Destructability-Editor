@@ -40,7 +40,9 @@ class Processor():
                  DestructionContext.destModes[3][0]: 
                      "self.applyVoronoi(context, objects, parts, volume, True)",  
                  DestructionContext.destModes[4][0]: 
-                     "self.applyVoronoi(context, objects, parts, volume, False)" } 
+                     "self.applyVoronoi(context, objects, parts, volume, False)", 
+                 DestructionContext.destModes[5][0]:
+                     "self.applyLooseParts(context, objects)" } 
                      
         #make an object backup if necessary (if undo doesnt handle this)
         #according to mode call correct method
@@ -225,8 +227,75 @@ class Processor():
             o.select = True
         ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
         for o in context.scene.objects:
-            o.select = False    
+            o.select = False 
+            
     
+    def looseParts(self, context, parent, depth):
+        
+        if len(parent.children) == 0:
+            return
+        
+        if parent.type == 'EMPTY':
+            if not parent.name.startswith("P_"):
+                parent.name = "P_" + str(depth) + "_S_" + parent.name
+                parent.destruction.destroyable = True
+        
+        dupes = []        
+        ops.object.select_all(action = 'DESELECT')
+        for obj in parent.children:               
+            if obj.type == 'MESH':
+                if not obj.name.startswith("S_"):
+                    obj.name = "S_" + obj.name + ".000"
+                obj.game.physics_type = 'RIGID_BODY'
+                obj.game.collision_bounds_type = 'CONVEX_HULL'
+                obj.game.collision_margin = 0.0 
+                obj.game.radius = 0.01
+                obj.game.use_collision_bounds = True
+                
+                obj.select = True
+                ops.object.duplicate()
+                obj.select = False
+                dupes.append(context.active_object)
+                context.active_object.select = True
+                
+                self.setCompound(obj.parent, context.scene.hideLayer == 1)
+                
+                if context.scene.hideLayer != 1:
+                    obj.layers = self.layer(context.scene.hideLayer)
+            
+#            if obj.parent != None:
+#                obj.destruction.flatten_hierarchy = obj.parent.destruction.flatten_hierarchy
+#                obj.layers = obj.parent.layers
+                
+        ops.object.join() # should join the dupes only !!
+        #remove "unjoined" dupes again
+        for d in dupes:
+            if d != context.active_object:
+                d.select = True
+            else:
+                d.select = False
+        
+        ops.object.delete()
+        
+        context.active_object.destruction.is_backup_for = parent.name
+        parent.destruction.backup = context.active_object.name
+        
+        if context.scene.hideLayer == 1:
+            context.active_object.use_fake_user = True
+            context.scene.objects.unlink(context.active_object)
+        else:
+            if depth > 0:
+                context.active_object.layers = self.layer(context.scene.hideLayer)
+        
+        for obj in parent.children: 
+            self.looseParts(context, obj, depth + 1)
+                   
+    def applyLooseParts(self, context, objects):
+        
+        for obj in objects:
+            if obj.parent != None and obj.parent.type == "EMPTY":
+                self.looseParts(context, obj.parent, 0)
+               
     def applyVoronoi(self, context, objects, parts , volume, wall):
         
         for obj in objects:
@@ -389,6 +458,7 @@ class Processor():
         #distribute the object mass to the single pieces, equally for now
         print("Mass: ", backup.game.mass)
         mass = backup.game.mass / backup.destruction.partCount
+        oldBackupParent = backup.parent
         backupParent = context.active_object
         context.scene.objects.active = obj
         
@@ -404,7 +474,21 @@ class Processor():
         if (not obj.destruction.flatten_hierarchy) and context.scene.hideLayer != 1:
            # backup.name += "backup"
             backup.parent = backupParent
-            if backupParent.name.startswith("P_0_"):
+            
+            
+            temp = obj.name.split(".")[0]
+            start = temp.split("_")[1]
+            
+            if oldBackupParent != None: 
+                temp = oldBackupParent.name.split(".")[0]
+                bstart = temp.split("_")[3]
+            else:
+                bstart = start
+           
+            
+            print(start, bstart)
+            if backupParent.name.startswith("P_0_") and start == bstart: #only non generated parents may move their backup back
+                print("Moving back...")
                 backup.layers = self.layer(1)
         else:
             backup.use_fake_user = True
@@ -441,13 +525,16 @@ class Processor():
                 c.game.use_collision_compound = False
             self.delCompound(c)
     
-    def setCompound(self, parent):
+    def setCompound(self, parent, delOld=False):
         loc = Vector((0, 0, 0)) 
         mindist = sys.maxsize
         closest = None
             
         for c in parent.children:
             if c.type == 'MESH' and c.name not in bpy.context.scene.backups:# and not c.name.endswith("backup"):
+                if delOld and c.game.use_collision_compound:
+                    c.game.use_collision_compound = False
+                    c.destruction.wasCompound = True
                 dist = (loc - c.location).length
                 # print(mindist, dist, c)
                 if dist < mindist:
@@ -528,16 +615,34 @@ class Processor():
             split = c.name.split(".")
             end = split[1]
         
-        if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName) and c.parent == None:
+        if (int(end) > int(nameEnd) and c.parent == None) or (self.isBeingSplit(c, parentName, backup)):
             self.assign(c, parentName, pos, mass, backup, context, normals)  
         
     def assign(self, c, parentName, pos, mass, backup, context, normals):
          
         #correct a parenting "error": the parts are moved pos too far
-        c.location -= pos
-         
-        c.parent = data.objects[parentName]
+        print(backup.parent)
+        b = None
+        if backup.parent != None:
+            pos = backup.parent.location
+            print("Correcting pos", pos)
+            b = backup.parent.destruction.backup #old backup
+            print("OLDBACKUP", b)
         
+        if backup.destruction.destructionMode != 'DESTROY_V' and backup.destruction.destructionMode != 'DESTROY_VB':
+            if c != backup and c.name != b and b != None: 
+                c.location += pos
+          
+        print(c, b)
+        if c != backup and c.name != b:
+            c.location -= pos                         
+            c.parent = data.objects[parentName]
+            c.destruction.flatten_hierarchy = c.parent.destruction.flatten_hierarchy
+            c.layers = c.parent.layers
+        
+        if c == backup and b == None:
+            c.location -= pos
+            
     #    if c != backup:
         c.game.physics_type = 'RIGID_BODY'
      #   else:
@@ -583,17 +688,25 @@ class Processor():
         c.destruction.wallThickness = 0.01
         c.destruction.pieceGranularity = 0
         c.destruction.destructionMode = 'DESTROY_F'
-        c.destruction.flatten_hierarchy = c.parent.destruction.flatten_hierarchy
-        c.layers = c.parent.layers
+        
             
         #if context.active_object.destruction.keep_backup_visible:
         #    c.hide_render = True
         
     
-    def isBeingSplit(self, c, parentName):
+    def isBeingSplit(self, c, parentName, backup):
         if c.name.endswith("backup"):
             return False
-        if parentName.split(".")[1] == c.name.split(".")[1]:
+        
+        temp = backup.name.split(".")[0]
+        bstart = temp.split("_")[1]
+        
+        temp = c.name.split(".")[0]
+        start = temp.split("_")[1]
+        
+        print(start, bstart)
+        
+        if parentName.split(".")[1] == c.name.split(".")[1] or (start == bstart and c != backup):
             return True
         return False
    
@@ -1493,7 +1606,9 @@ class DestructionContext(types.PropertyGroup):
              #  'Destroy this object using the explosion modifier, forming small pieces', 3),
              ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 2),
              ('DESTROY_V', 'Voronoi Fracture', 'Destroy this object using voronoi decomposition', 3),
-             ('DESTROY_VB', 'Voronoi + Boolean', 'Destroy this object simple voronoi and a boolean modifier', 4)] 
+             ('DESTROY_VB', 'Voronoi + Boolean', 'Destroy this object using simple voronoi and a boolean  modifier', 4),
+             ('DESTROY_L', 'Loose Parts', 'Destroy this object into its predefined loose parts', 5)] 
+      
              
     
     transModes = [('T_SELF', 'This Object', 'Apply settings to this object only', 0), 
@@ -1516,7 +1631,8 @@ class DestructionContext(types.PropertyGroup):
      #update = updateIsGround)
      
     groundConnectivity = props.BoolProperty(name = "groundConnectivity", 
-    description = "Determines whether connectivity of parts of this object is calculated, so only unconnected parts collapse according to their parent relations", update = updateGroundConnectivity)
+    description = "Determines whether connectivity of parts of this object is calculated, \
+    so only unconnected parts collapse according to their parent relations", update = updateGroundConnectivity)
     gridDim = props.IntVectorProperty(name = "grid", default = (1, 1, 1), min = 1, max = 100, 
                                           subtype ='XYZ', update = updateGrid )
                                           
@@ -1550,7 +1666,7 @@ class DestructionContext(types.PropertyGroup):
     line_end = props.IntProperty(name = "line_end", default = 100, min = 0, max = 100)
     
     hierarchy_depth = props.IntProperty(name = "hierarchy_depth", default = 1, min = 1)
-    flatten_hierarchy = props.BoolProperty(name = "flatten_hierarchy", default = True)
+    flatten_hierarchy = props.BoolProperty(name = "flatten_hierarchy", default = False)
     
     voro_volume = props.StringProperty(name="volumeSelector")
     is_backup_for = props.StringProperty(name = "is_backup_for")

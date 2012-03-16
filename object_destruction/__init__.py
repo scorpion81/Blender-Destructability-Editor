@@ -7,7 +7,7 @@ bl_info = {
     "location": "Object > Destructability",
     "description": "Define how game engine shall handle destruction of objects",
     "warning": "",
-    "wiki_url": "",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Object/Destructability",
     "tracker_url": "",
     "category": "Object"}
 

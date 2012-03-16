@@ -6,7 +6,6 @@ import math
 import os
 import bpy
 from mathutils import Vector
-#import inspect
 from time import clock
 
 class DestructabilityPanel(types.Panel):
@@ -101,9 +100,7 @@ class DestructabilityPanel(types.Panel):
                     names.append(o.destruction.is_backup_for)
         if context.object.name in names and isParent:
             row.operator("object.undestroy")
-        elif isMesh: # or (isParent and (context.object.destruction.transmitMode == context.object.destruction.transModes[2][0] or \
-        #context.object.destruction.transmitMode == context.object.destruction.transModes[3][0])):
-            
+        elif isMesh:
             if context.object.destruction.destructionMode != 'DESTROY_L':
                 row.prop_search(context.object.destruction, "inner_material", data, 
                         "materials", icon = 'MATERIAL', text = "Inner Material:")
@@ -173,7 +170,6 @@ class DestructabilityPanel(types.Panel):
             row.operator("target.add", icon = 'ZOOMIN', text = "")
             row.active = context.object.destruction.destructor 
         
-        #if isMesh or isParent:
         row = layout.row()
         row.prop_search(context.object.destruction, "custom_ball", context.scene, 
                     "objects", icon = 'OBJECT_DATA', text = "Custom Ball:")
@@ -190,10 +186,7 @@ class DestructabilityPanel(types.Panel):
     
         row = layout.row()
     
-        #txt = "To Editor Parenting"
         txt = "To Game Parenting"
-        #if not context.scene.converted:
-        #    txt = "To Game Parenting"
    
         row.operator("parenting.convert", text = txt)
         row.active = not context.scene.converted
@@ -374,7 +367,6 @@ class SetupPlayer(types.Operator):
         print(__file__)
         currentDir = path.abspath(os.path.split(__file__)[0])
         
-       # print(path.abspath(data.texts
         print(ops.text.open(filepath = currentDir + "\destruction_bge.py", internal = False))
         print(ops.text.open(filepath = currentDir + "\player.py", internal = False))
         print(ops.text.open(filepath = currentDir + "\destruction_data.py", internal = False))
@@ -499,14 +491,13 @@ class SetupPlayer(types.Operator):
                 actuator = context.active_object.game.actuators[i])
         
         #ball
-        context.scene.objects.active = ball #data.objects["Ball"]
+        context.scene.objects.active = ball
         context.active_object.destruction.destructor = True
         
         for o in context.scene.objects:
             if o.destruction.destroyable:
                 target = context.active_object.destruction.destructorTargets.add()
                 target.name = o.name
-                #dp.updateValidTargets(context.active_object)
                      
         context.scene.objects.active = context.object
         #ground and cells
@@ -519,14 +510,8 @@ class SetupPlayer(types.Operator):
         g = context.object.destruction.grounds.add()
         g.name = "Ground"
         
-      #  dp.updateValidGrounds(context.active_object)
-        
-       # context        
         context.scene.objects.active = context.object
         
-#        while len(context.scene.validTargets) > 0:
-#           # print("Deleting valid target")
-#            context.scene.validTargets.remove(0)
         context.user_preferences.edit.use_global_undo = undo
         return {'FINISHED'}
     
@@ -617,7 +602,6 @@ class ConvertParenting(types.Operator):
             context.scene.converted = True
             context.user_preferences.edit.use_global_undo = undo
         else:
-          #  context.user_preferences.edit.use_global_undo = undo
             self.report({'INFO'}, "Hit Undo Key to undo conversion")
             return {'CANCELLED'}
             #context.scene.objects.active = context.object
@@ -822,8 +806,6 @@ class ConvertParenting(types.Operator):
                     o.select = True
                     context.scene.objects.active = o
                     print("Clearing parent: ", o)
-                    #ctx = context.copy()
-                    #ctx["object"] = o
                     o.hide = False
                     propNew = o.parent.destruction.children.add()
                     propNew.name = o.name
@@ -839,7 +821,6 @@ class ConvertParenting(types.Operator):
                 controllers = len(context.active_object.game.controllers)
                 sensors = len(context.active_object.game.sensors)
             
-              #  if context.active_object.game.controllers #append sensor/controller only ONCE!
                 
                 ops.logic.controller_add(type = 'PYTHON', object = o.name)
                 ops.logic.sensor_add(type = 'COLLISION', object = o.name)
@@ -1009,13 +990,6 @@ class UndestroyObject(types.Operator):
         return {'FINISHED'}
     
     def selectShards(self, object, backup):
-#        if object.name in bpy.context.scene.validTargets:
-#            index = 0
-#            for ob in bpy.context.scene.validTargets:
-#                if ob.name == object.name:
-#                    break
-#                index += 1
-#            bpy.context.scene.validTargets.remove(index)
                 
         for o in bpy.context.scene.objects:
             if o.destruction.destructor and object.name in o.destruction.destructorTargets:
@@ -1045,7 +1019,6 @@ class GameStart(types.Operator):
     
     def execute(self, context):
   
-        #dd.startclock = clock()
         context.scene.game_settings.use_animation_record = True
         context.scene.game_settings.use_frame_rate = True
         context.scene.game_settings.restrict_animation_updates = True

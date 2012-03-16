@@ -33,31 +33,10 @@ gridValid = False
 firstparent = []
 firstShard = {}
 bpyObjs = {}
-#startclock = dd.startclock
-#firstHit = False
 
 #TODO, temporary hack
 ground = None
 destructors = []
-
-
-#def compareNormals(faces, face):
-#    for f in faces:
-#        dot = round(f.normal.dot(face.normal), 5)
-#        prod = round(f.normal.length * face.normal.length, 5)
-#        #normals point in opposite directions
-#        if dot == -prod:
-#            return True
-#    return False
-#
-#def changeMaterial(child):
-#    for obj in scene.objects:
-#        if "activated" in obj.getPropertyNames(): 
-#            if obj.getDistanceTo(child) < 2 and not obj["activated"]:
-#                o = bpyObjs[child.name]
-#                for f in o.data.polygons:
-#                    f.material_index = 0
-#                    f.keyframe_insert("material_index")
 
 def project(p, n):
     
@@ -315,17 +294,14 @@ def checkSpeed():
         
 
 def calculateGrids():
-     #rotate parent HERE by 45 degrees, X Axis (testwise)
-   # firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
-    #oldOrientation = Matrix(firstparent.worldOrientation)
     
-    #Grid neu berechnen nach Bewegung.... oder immer alles relativ zur lokalen/Worldposition
+    #recalculate grid after movement
     global firstparent
     global firstShard
     global ground
     
     print("In Calculate Grids")
-    #firstShard.suspendDynamics()
+    
     
     for o in scene.objects:
         if isGroundConnectivity(o) or (isGround(o) and not isDestructor(o)):
@@ -348,8 +324,6 @@ def calculateGrids():
                         g.pos = Vector(logic.getCurrentScene().objects[g.name].worldPosition)
                         print(g.pos)
                         
-                  #  firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
-                #    [g.removeParent() for g in groundObjs]
                     
                     childs = [scene.objects[c] for c in children[o.name]]
                     grid = dd.Grid(dim, o.worldPosition, bbox, childs, grounds)
@@ -357,7 +331,6 @@ def calculateGrids():
                     grid.findGroundCells() 
                     dd.DataStore.grids[o.name] = grid
                     
-                   # firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
                     fp.worldOrientation = oldRot
                     [g.removeParent() for g in groundObjs]
             
@@ -365,8 +338,6 @@ def calculateGrids():
         
     print("Grids: ", dd.DataStore.grids)  
     
-    #rotate parent HERE by 45 degrees, X Axis (testwise)
-    #firstparent.worldOrientation = Vector((math.radians(45), 0, 0))
 
 def distSpeed(owner, obj):
     speed = (owner.worldLinearVelocity - obj.worldLinearVelocity).length
@@ -383,7 +354,6 @@ def collide():
     
     global maxHierarchyDepth
     global ground
-   # global facelist
     #colliders have collision sensors attached, which trigger for registered destructibles only
     
     #first the script controller brick, its sensor and owner are needed
@@ -391,8 +361,7 @@ def collide():
     scene = logic.getCurrentScene()
     sensor = control.sensors["Collision"]
     owner = sensor.owner
-    #treat each hit object, check hierarchy
-  #  print(sensor.hitObjectList)
+    
    
     maxHierarchyDepth = owner["hierarchy_depth"]
     
@@ -499,7 +468,6 @@ def dissolve(obj, depth, maxdepth, owner):
             objDepth = int(digitEnd)
             bDepth = backupDepth(obj)
             
-           # 
             #swap and re-check distance
           #  print(depth, objDepth+1, bDepth+1)
             if bpy.context.scene.hideLayer != 1 and depth == bDepth + 1 and isBackup(obj):
@@ -516,7 +484,7 @@ def dissolve(obj, depth, maxdepth, owner):
             [dissolve(c, depth + 1, maxdepth, owner) for c in childs]
 
 def activate(child, owner, grid):
- #   if child.getDistanceTo(owner.worldPosition) < defaultRadius:         
+    
     # print("activated: ", child)
      global integrity
      global firstShard
@@ -556,18 +524,10 @@ def activate(child, owner, grid):
                  for c in cells.values():
                     c.visit = False
                     
-    # if child.parent != None:
-    #    child.parent.mass -= child.mass
-    #    print("Mass : ", child.parent.mass)
-        
-     
-     
-    # if not isGroundConnectivity(par) or isGround(par):# or child != firstShard
      child.removeParent()
      child.restoreDynamics()
      child["activated"] = True
      
-  #   changeMaterial(child)
      
      if parent != None:
         if child.name in children[parent]:
@@ -683,7 +643,6 @@ def destroyCell(cell, cells):
         o.restoreDynamics()
         childs.remove(child)
         o["activated"] = True
-      #  changeMaterial(o)
             
     cell.children = childs      
     

@@ -19,7 +19,6 @@ class Cell:
         self.grid = grid
         cellDim = grid.cellDim
         self.dim = cellDim
-      #  self.maxVisit = 0
         self.visit = False
       #  print("CELL DIM: ",self.dim, cellDim)
         self.center = ((gridPos[0] + 0.5) * cellDim[0] + grid.pos[0], 
@@ -192,14 +191,6 @@ class Cell:
             
         self.neighbors = [back, front, left, right, top, bottom, c0, c1, c2, c3, c4, c5, c6, c7,
                           b01, b02, b13, b23, b45, b46, b57, b67, b04, b15, b26, b37]
-#        self.updateMaxVisit()
-    
-#    def updateMaxVisit(self):
-#        
-#        self.maxVisit = 0
-#        for n in self.neighbors:
-#            if n != None:
-#                self.maxVisit += 1   
         
     def testGroundCell(self):   
         #test distance of closest point on poly to cell center,
@@ -207,14 +198,6 @@ class Cell:
         #if neighbors opposite to each other both are groundcells, cell itself
         #becomes groundcell too
         
-        #insert more complex checking logic here->what if is only one neighbor there...
-#        if self.neighbors[0] != None and self.neighbors[1] != None:
-#        if (self.neighbors[0].isGroundCell and self.neighbors[1].isGroundCell) or \
-#           (self.neighbors[2].isGroundCell and self.neighbors[3].isGroundCell) or \
-#           (self.neighbors[4].isGroundCell and self.neighbors[5].isGroundCell):
-#               self.isGroundCell = True
-#               return
-#       
         #print ("In testGroundCell") 
         if self.grid.grounds == None:
             return None
@@ -257,18 +240,10 @@ class Grid:
                 for z in range(0, cellCounts[2]):
                    self.cells[(x,y,z)] = Cell((x,y,z), self)
                    
-    #   self.buildNeighborhood()
         self.children = None
-    #    self.pos = None
-    #    self.dim =  None
     
     def buildNeighborhood(self):
         [c.findNeighbors() for c in self.cells.values()]
-        #delete possible refs to bpy objects
-    #    for c in self.cells.values():
-    #        c.cellDim = None
-    #        c.gridPos = None
-    #        c.grid = None
         
     def findGroundCells(self):
         gcells = [c.testGroundCell() for c in self.cells.values()]
@@ -287,14 +262,8 @@ class Grid:
         
 
 class DataStore:
-   # backups = {}
     grids = {}
 
 class Ground:
     edges = []
-#def register():
-#   pass
-
-#def unregister():
-#   pass
     

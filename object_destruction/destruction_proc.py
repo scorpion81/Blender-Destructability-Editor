@@ -31,10 +31,6 @@ class Processor():
                     "self.applyFracture(context, objects, parts, roughness, crack_type)",
                  DestructionContext.destModes[1][0]: 
                      "self.applyExplo(context, objects, parts, granularity, thickness, False, False)",
-                # DestructionContext.destModes[2][0]: 
-                #     "self.applyExplo(context, objects, parts, granularity, thickness, True, True)",
-                # DestructionContext.destModes[3][0]: 
-                #     "self.applyExplo(context, objects, parts, granularity, thickness, True, False)",
                  DestructionContext.destModes[2][0]: 
                      "self.applyKnife(context, objects, parts, jitter, granularity, cut_type)",
                  DestructionContext.destModes[3][0]: 
@@ -118,9 +114,6 @@ class Processor():
         if len(backup.name.split(".")) == 1:
             backup.name += ".000"
         
-#        if obj.destruction.keep_backup_visible:
-#            backup.game.use_ghost = True
-#        else:
         if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
             context.scene.objects.unlink(backup)
         print("Backup created: ", backup)
@@ -167,58 +160,7 @@ class Processor():
             ops.object.mode_set(mode = 'EDIT')
             ops.mesh.subdivide(number_cuts = granularity)
             ops.object.mode_set()
-        
-        
-#        if massive and pairwise:
-#            while (len(currentParts) < parts):
-#                oldnames = [o.name for o in context.scene.objects]
-#                  #pick always the largest object to subdivide
-#               # sizes = {}
-#                #[self.dictItem(sizes, self.getSize(o), o.name) for o in context.scene.objects if o.name in currentParts]
-#                    
-#                #maxSize = max(sizes.keys())
-#                #name = sizes[maxSize]
-#                index = random.randint(0, len(currentParts)-1)
-#                tocut = context.scene.objects[currentParts[index]]
-#                context.scene.objects.active = tocut
-#                parent = context.active_object.parent
-#                
-#                self.previewExplo(context, 2, 0) 
-#                self.separateExplo(context, 0)   
-#                
-#                part = self.findNew(context, oldnames)[0].name
-#                
-#                ops.object.mode_set(mode = 'EDIT')
-#                ops.mesh.select_all(action = 'SELECT')
-#                ops.mesh.region_to_loop()
-#                ops.mesh.fill()
-#               # ops.mesh.edge_face_add()
-#                #ops.mesh.quads_convert_to_tris()
-#                ops.mesh.select_all(action = 'SELECT')
-#                ops.mesh.normals_make_consistent()
-#                ops.object.mode_set(mode = 'OBJECT')
-#                tocut.select = True
-#                ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
-#                tocut.select = False
-#            
-#                context.scene.objects.active = context.scene.objects[part]
-#                ops.object.mode_set(mode = 'EDIT')
-#                ops.mesh.select_all(action = 'SELECT')
-#                ops.mesh.region_to_loop()
-#                ops.mesh.fill()
-#               # ops.mesh.edge_face_add()
-#                #ops.mesh.quads_convert_to_tris()
-#                ops.mesh.select_all(action = 'SELECT')
-#                ops.mesh.normals_make_consistent()
-#                ops.object.mode_set(mode = 'OBJECT')
-#                context.active_object.select = True
-#                ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
-#                context.active_object.select = False
-#                
-#                
-#                currentParts.append(part)
-#            
-#        else:
+
             #explosion modifier specific    
         self.previewExplo(context, parts, thickness)
         self.separateExplo(context, thickness)
@@ -263,9 +205,6 @@ class Processor():
                 if context.scene.hideLayer != 1:
                     obj.layers = self.layer(context.scene.hideLayer)
             
-#            if obj.parent != None:
-#                obj.destruction.flatten_hierarchy = obj.parent.destruction.flatten_hierarchy
-#                obj.layers = obj.parent.layers
                 
         ops.object.join() # should join the dupes only !!
         #remove "unjoined" dupes again
@@ -311,16 +250,12 @@ class Processor():
            # print("LEN: ", len(backup.name.split(".")))
             if len(backup.name.split(".")) == 1:
                 backup.name += ".000"
-           # backup = self.createBackup(context, obj)
          
             if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
             else:
                 voronoi.voronoiCube(context, obj, parts, volume, wall)
             
-         #   if obj.destruction.keep_backup_visible:
-        #        backup.game.use_ghost = True
-         #   else:
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                 context.scene.objects.unlink(backup)
                     
@@ -340,9 +275,6 @@ class Processor():
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = self.createBackup(context, obj)
             
-            #if massive -> select all, region to loop, create faces, use self intersect
-            #if massive and pairwise, apply a 2 piece particle system to random object
-            #like knife
             if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
             else:
@@ -382,7 +314,6 @@ class Processor():
         ops.object.mode_set(mode = 'EDIT')
         ops.mesh.select_all(action = 'DESELECT')
         #omit loose vertices, otherwise they form an own object!
-        #ops.mesh.select_by_number_vertices(number = 3, type='LESS')
         ops.mesh.select_loose_verts()
         ops.mesh.delete(type = 'VERT')
         ops.mesh.select_all(action = 'SELECT')
@@ -418,13 +349,10 @@ class Processor():
         print("PARENT: ", parent)
         context.active_object.parent = parent
         context.active_object.destruction.gridBBox = bbox
-  
-       # dd.DataStore.backups[context.active_object.name] = backup
         backup.destruction.is_backup_for = context.active_object.name
         
         #get the first backup, need that position
         if parent == None:
-           # pos = dd.DataStore.backups["P0_" + nameStart + ".000"].location
             for o in data.objects:
                 if o.destruction != None:
                     if o.destruction.is_backup_for == "P_0_" + nameStart + ".000":
@@ -463,7 +391,6 @@ class Processor():
         context.scene.objects.active = obj
         
         normalList = [p.normal for p in backup.data.polygons]
-    #    normals = set(normalList)
          
         if not obj.destruction.flatten_hierarchy:
             parent.layers = self.layer(context.scene.hideLayer)
@@ -487,7 +414,8 @@ class Processor():
            
             
             print(start, bstart)
-            if backupParent.name.startswith("P_0_") and start == bstart: #only non generated parents may move their backup back
+            if backupParent.name.startswith("P_0_") and start == bstart: 
+                #only non generated parents may move their backup back
                 print("Moving back...")
                 backup.layers = self.layer(1)
         else:
@@ -531,7 +459,7 @@ class Processor():
         closest = None
             
         for c in parent.children:
-            if c.type == 'MESH' and c.name not in bpy.context.scene.backups:# and not c.name.endswith("backup"):
+            if c.type == 'MESH' and c.name not in bpy.context.scene.backups:
                 if delOld and c.game.use_collision_compound:
                     c.game.use_collision_compound = False
                     c.destruction.wasCompound = True
@@ -541,7 +469,6 @@ class Processor():
                     mindist = dist
                     closest = c         
                 
-        #lastChild = parent.children[len(parent.children) - 1]
         if closest != None:
             print("Closest", closest.name)
             closest.game.use_collision_compound = True   
@@ -584,21 +511,16 @@ class Processor():
       
         if obj.parent != None:
             pLevel = obj.parent.name.split("_")[1]
-            #temp = pLevel.lstrip("P")
             level = int(pLevel)
             level += 1
             #get child with lowest number, must search for it if its not child[0]
             parentName = "P_" + str(level) + "_" + obj.name
-           # nameStart = "S_" + str(level) + "_" + obj.name
             print("Subparenting...", children)
             length = len(obj.parent.children)
             
             #get the largest child index number, hopefully it is the last one and hopefully
             #this scheme will not change in future releases !
-            #if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
             largest = obj.parent.children[length - 1].name.split(".")[1]
-            #else:
-             #   largest = obj.parent.children[length - 2].name.split(".")[1]   #hack, TODO
          
         return parentName, nameStart, largest, bbox    
         
@@ -643,12 +565,7 @@ class Processor():
         if c == backup and b == None:
             c.location -= pos
             
-    #    if c != backup:
         c.game.physics_type = 'RIGID_BODY'
-     #   else:
-      #      c.game.physics_type = 'STATIC'
-        
-        #c.scale = [0.999, 0.999, 0.999]
         
         materialname = backup.destruction.inner_material
        # print("Mat", materialname)
@@ -679,7 +596,6 @@ class Processor():
        
         c.select = True
         
-       # ops.object.transform_apply(scale = True)  
         c.game.mass = mass 
         
         c.destruction.transmitMode = 'T_SELF'
@@ -689,9 +605,6 @@ class Processor():
         c.destruction.pieceGranularity = 0
         c.destruction.destructionMode = 'DESTROY_F'
         
-            
-        #if context.active_object.destruction.keep_backup_visible:
-        #    c.hide_render = True
         
     
     def isBeingSplit(self, c, parentName, backup):
@@ -775,36 +688,6 @@ class Processor():
                 #normals point in same direction
                 return True
         return False
-               
-        #get orthogonal projection of Vector between face(need center) and object.location AND
-        #normal vector
-        #pick the first face (since ALL faces should be consistent by now)
-       # if len(ob.data.faces) == 0:
-        #    #hmm when getting an invalid object this may occur, so catch it
-        #    return False
-        
-        #find one selected face
-        #face = None
-        #for f in ob.data.faces:
-        #    if f.select:
-        #        face = f
-        #        break
-            
-        #if face == None:
-        #    return False
-        
-       # for n in normals:
-      #  normal = face.normal
-    #    center = face.center
-     #   vecCL = center - ob.location
-      #  vecProj = vecCL.project(normal)
-        
-      #  dot = round(normal.dot(vecProj), 2)
-    #    length = round(vecProj.length, 2)
-        
-        #if vecProj and vecCL point to same direction (dot > 0) -> normal points inside, do flip
-     #   print("Dot/Length: ", dot , length)
-      #  return dot == length 
         
            
     def knife(self, context, ob, parts, jitter, granularity, cut_type):
@@ -842,13 +725,10 @@ class Processor():
         isHorizontal = False
         names = [ob.name]
         sizes = [self.getSize(ob)]
-      #  undoOccurred = False
         
         while (len(currentParts) < parts):
                     
             #give up when always invalid objects result from operation
-        #    partFlipped = False
-        #    tocutFlipped = False
             if tries > 100:
                 break
             
@@ -913,11 +793,6 @@ class Processor():
             anglez = math.radians(anglez)
             
            
-                
-         #   if isHorizontal:
-         #        anglex += math.radians(90)
-         #       angley += math.radians(90)
-         #      anglez += math.radians(90)
             
             
             #pick longest side of bbox
@@ -1210,13 +1085,6 @@ class Processor():
             endx = width - startx
             endy = height
             
-            #create cutters which are aligned like the path would be, for fallback method
-            #size them in width/height and move to center (-width/height / 2)
-          #  ops.mesh.primitive_cube_add(view_align=True, location = tocut.location.to_tuple(), 
-        #                                rotation = tocut.rotation_euler.to_tuple())
-                                        
-         #   cutter = context.active_object
-        #    cutter.dimensions = tocut.bound_box.data.dimensions   
         
         else:
             startPercentage = round((lineStart / 100 * height), 0)
@@ -1260,9 +1128,7 @@ class Processor():
     def spheroidPath(self, jitter, width, height, lineStart, lineEnd):
         midx = random.randint(0, width)
         midy = random.randint(0, height)
-       # maxrad = height / 4
-    #    if height > width:
-     #       maxrad = width / 4
+
         startPercentage = round((lineStart / 100 * width), 0)
         endPercentage = round((lineEnd / 100 * width), 0)
         
@@ -1459,7 +1325,6 @@ def updatePieceGranularity(self, context):
     return None
 
 def updateIsGround(context):
-    #updateValidGrounds(context.object) 
     for c in context.object.children:
         c.destruction.isGround = context.object.destruction.isGround      
     return None
@@ -1492,15 +1357,10 @@ def updateDestructor(context):
     return None
 
 
-#def updateTransmitMode(self, context):
-#   # print("TRANSMITMODE:", context.object.destruction.transmitMode)
-#    return None 
-
 def updateTransmitMode(self, context):
     return None 
 
 def updateDestroyable(self, context):
-   # updateValidTargets(context.object)
     return None 
 
 #disable decorator when persistence is not available
@@ -1538,30 +1398,12 @@ def updateValidTargets(object):
                     index += 1
           #      print("Removing:", object.name)
                 o.destruction.destructorTargets.remove(index)
-    
-   # for o in bpy.context.scene.objects:
-    #    if o.destruction.destroyable and o != object and \
-    #    o.name not in object.destruction.destructorTargets and \
-     #   o.name not in bpy.context.scene.validTargets:
-           #print("Adding :", o.name)
-      #     prop = bpy.context.scene.validTargets.add()
-    #       prop.name = o.name
            
     return None 
 
 @pers
 def updateValidGrounds(object):
     #print("Current Object is: ", object)
-   
-   # for index in range(0, len(bpy.context.scene.validGrounds)):
-    #    bpy.context.scene.validGrounds.remove(index)
-    
-    #for o in bpy.context.scene.objects:
-    #    if o.destruction.isGround and o != object and \
-    #    o.name not in object.destruction.grounds and \
-    #    o.name not in bpy.context.scene.validGrounds:
-    #       prop = bpy.context.scene.validGrounds.add()
-    #       prop.name = o.name
     
     if object.destruction.isGround:
         if object.name not in bpy.context.scene.validGrounds:
@@ -1600,10 +1442,6 @@ class DestructionContext(types.PropertyGroup):
     destModes = [('DESTROY_F', 'Boolean Fracture', 'Destroy this object using boolean fracturing', 0 ), 
              ('DESTROY_E_H', 'Explosion Modifier', 
               'Destroy this object using the explosion modifier, forming a hollow shape', 1),
-             #('DESTROY_E_M', 'Explosion Modifier (Massive)', 
-             #  'Destroy this object using the explosion modifier, forming a massive shape', 2),
-             #('DESTROY_E_P', 'Explosion Modifier (Small Pieces)', 
-             #  'Destroy this object using the explosion modifier, forming small pieces', 3),
              ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 2),
              ('DESTROY_V', 'Voronoi Fracture', 'Destroy this object using voronoi decomposition', 3),
              ('DESTROY_VB', 'Voronoi + Boolean', 'Destroy this object using simple voronoi and a boolean  modifier', 4),
@@ -1613,10 +1451,6 @@ class DestructionContext(types.PropertyGroup):
     
     transModes = [('T_SELF', 'This Object', 'Apply settings to this object only', 0), 
              ('T_SELECTED', 'Selected', 'Apply settings to all selected objects as well', 1)]
-             #('T_CHILDREN', 'Selected + Direct Children', 'Apply settings to direct children of selected objects as well', 2),
-            # ('T_ALL_CHILDREN', 'Selected + All Descendants', 'Apply settings to all descendants of selected objects as well', 3)]
-             #('T_LAYERS', 'Active Layers', 'Apply settings to all objects on active layers as well', 4), 
-             #('T_ALL', 'All Objects', 'Apply settings to all objects as well', 5) ]
     
     destroyable = props.BoolProperty(name = "destroyable",
                          description = "This object can be destroyed, according to parent relations", 
@@ -1625,10 +1459,9 @@ class DestructionContext(types.PropertyGroup):
     partCount = props.IntProperty(name = "partCount", default = 10, min = 1, max = 999, update = updatePartCount)
     destructionMode = props.EnumProperty(items = destModes, update = updateDestructionMode)
     destructor = props.BoolProperty(name = "destructor", 
-                        description = "This object can trigger destruction")#, update = updateDestructor)
+                        description = "This object can trigger destruction")
     isGround = props.BoolProperty(name = "isGround", 
      description = "This object serves as a hard point, objects not connected to it will be destroyed")
-     #update = updateIsGround)
      
     groundConnectivity = props.BoolProperty(name = "groundConnectivity", 
     description = "Determines whether connectivity of parts of this object is calculated, \
@@ -1658,7 +1491,6 @@ class DestructionContext(types.PropertyGroup):
     
    
     pos = props.FloatVectorProperty(name = "pos" , default = (0, 0, 0))
- #   currentKnifePath = props.CollectionProperty(type = types.OperatorMousePath, name = "currentKnifePath")
     rot_start = props.IntProperty(name = "rot_start", default = -30, min = -90, max = 90)
     rot_end = props.IntProperty(name = "rot_end", default = 30, min = -90, max = 90)
     
@@ -1676,7 +1508,6 @@ class DestructionContext(types.PropertyGroup):
     voro_exact_shape = props.BoolProperty(name = "voro_exact_shape")
     voro_particles = props.StringProperty(name = "voro_particles")
     voro_path = props.StringProperty(name="voro_path", default = "test.out")
-   # keep_backup_visible = props.BoolProperty(name = "keep_backup_visible")
     inner_material = props.StringProperty(name = "inner_material")
     remesh_depth = props.IntProperty(name="remesh_depth", default = 5, min = 0, max = 10)
     wasCompound = props.BoolProperty(name="wasCompound", default = False)
@@ -1704,37 +1535,22 @@ class DestructionContext(types.PropertyGroup):
     jitter = props.FloatProperty(name = "jitter", default = 0.0, min = 0.0, max = 100.0) 
     
     cubify = props.BoolProperty(name = "cubify")
- #   subgridDim = props.IntVectorProperty(name = "subgridDim", default = (1, 1, 1), min = 1, max = 100, 
-  #                                        subtype ='XYZ')
-  #  cascadeGround = props.BoolProperty(name = "cascadeGround")
     cut_type = props.EnumProperty(name = 'Cut type', 
                 items = (
                         ('LINEAR', 'Linear', 'a'),
                         ('ROUND', 'Round', 'a')),
                 default = 'LINEAR') 
                 
-            
     
 def initialize():
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")
     Scene.player = props.BoolProperty(name = "player")
     Scene.converted = props.BoolProperty(name = "converted")
- #   Scene.validTargets = props.CollectionProperty(name = "validTargets", type = types.PropertyGroup)
-#    Scene.validGrounds = props.CollectionProperty(name = "validGrounds", type = types.PropertyGroup)
- #   Scene.validVolumes = props.CollectionProperty(name = "validVolumes", type = types.PropertyGroup)
     Scene.hideLayer = props.IntProperty(name = "hideLayer", min = 1, max = 20, default = 1)
     Scene.backups = props.CollectionProperty(name = "backups", type = types.PropertyGroup)
     dd.DataStore.proc = Processor()  
   
-    #if hasattr(bpy.app.handlers, "object_activation" ) != 0:
-        #bpy.app.handlers.object_activation.append(updateValidTargets)
-        #bpy.app.handlers.object_activation.append(updateValidGrounds)
-  
 def uninitialize():
     del Object.destruction
     
-    #if hasattr(bpy.app.handlers, "object_activation" ) != 0:
-        #bpy.app.handlers.object_activation.remove(updateValidTargets)
-        #bpy.app.handlers.object_activation.remove(updateValidGrounds)
-       
     

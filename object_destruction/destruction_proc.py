@@ -537,7 +537,7 @@ class Processor():
             split = c.name.split(".")
             end = split[1]
         
-        if (int(end) > int(nameEnd) and c.parent == None) or (self.isBeingSplit(c, parentName, backup)):
+        if (int(end) > int(nameEnd)) or (self.isBeingSplit(c, parentName, backup)) or c.parent == None:
             self.assign(c, parentName, pos, mass, backup, context, normals)  
         
     def assign(self, c, parentName, pos, mass, backup, context, normals):
@@ -555,8 +555,8 @@ class Processor():
             if c != backup and c.name != b and b != None: 
                 c.location += pos
           
-        print(c, b)
-        if c != backup and c.name != b:
+     #   print(c, b)
+        if c != backup and (c.name != b or b == None):
             c.location -= pos                         
             c.parent = data.objects[parentName]
             c.destruction.flatten_hierarchy = c.parent.destruction.flatten_hierarchy
@@ -617,9 +617,12 @@ class Processor():
         temp = c.name.split(".")[0]
         start = temp.split("_")[1]
         
-        print(start, bstart)
+        temp = parentName.split(".")[0]
+        pstart = temp.split("_")[3]
         
-        if parentName.split(".")[1] == c.name.split(".")[1] or (start == bstart and c != backup):
+   #     print(start, bstart, pstart)
+        
+        if parentName.split(".")[1] == c.name.split(".")[1] or (start == bstart and pstart != start and c != backup):
             return True
         return False
    
@@ -1173,7 +1176,7 @@ class Processor():
             objname = objname + "." + s
         objname = objname.lstrip(".")
       #  print("OBJ", objname, nameStart)
-      #  print("Related: ", c.name, c.parent, parent)
+    #    print("Related: ", c.name, c.parent, parent)
         return (objname == nameStart) and c.parent == parent
               
     def endStr(self, nr):

@@ -4,6 +4,7 @@ import math
 from mathutils import Vector, Matrix
 from time import clock
 import bpy
+from threading import Timer
 
 
 #this is the bge part of the destructability editor.
@@ -33,6 +34,7 @@ gridValid = False
 firstparent = []
 firstShard = {}
 bpyObjs = {}
+delay = 0
 
 #TODO, temporary hack
 ground = None
@@ -438,8 +440,7 @@ def swapBackup(obj):
         children[parent].append(r.name)
       
     return ret
-    
-            
+               
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
    # print("dissolve")               
@@ -488,6 +489,12 @@ def activate(child, owner, grid):
     # print("activated: ", child)
      global integrity
      global firstShard
+     global delay
+     
+     if "dead_delay" in owner.getPropertyNames():
+        delay = owner["dead_delay"]
+     else:
+        delay = 0
      
      parent = None
      for p in children.keys():
@@ -510,8 +517,9 @@ def activate(child, owner, grid):
              if gridPos in cells.keys():
                  cell = cells[gridPos]
                  
-                 if (child.name in cell.children):
-                    cell.children.remove(child.name)
+                 if delay == 0:
+                    if (child.name in cell.children):
+                        cell.children.remove(child.name)
                 
                  if not cell.integrity(integrity):
                     print("Low Integrity, destroying cell!")
@@ -523,16 +531,22 @@ def activate(child, owner, grid):
                  
                  for c in cells.values():
                     c.visit = False
-                    
-     child.removeParent()
+    
      child.restoreDynamics()
-     child["activated"] = True
      
-     
-     if parent != None:
-        if child.name in children[parent]:
-            children[parent].remove(child.name)
-           
+    
+     if delay == 0:                
+        child.removeParent()
+        child["activated"] = True
+        
+        if parent != None:
+            if child.name in children[parent]:
+                children[parent].remove(child.name)
+     else:
+        if not child.invalid:
+            t = Timer(delay, child.suspendDynamics)
+            t.start()
+        #t.join()      
 
 def isGroundConnectivity(obj):
     if obj == None or "groundConnectivity" not in obj.getPropertyNames():
@@ -629,20 +643,29 @@ def destroyNeighborhood(cell):
    
     
 def destroyCell(cell, cells):
-    for item in cells.items():
-        if cell == item[1] and item[0] in cells:
-            del cells[item[0]]
-            break
+    
+    global delay
+    
+    if delay == 0:
+        for item in cells.items():
+            if cell == item[1] and item[0] in cells:
+                del cells[item[0]]
+                break
         
     print("Destroyed: ", cell.gridPos)
     childs = [c for c in cell.children]
     for child in cell.children:
       #  print("cell child: ", o)
         o = logic.getCurrentScene().objects[child]
-        o.removeParent()
         o.restoreDynamics()
-        childs.remove(child)
-        o["activated"] = True
+        if delay == 0:
+            o.removeParent()
+            childs.remove(child)
+            o["activated"] = True
+        else:
+            if not o.invalid:
+                t = Timer(delay, o.suspendDynamics)
+                t.start()
             
     cell.children = childs      
     

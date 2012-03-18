@@ -1516,6 +1516,7 @@ class DestructionContext(types.PropertyGroup):
     wasCompound = props.BoolProperty(name="wasCompound", default = False)
     children = props.CollectionProperty(type = types.PropertyGroup, name = "children")
     backup = props.StringProperty(name = "backup")
+    dead_delay = props.FloatProperty(name = "dead_delay", default = 0, min = 0, max = 10)
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',

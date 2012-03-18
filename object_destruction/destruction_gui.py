@@ -149,6 +149,10 @@ class DestructabilityPanel(types.Panel):
             row = layout.row()
             row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
             row.active = context.object.destruction.destructor
+            
+            row = layout.row()
+            row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
+            row.active = context.object.destruction.destructor
         
             row = layout.row()
             row.label(text = "Destructor Targets")
@@ -695,7 +699,7 @@ class ConvertParenting(types.Operator):
         
         dp.updateIsGround(context)
         dp.updateDestructor(context)          
-        for o in context.scene.objects: #data.objects:
+        for o in context.scene.objects: #data.objects
             
             if context.scene.player:
                 if o.name == "Player" or o.name == "Eye" or \
@@ -763,14 +767,18 @@ class ConvertParenting(types.Operator):
             o.game.properties[index + 9].type = 'INT'
             o.game.properties[index + 9].value = o.destruction.hierarchy_depth
             
+            ops.object.game_property_new()
+            o.game.properties[index + 10].name = "dead_delay"
+            o.game.properties[index + 10].type = 'FLOAT'
+            o.game.properties[index + 10].value = o.destruction.dead_delay
+            
             if o.parent != None:
                 ops.object.game_property_new()
-                o.game.properties[index + 10].name = "flatten_hierarchy"
-                o.game.properties[index + 10].type = 'BOOL'
-                o.game.properties[index + 10].value = o.parent.destruction.flatten_hierarchy
-            
-            
-            
+                o.game.properties[index + 11].name = "flatten_hierarchy"
+                o.game.properties[index + 11].type = 'BOOL'
+                o.game.properties[index + 11].value = o.parent.destruction.flatten_hierarchy
+                
+          
         #parent again , rotate to rotation, clear parent with keeptransform    
         for g in grounds:
             ground = context.scene.objects[g]

@@ -35,6 +35,7 @@ firstparent = []
 firstShard = {}
 bpyObjs = {}
 delay = 0
+#alive_threshold = 5
 
 #TODO, temporary hack
 ground = None
@@ -133,7 +134,11 @@ def descendants(p):
     for c in p.children:
         ret.extend(descendants(c))
     return ret 
-        
+
+
+def decideDeactivation(obj):
+    if not obj.invalid and obj.getLinearVelocity() <= alive_threshold:
+        obj.suspendDynamics()               
 
 def setup():
     
@@ -535,7 +540,7 @@ def activate(child, owner, grid):
      child.restoreDynamics()
      
     
-     if delay == 0:                
+     if delay == 0:              
         child.removeParent()
         child["activated"] = True
         
@@ -546,8 +551,7 @@ def activate(child, owner, grid):
         if not child.invalid:
             t = Timer(delay, child.suspendDynamics)
             t.start()
-        #t.join()      
-
+            
 def isGroundConnectivity(obj):
     if obj == None or "groundConnectivity" not in obj.getPropertyNames():
         return False
@@ -666,7 +670,7 @@ def destroyCell(cell, cells):
             if not o.invalid:
                 t = Timer(delay, o.suspendDynamics)
                 t.start()
-            
+                    
     cell.children = childs      
     
 

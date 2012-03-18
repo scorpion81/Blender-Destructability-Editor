@@ -200,6 +200,7 @@ class DestructabilityPanel(types.Panel):
 class AddGroundOperator(types.Operator):
     bl_idname = "ground.add"
     bl_label = "add ground"
+    bl_description = "Add the selected ground to ground list"
     
     def execute(self, context):
         found = False
@@ -228,6 +229,7 @@ class AddGroundOperator(types.Operator):
 class RemoveGroundOperator(types.Operator):
     bl_idname = "ground.remove"
     bl_label = "remove ground"
+    bl_description = "Remove the selected ground from ground list"
     
     def execute(self, context):
         
@@ -249,6 +251,7 @@ class RemoveGroundOperator(types.Operator):
 class AddTargetOperator(types.Operator):
     bl_idname = "target.add"
     bl_label = "add target"
+    bl_description = "Add the selected target to target list"
     
     def execute(self, context):
         found = False
@@ -278,6 +281,7 @@ class AddTargetOperator(types.Operator):
 class RemoveTargetOperator(types.Operator):
     bl_idname = "target.remove"
     bl_label = "remove target"
+    bl_description = "Remove the selected target from target list"
     
     def execute(self, context):
         
@@ -294,6 +298,7 @@ class RemoveTargetOperator(types.Operator):
 class SetupPlayer(types.Operator):
     bl_idname = "player.setup"
     bl_label = "Setup Player"
+    bl_description = "Create Player, default Ground and default Ball (or custom ball) object"
     
     def execute(self, context):
         
@@ -522,6 +527,7 @@ class SetupPlayer(types.Operator):
 class ClearPlayer(types.Operator):
     bl_idname = "player.clear"
     bl_label = "Clear Player"
+    bl_description = "Delete Player, default Ground and default Ball objects"
     
     def execute(self, context):
         
@@ -595,6 +601,7 @@ class ClearPlayer(types.Operator):
 class ConvertParenting(types.Operator):
     bl_idname = "parenting.convert"
     bl_label = "Convert Parenting"
+    bl_description = "Dissolve actual parenting, it will be stored and rebuilt in the game engine"
     
     def execute(self, context):
         
@@ -927,6 +934,7 @@ class ConvertParenting(types.Operator):
 class DestroyObject(types.Operator):
     bl_idname = "object.destroy"
     bl_label = "Destroy Object"
+    bl_description = "Start fracturing process"
     
     def execute(self, context):
         
@@ -958,6 +966,7 @@ class DestroyObject(types.Operator):
 class UndestroyObject(types.Operator):
     bl_idname = "object.undestroy"
     bl_label = "Undestroy Object"
+    bl_description = "Manually undo object destruction, alternatively use regular undo"
     
     def execute(self, context):
         
@@ -1024,6 +1033,7 @@ class UndestroyObject(types.Operator):
 class GameStart(types.Operator):
     bl_idname = "game.start"
     bl_label = "Start Game Engine"
+    bl_description = "Start game engine with recording enabled by default"
     
     def execute(self, context):
   

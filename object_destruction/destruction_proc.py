@@ -1459,7 +1459,8 @@ class DestructionContext(types.PropertyGroup):
                          description = "This object can be destroyed, according to parent relations", 
                          update = updateDestroyable)
     
-    partCount = props.IntProperty(name = "partCount", default = 10, min = 1, max = 999, update = updatePartCount)
+    partCount = props.IntProperty(name = "partCount", default = 10, min = 1, max = 999, update = updatePartCount,
+                        description = "How many shards shall be made out of this object")
     destructionMode = props.EnumProperty(items = destModes, update = updateDestructionMode)
     destructor = props.BoolProperty(name = "destructor", 
                         description = "This object can trigger destruction")
@@ -1468,12 +1469,13 @@ class DestructionContext(types.PropertyGroup):
      
     groundConnectivity = props.BoolProperty(name = "groundConnectivity", 
     description = "Determines whether connectivity of parts of this object is calculated, \
-    so only unconnected parts collapse according to their parent relations", update = updateGroundConnectivity)
+so only unconnected parts collapse according to their parent relations", update = updateGroundConnectivity)
     gridDim = props.IntVectorProperty(name = "grid", default = (1, 1, 1), min = 1, max = 100, 
-                                          subtype ='XYZ', update = updateGrid )
+                                          subtype ='XYZ', update = updateGrid,
+                                          description = "How many connectivity cells are created per direction")
                                           
     cubifyDim = props.IntVectorProperty(name = "cubifyDim", default = (1, 1, 1), min = 1, max = 100, 
-                                          subtype ='XYZ' )
+                                          subtype ='XYZ', description = "How many cubes per direction shall be created" )
     
     gridBBox = props.FloatVectorProperty(name = "gridbbox", default = (0, 0, 0))
     destructorTargets = props.CollectionProperty(type = types.PropertyGroup, name = "destructorTargets")
@@ -1482,13 +1484,15 @@ class DestructionContext(types.PropertyGroup):
     active_target = props.IntProperty(name = "active_target", default = 0)
     active_ground = props.IntProperty(name = "active_ground", default = 0)
  
-    groundSelector = props.StringProperty(name = "groundSelector")
-    targetSelector = props.StringProperty(name = "targetSelector")
+    groundSelector = props.StringProperty(name = "groundSelector", description = "Select Ground Object to add here and click + button")
+    targetSelector = props.StringProperty(name = "targetSelector", description = "Select Destructor Target to add here and click + button")
 
     wallThickness = props.FloatProperty(name = "wallThickness", default = 0.01, min = 0, max = 10,
-                                      update = updateWallThickness)
+                                      update = updateWallThickness, description = "Thickness of the explosion modifier shards")
     pieceGranularity = props.IntProperty(name = "pieceGranularity", default = 4, min = 0, max = 100, 
-                                         update = updatePieceGranularity)
+                                         update = updatePieceGranularity, 
+    description = "How often the mesh will be subdivided before applying the explosion modifier, set higher to get more possible shards")
+    
     applyDone = props.BoolProperty(name = "applyDone", default = False)
     previewDone = props.BoolProperty(name = "previewDone", default = False)
     
@@ -1500,23 +1504,29 @@ class DestructionContext(types.PropertyGroup):
     line_start = props.IntProperty(name = "line_start", default = 0, min = 0, max = 100)
     line_end = props.IntProperty(name = "line_end", default = 100, min = 0, max = 100)
     
-    hierarchy_depth = props.IntProperty(name = "hierarchy_depth", default = 1, min = 1)
-    flatten_hierarchy = props.BoolProperty(name = "flatten_hierarchy", default = False)
+    hierarchy_depth = props.IntProperty(name = "hierarchy_depth", default = 1, min = 1, 
+                                        description = "Up to which hierarchy depth given targets can be destroyed by this object")
+    flatten_hierarchy = props.BoolProperty(name = "flatten_hierarchy", default = False, 
+                                           description = "Make one level out of hierarchy")
     
-    voro_volume = props.StringProperty(name="volumeSelector")
+    voro_volume = props.StringProperty(name="volumeSelector", description = "Create point cloud in this object instead of the target itself")
     is_backup_for = props.StringProperty(name = "is_backup_for")
     wall = props.BoolProperty(name = "wall", default = True)
     tempLoc = props.FloatVectorProperty(name = "tempLoc", default = (0, 0, 0))
-    custom_ball = props.StringProperty(name="custom_ball")
-    voro_exact_shape = props.BoolProperty(name = "voro_exact_shape")
-    voro_particles = props.StringProperty(name = "voro_particles")
-    voro_path = props.StringProperty(name="voro_path", default = "test.out")
-    inner_material = props.StringProperty(name = "inner_material")
-    remesh_depth = props.IntProperty(name="remesh_depth", default = 5, min = 0, max = 10)
+    custom_ball = props.StringProperty(name="custom_ball" , 
+       description = "Select custom ball object here before setup player, this will be shot from the player instead of the default ball")
+    voro_exact_shape = props.BoolProperty(name = "voro_exact_shape", description = "Use the vertices of the given object as point cloud")
+    voro_particles = props.StringProperty(name = "voro_particles", description = "Use the particles of the given particle system as point cloud")
+    voro_path = props.StringProperty(name="voro_path", default = "test.out",
+    description = "Set path and filename to intermediate voronoi file here, leave default and it will be created in blender executable dir")
+    inner_material = props.StringProperty(name = "inner_material", description = "Material the inner shards will get")
+    remesh_depth = props.IntProperty(name="remesh_depth", default = 5, min = 0, max = 10, 
+    description = "Optionally apply remesh modifier prior to fracture with the given octree depth, set to 0 to omit remeshing")
     wasCompound = props.BoolProperty(name="wasCompound", default = False)
     children = props.CollectionProperty(type = types.PropertyGroup, name = "children")
     backup = props.StringProperty(name = "backup")
-    dead_delay = props.FloatProperty(name = "dead_delay", default = 0, min = 0, max = 10)
+    dead_delay = props.FloatProperty(name = "dead_delay", default = 0, min = 0, max = 10, 
+                                    description ="After which time period activated objects get inactive again, set 0 for never")
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',
@@ -1538,7 +1548,8 @@ class DestructionContext(types.PropertyGroup):
     grid = None
     jitter = props.FloatProperty(name = "jitter", default = 0.0, min = 0.0, max = 100.0) 
     
-    cubify = props.BoolProperty(name = "cubify")
+    cubify = props.BoolProperty(name = "cubify", description = "Split the given object to cubes before fracturing it, \
+EACH cube will be further fractured to the given part count")
     cut_type = props.EnumProperty(name = 'Cut type', 
                 items = (
                         ('LINEAR', 'Linear', 'a'),
@@ -1550,7 +1561,8 @@ def initialize():
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")
     Scene.player = props.BoolProperty(name = "player")
     Scene.converted = props.BoolProperty(name = "converted")
-    Scene.hideLayer = props.IntProperty(name = "hideLayer", min = 1, max = 20, default = 1)
+    Scene.hideLayer = props.IntProperty(name = "hideLayer", min = 1, max = 20, default = 1, 
+                                        description = "Layer where to hide the object hierarchy, needed for object substitution in game engine")
     Scene.backups = props.CollectionProperty(name = "backups", type = types.PropertyGroup)
     dd.DataStore.proc = Processor()  
   

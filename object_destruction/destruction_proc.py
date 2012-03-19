@@ -545,18 +545,24 @@ class Processor():
         #correct a parenting "error": the parts are moved pos too far
         print(backup.parent)
         b = None
+        temp = c.name.split(".")[0]
+        start = temp.split("_")[1]
+        bStart = None
         if backup.parent != None:
-            pos = backup.parent.location
-            print("Correcting pos", pos)
             b = backup.parent.destruction.backup #old backup
             print("OLDBACKUP", b)
-        
+            temp = b.split(".")[0]
+            bStart = temp.split("_")[1]   
+            if bStart != start:
+                pos = backup.parent.location
+                print("Correcting pos", pos)   
+            
         if backup.destruction.destructionMode != 'DESTROY_V' and backup.destruction.destructionMode != 'DESTROY_VB':
             if c != backup and c.name != b and b != None: 
                 c.location += pos
           
-     #   print(c, b)
         if c != backup and (c.name != b or b == None):
+            print("Setting parent", pos)
             c.location -= pos                         
             c.parent = data.objects[parentName]
             c.destruction.flatten_hierarchy = c.parent.destruction.flatten_hierarchy

@@ -389,7 +389,13 @@ def collide():
         if ob in scene.objects:
             obj = scene.objects[ob]
             dist, speed, depth =  distSpeed(owner, obj, maxHierarchyDepth)
-            if dist < speed:   
+            
+            strength = 0 #handle bomb here
+            if "strength" in owner.getPropertyNames():
+                strength = owner["strength"]
+                depth = maxHierarchyDepth #blow all apart
+            
+            if dist < speed or dist < strength:   
                 dissolve(obj, depth, maxHierarchyDepth, owner)
     
             

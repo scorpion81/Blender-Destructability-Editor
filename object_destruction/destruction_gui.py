@@ -385,7 +385,7 @@ class SetupPlayer(types.Operator):
               
         #mouse aim and destruction setup
         ops.logic.controller_add(type = 'LOGIC_AND', object = "Player")
-        ops.logic.controller_add(type = 'PYTHON', object = "Player")
+        ops.logic.controller_add(type = 'PYTHON', object = "Player", name = "PythonAim")
         ops.logic.controller_add(type = 'PYTHON', object = "Player")
         
         context.active_object.game.controllers[1].mode = 'MODULE'
@@ -398,6 +398,11 @@ class SetupPlayer(types.Operator):
         ops.logic.sensor_add(type = 'MOUSE', object = "Player")
         context.active_object.game.sensors[1].mouse_event = 'MOVEMENT'
         
+        #detonator lock on
+        ops.logic.sensor_add(type = 'MOUSE', object = "Player", name = "LockOn")
+        context.active_object.game.sensors[2].mouse_event = 'MOUSEOVERANY'
+        
+        
         ops.logic.actuator_add(type = 'SCENE', object = "Player")
         context.active_object.game.actuators[0].mode = 'CAMERA'
         context.active_object.game.actuators[0].camera = data.objects["Eye"]
@@ -409,9 +414,13 @@ class SetupPlayer(types.Operator):
         
         context.active_object.game.controllers[1].link(
             context.active_object.game.sensors[1])
-        
+            
+        context.active_object.game.controllers[1].link(
+            context.active_object.game.sensors[2])
+            
         context.active_object.game.controllers[2].link(
             context.active_object.game.sensors[0]) 
+            
                      
         #keyboard movement -> 6 directions, WSADYX as keys
         
@@ -424,11 +433,11 @@ class SetupPlayer(types.Operator):
             ops.logic.sensor_add(type = 'KEYBOARD', object = "Player")
             ops.logic.actuator_add(type = 'MOTION', object = "Player")
             
-            context.active_object.game.sensors[i+2].key = motionkeys[i]
+            context.active_object.game.sensors[i+3].key = motionkeys[i]
             context.active_object.game.actuators[i+1].offset_location = offsets[i]
             
             context.active_object.game.controllers[i+3].link(
-            context.active_object.game.sensors[i+2],
+            context.active_object.game.sensors[i+3],
             context.active_object.game.actuators[i+1])
         
         #make screenshots
@@ -446,7 +455,8 @@ class SetupPlayer(types.Operator):
             
         #launcher
         context.scene.objects.active = data.objects["Launcher"]
-        ops.logic.controller_add(type = 'PYTHON', object = "Launcher")
+        ops.logic.controller_add(type = 'PYTHON', object = "Launcher", name = "PythonShoot")
+        ops.logic.controller_add(type = 'PYTHON', object = "Launcher", name = "PythonDetonate")
         
         context.active_object.game.controllers[0].mode = 'MODULE'
         context.active_object.game.controllers[0].module = "player.shoot"
@@ -456,6 +466,16 @@ class SetupPlayer(types.Operator):
         
         context.active_object.game.controllers[0].link(
                 context.active_object.game.sensors[0])
+                
+        context.active_object.game.controllers[1].mode = 'MODULE'
+        context.active_object.game.controllers[1].module = "player.detonate"
+        
+        ops.logic.sensor_add(type = 'MOUSE', object = "Launcher")
+        context.active_object.game.sensors[1].mouse_event = 'RIGHTCLICK'
+        
+        context.active_object.game.controllers[1].link(
+                context.active_object.game.sensors[1])
+        
         
         launcher = context.active_object
         i = 0
@@ -483,10 +503,17 @@ class SetupPlayer(types.Operator):
                 context.active_object.game.actuators[i].mode = 'ADDOBJECT'
                 context.active_object.game.actuators[i].object = b
                 
+                ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Detonate", object = "Launcher")
+                context.active_object.game.actuators[i+1].mode = 'ADDOBJECT'
+                context.active_object.game.actuators[i+1].object = ball
+                
                 context.active_object.game.controllers[0].link(
                     actuator = context.active_object.game.actuators[i])
                 
-                i += 1
+                context.active_object.game.controllers[1].link(
+                    actuator = context.active_object.game.actuators[i+1])
+                
+                i += 2
             context.scene.layers = [True, False, False, False, False,
                                     False, False, False, False, False,
                                     False, False, False, False, False,
@@ -495,9 +522,16 @@ class SetupPlayer(types.Operator):
         ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Shoot", object = "Launcher")
         context.active_object.game.actuators[i].mode = 'ADDOBJECT'
         context.active_object.game.actuators[i].object = ball
+        
+        ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Detonate", object = "Launcher")
+        context.active_object.game.actuators[i+1].mode = 'ADDOBJECT'
+        context.active_object.game.actuators[i+1].object = ball
             
         context.active_object.game.controllers[0].link(
                 actuator = context.active_object.game.actuators[i])
+        
+        context.active_object.game.controllers[1].link(
+                actuator = context.active_object.game.actuators[i+1])
         
         #ball
         context.scene.objects.active = ball

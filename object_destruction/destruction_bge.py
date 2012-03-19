@@ -136,9 +136,9 @@ def descendants(p):
     return ret 
 
 
-def decideDeactivation(obj):
-    if not obj.invalid and obj.getLinearVelocity() <= alive_threshold:
-        obj.suspendDynamics()               
+#def decideDeactivation(obj):
+#    if not obj.invalid and obj.getLinearVelocity() <= alive_threshold:
+#        obj.suspendDynamics()               
 
 def setup():
     
@@ -306,6 +306,7 @@ def calculateGrids():
     global firstparent
     global firstShard
     global ground
+    global children
     
     print("In Calculate Grids")
     
@@ -343,10 +344,10 @@ def calculateGrids():
             
            # ground = groundObjs[0]
         
-    print("Grids: ", dd.DataStore.grids)  
+    print("Grids: ", dd.DataStore.grids) 
     
 
-def distSpeed(owner, obj):
+def distSpeed(owner, obj, maxDepth):
     speed = (owner.worldLinearVelocity - obj.worldLinearVelocity).length
     dist = getFaceDistance(owner, obj)
             
@@ -354,8 +355,9 @@ def distSpeed(owner, obj):
     if owner.name == "Ball": # and bpy.context.scene.hideLayer == 1:
         modSpeed = math.sqrt(speed / 2)
     
-   # print(dist, modSpeed)    
-    return dist < modSpeed
+    depth = math.ceil(maxDepth * 1.0 / modSpeed) 
+    #return dist < modSpeed
+    return dist, modSpeed, depth
     
 def collide():
     
@@ -384,15 +386,18 @@ def collide():
                 objs.append(objname)
             
     for ob in objs:
-        obj = scene.objects[ob]
-        if distSpeed(owner, obj):   
-            dissolve(obj, 1, maxHierarchyDepth, owner)
+        if ob in scene.objects:
+            obj = scene.objects[ob]
+            dist, speed, depth =  distSpeed(owner, obj, maxHierarchyDepth)
+            if dist < speed:   
+                dissolve(obj, depth, maxHierarchyDepth, owner)
     
             
                 
 def swapBackup(obj):    
     
     global children
+    global firstparent
     
     print("swap backup")
     ret = []   
@@ -401,7 +406,23 @@ def swapBackup(obj):
     if parent == "":
         return
     if parent not in scene.objects:
-        scene.addObject(parent, parent)
+       par = scene.addObject(parent, parent)
+    else:
+       par = scene.objects[parent]
+    
+    #TODO: hack -> find first parent, ground connectivity on subparents is unsupported by now.
+    #what about loose parts parents (they have another name mostly) ?
+    #maybe store a reference to the firstparent directly.
+    temp = parent.split(".")[0]
+    pstart = temp.split("_")[3]
+    
+    first = None
+    for fp in firstparent:
+        temp = fp.name.split(".")[0]
+        fstart = temp.split("_")[3]
+        if fstart == pstart:
+            first = fp
+          
     childs= bpy.context.scene.objects[parent].destruction.children
     compound = None
     for c in childs:
@@ -410,8 +431,8 @@ def swapBackup(obj):
             print("Adding compound", c.name)
             compound = scene.addObject(c.name, c.name)
             compound.replaceMesh(mesh, True, True)
-            compound.worldPosition += obj.worldPosition
-                      
+            if not isGroundConnectivity(first):
+                compound.worldPosition += obj.worldPosition
             ret.append(compound)
                      
     for c in childs:
@@ -426,14 +447,23 @@ def swapBackup(obj):
             mesh = bpy.context.scene.objects[name].data.name
             o = scene.addObject(name, name)
             o.replaceMesh(mesh, True, True)
-            o.worldPosition += obj.worldPosition
-            
-            o.setParent(compound, True, False)
+            if not isGroundConnectivity(first):
+                o.worldPosition += obj.worldPosition
+                o.setParent(compound, True, False)
+            else:
+                
+                if not o.invalid:
+                    o.suspendDynamics()
+                    o.setParent(ground, True, False)
+                         
             ret.append(o)
-            
-    compound.worldOrientation = obj.worldOrientation
-    compound.linearVelocity = obj.linearVelocity
-    compound.angularVelocity = obj.angularVelocity
+    
+    if not isGroundConnectivity(first):        
+        compound.worldOrientation = obj.worldOrientation
+        compound.linearVelocity = obj.linearVelocity
+        compound.angularVelocity = obj.angularVelocity
+    else:
+        compound.setParent(ground, True, False)
     
     if parent in children.keys():
         children[parent].remove(obj.name)
@@ -443,9 +473,15 @@ def swapBackup(obj):
         if parent not in children.keys():
             children[parent] = list()
         children[parent].append(r.name)
+    
+    if isGroundConnectivity(first):
+        calculateGrids()
       
     return ret
-               
+
+def inside(c):
+    return c in scene.objects
+   
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
    # print("dissolve")               
@@ -469,7 +505,7 @@ def dissolve(obj, depth, maxdepth, owner):
             grid = dd.DataStore.grids[par.name]                
         
         #only activate objects at current depth
-        if par != None:
+        if par != None and par.name != "Ground":
             digitEnd = par.name.split("_")[1]
             objDepth = int(digitEnd)
             bDepth = backupDepth(obj)
@@ -482,11 +518,11 @@ def dissolve(obj, depth, maxdepth, owner):
                 obj["swapped"] = True
                 #[activate(ob, owner, grid) for ob in objs if distSpeed(owner,ob)]
             
-            if depth >= objDepth + 1:
+            if depth == objDepth + 1:
                 activate(obj, owner, grid)
        
-        if depth < maxdepth: 
-            childs = [scene.objects[c] for c in children[parent]]
+        if depth < maxdepth and parent != None: 
+            childs = [scene.objects[c] for c in children[parent] if inside(c)]
             [dissolve(c, depth + 1, maxdepth, owner) for c in childs]
 
 def activate(child, owner, grid):
@@ -660,16 +696,19 @@ def destroyCell(cell, cells):
     childs = [c for c in cell.children]
     for child in cell.children:
       #  print("cell child: ", o)
-        o = logic.getCurrentScene().objects[child]
-        o.restoreDynamics()
-        if delay == 0:
-            o.removeParent()
-            childs.remove(child)
-            o["activated"] = True
+        if child in scene.objects:
+            o = scene.objects[child]
+            o.restoreDynamics()
+            if delay == 0:
+                o.removeParent()
+                childs.remove(child)
+                o["activated"] = True
+            else:
+                if not o.invalid:
+                    t = Timer(delay, o.suspendDynamics)
+                    t.start()
         else:
-            if not o.invalid:
-                t = Timer(delay, o.suspendDynamics)
-                t.start()
+            childs.remove(child) #remove invalid child
                     
     cell.children = childs      
     

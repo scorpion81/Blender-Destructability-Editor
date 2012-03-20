@@ -8,7 +8,7 @@ with the "Object fracture addon" by pildanovak.
 The Voronoi decomposition method uses the external library voro++, available at
 http://math.lbl.gov/voro++/
 
-To use, you need at least blender 2.62, rev 44492. (with bmesh)
+To use, you need at least blender 2.62, rev 44682. (with bmesh)
 
 BUILD OF voronoi EXTENSION:
 
@@ -36,35 +36,43 @@ would occur.
 You also need to insert the __init__.py in the os specific folders, if not 
 present. Take the one from the win64 dir, for example.
 
+BUILD OF voronoi EXTENSION with CMake:
+
+in libvoro subdir, open cmake-gui and set source and build dir to current
+libvoro subdir, then hit Configure and Generate(Unix makefiles or 
+Visual Studio 2008 (32 or 64 bit according to your platform), 
+then Linux: make libvoro, Windows: open the Libvoro project and build it)
+Under Windows CMake might complain not to find cython, 
+in this case enter the path to cython.py manually, e.g. 
+C:\Python32\Lib\site-packages\cython.py (after installing Cython there,
+installer is available at http://www.lfd.uci.edu/~gohlke/pythonlibs/#cython
+
+Tested under Ubuntu 11.10 64 bit and Windows 7 64 bit.
+
 FEATURES:
 
 working: -Decomposition with different methods (Boolean, Explosion Modifier, 
-          Knife tool (only basic with jitter and round cuts)
+          Knife tool (only basic with jitter and round cuts, Knife tool defunct
+          at the moment)
          -Hierarchical decomposition is possible to
          -Connectivity Calculation (collapses unconnected parts automatically in
           relation to ground objects.
          -Rotated Ground Objects
          -simple undo of decomposition (must be in "editor parenting" mode)
-         -basic voronoi decomposition of primitives except monkey and complexer
-          shapes
-         -hierarchical voronoi decomposition of cubes
+         -basic voronoi decomposition of primitives and voronoi + boolean for 
+          monkey and complexer shapes (you must remove non-manifolds manually
+          before trying to decompose with voronoi + boolean)
+         -hierarchical voronoi decomposition
+         -simulated "dead objects"
+         -bomb mode with right mouse button (aim to lock on target, hold rmb
+          to "charge" and release to detonate (ball is created inside object)
 not working yet:
-         -complete evaluation of parenting hierarchy in game engine (uses one 
-          level by now only) 
-         -movement of object before decomposition causes errors in game engine 
-          afterwards (parts not found -> key errors)
-          workaround: leave object to be decomposed at (0,0,0) for now
          -normal calculation of parts created by knife tool 
-          ->missing surfaces in game engine
+          ->missing surfaces in game engine (irrelevant by now,)
           workaround: disable backface culling in material settings after
           enabling "Blender Game" as renderer
-         -hierarchical undo of decomposition
-         -re-use of decomposed object's backups (undo and new decomposition 
-          works basically but has problems with connectivity grid creation
-          workaround: new decomposition -> new file (by now)
- 
-untested: -rotation of objects before decomposition 
-          -multiple grounds, multiple destructors
+
+untested: -multiple grounds
 
 to be done additionally: 
           - maybe change from name based system to object ids
@@ -76,7 +84,6 @@ to be done additionally:
           - useful integration in blender game engine projects (now done via
             "player" object and logic bricks and destruction_bge.py
 
-
 BASIC/TESTING USAGE:
 
          - knife patch not necessary atm, knife tool defunct
@@ -85,7 +92,7 @@ BASIC/TESTING USAGE:
          - when starting your compiled version of blender, under testing there
            should be an addon "Object->Destructability Editor", enable it
          - under Object tab you should now find a section "Destructability"
-         - to decompose: best use the default cube, check "Destroyable"
+         - to decompose: best use the default cube,
            choose a method and part count and hit "Destroy Object"
            for pre-cubification: choose "Intersect with Grid": this creates 
            x*y*z cubes, each one will be further decomposed to the given part 

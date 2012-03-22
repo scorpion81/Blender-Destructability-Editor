@@ -45,7 +45,7 @@ class Cell:
         return len(self.children) / self.count > intgr     
             
     def isInside(self, pos, percentage):
-        #print("Cell center / pos / percentage: ", self.center, pos, percentage) 
+      #  print("Cell center / pos / percentage: ", self.center, pos, percentage) 
         
         if pos[0] >= self.range[0][0] and pos[0] <= self.range[0][1] and \
            pos[1] >= self.range[1][0] and pos[1] <= self.range[1][1] and \
@@ -203,13 +203,13 @@ class Cell:
             return None
                
         for ground in self.grid.grounds:
-           # print ("GROUND/EDGE: ", ground, ground.edges)
+          #  print ("GROUND/EDGE: ", ground, ground.edges)
             for edge in ground.edges:
                 closest = geometry.intersect_point_line(Vector(self.center), 
                           Vector(edge[0]), Vector(edge[1]))
                 vec = closest[0]
                 percentage = closest[1]
-              #  print(vec.to_tuple(), self.center, self.gridPos)
+               # print(vec.to_tuple(), self.center, self.gridPos)
                 if self.isInside(vec.to_tuple(), percentage) and not self.isGroundCell:
                     print("Found Ground Cell: ", self.gridPos, vec, percentage)
                     self.isGroundCell = True

@@ -312,13 +312,16 @@ def calculateGrids():
     
     
     for o in scene.objects:
-        if isGroundConnectivity(o) or (isGround(o) and not isDestructor(o)):
+        if isGroundConnectivity(o):# or (isGround(o) and not isDestructor(o)):
             print("ISGROUNDCONN")
             
           #  bbox = getFloats(o["gridbbox"])
         #    dim = getInts(o["griddim"])
-            bbox = bpy.context.scene.objects[o.name].destruction.gridBBox
-            dim = bpy.context.scene.objects[o.name].destruction.gridDim
+            gridbbox = bpy.context.scene.objects[o.name].destruction.gridBBox
+            griddim = bpy.context.scene.objects[o.name].destruction.gridDim
+            
+            bbox = (gridbbox[0], gridbbox[1], gridbbox[2])
+            dim = (griddim[0], griddim[1], griddim[2])
             
             grounds = getGrounds(o)
             groundObjs = [logic.getCurrentScene().objects[g.name] for g in grounds]
@@ -562,7 +565,7 @@ def swapBackup(obj):
    
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
-    print("dissolve", obj, depth)               
+   # print("dissolve", obj, depth)               
     parent = None
     for p in children.keys():
         if obj.name in children[p]:
@@ -579,7 +582,7 @@ def dissolve(obj, depth, maxdepth, owner):
         par = ground
        
     
-    print("Owner:", owner, isRegistered(par, owner), isDestroyable(par), parent, par)
+   # print("Owner:", owner, isRegistered(par, owner), isDestroyable(par), parent, par)
      
     if isDestroyable(par) and (isRegistered(par, owner) or isGround(par)):
         
@@ -618,7 +621,7 @@ def dissolve(obj, depth, maxdepth, owner):
                 obj["swapped"] = True
               #  [activate(ob, owner, grid) for ob in objs]
             
-            if depth == objDepth:
+            if (depth == objDepth) or (flattenHierarchy(obj) and depth == objDepth + 1):
                 activate(obj, owner, grid)
     
         if depth < maxdepth and parent != None:
@@ -698,10 +701,15 @@ def activate(child, owner, grid):
             t.start()
             
 def isGroundConnectivity(obj):
+    global children
+    
     if obj == None:
         return False
-    groundConnectivity = bpy.context.scene.objects[obj.name].destruction.groundConnectivity
-    return groundConnectivity
+    if obj.name in children.keys(): #valid parent
+        groundConnectivity = bpy.context.scene.objects[obj.name].destruction.groundConnectivity
+        return groundConnectivity
+    else:
+        return False
 #    if obj == None or "groundConnectivity" not in obj.getPropertyNames():
 #        return False
 #    return obj["groundConnectivity"]
@@ -725,10 +733,14 @@ def isDestructor(obj):
 #    return obj["destructor"]
 
 def isGround(obj):
+    
     if obj == None:
         return False
-    isground = bpy.context.scene.objects[obj.name].destruction.isGround
-    return isground
+    if obj.name in bpyObjs.keys():
+        isground = bpyObjs[obj.name].destruction.isGround
+        return isground
+    else:
+        return False
 #    if obj == None or "isGround" not in obj.getPropertyNames():
 #        return False
 #    return obj["isGround"]
@@ -794,17 +806,19 @@ def isBackup(backup):
 #
 def getGrounds(obj):
     grounds = bpy.context.scene.objects[obj.name].destruction.grounds
+    print(grounds)
     ret = []
     for ground in grounds:
         g = dd.Ground()
-        g.name = ground
+        g.name = ground.name
         
-        bGround = bpy.context.objects[ground]
-        for e in bGround.data.edges:
-            vStart = bGround.data.vertices[e.vertices[0]].co
-            vEnd = bGround.data.vertices[e.vertices[1]].co
+        bGround = bpy.context.scene.objects[ground.name].bound_box.data.to_mesh(bpy.context.scene, False, 'PREVIEW')
+        for e in bGround.edges:
+            vStart = bGround.vertices[e.vertices[0]].co
+            vEnd = bGround.vertices[e.vertices[1]].co
             g.edges.append((vStart, vEnd))
         ret.append(g)
+    print("RET", ret)
     return ret
     
 #    if "grounds" not in obj.getPropertyNames():

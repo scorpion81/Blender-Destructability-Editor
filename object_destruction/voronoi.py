@@ -28,6 +28,8 @@ from bpy import ops
 
 #start = 0
 
+selected = {}
+
 def bracketPair(line, lastIndex):
     opening = line.index("(", lastIndex)
     closing = line.index(")", opening)
@@ -174,6 +176,14 @@ def corners(obj):
     
     return xmin, xmax, ymin, ymax, zmin, zmax 
 
+def deselect(obj):
+    selected[obj] = obj.select
+    obj.select = False
+
+def select(obj):
+    if obj in selected.keys():
+        obj.select = selected[obj]    
+
 def voronoiCube(context, obj, parts, vol, walls):
     
     #applyscale before
@@ -198,6 +208,8 @@ def voronoiCube(context, obj, parts, vol, walls):
         vzmin += loc[2]
         vzmax += loc[2] 
         
+    
+    [deselect(o) for o in context.scene.objects]
       
     context.scene.objects.active = obj    
     obj.select = True
@@ -207,8 +219,9 @@ def voronoiCube(context, obj, parts, vol, walls):
         ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
         
     ops.object.transform_apply(scale=True, location = True, rotation=True)
-    obj.select = False
-   
+    
+    [select(o) for o in context.scene.objects]
+  
     xmin, xmax, ymin, ymax, zmin, zmax = corners(obj)
           
     xmin += loc[0]
@@ -339,47 +352,55 @@ def voronoiCube(context, obj, parts, vol, walls):
             ctx = context.copy()
             ctx["object"] = obj
             ops.object.modifier_apply(ctx, apply_as='DATA', modifier = rem.name)
-               
+        
+        [deselect(o) for o in context.scene.objects]
+        
+        newnames = []       
         for o in context.scene.objects:
             if o.name not in oldnames:
                 context.scene.objects.active = o
-                booleanIntersect(context, o, obj)
+                newnames.extend(booleanIntersect(context, o, obj, oldnames))
                 if len(o.data.vertices) == 0:
-                    context.scene.objects.unlink(o)
+                   context.scene.objects.unlink(o)
                 else:
                     oldnames.append(o.name)
-        
+                    
+        for n in newnames:
+            if n not in oldnames and n in context.scene.objects:
+                ob = context.scene.objects[n]
+                context.scene.objects.active = ob
+                ob.select = True
+                ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+                ob.select = False
+                oldnames.append(ob.name)
+                       
+        [select(o) for o in context.scene.objects]
         print("Boolean Time ", clock() - start)      
   #  context.scene.objects.unlink(obj) 
     
-def booleanIntersect(context, o, obj):
-    #rem = o.modifiers.new("Remesh", 'REMESH')    
+def booleanIntersect(context, o, obj, oldnames):  
     bool = o.modifiers.new("Boolean", 'BOOLEAN')
     bool.object = obj
     bool.operation = 'INTERSECT'
     
-#    mesh = o.to_mesh(context.scene, 
-#                    apply_modifiers=True, 
-#                    settings='PREVIEW')
     ctx = context.copy()
     ctx["object"] = o
     ops.object.modifier_apply(ctx, apply_as='DATA', modifier = bool.name)
-                         
-#    old_mesh = o.data
-#    o.data = None
-#    old_mesh.user_clear()
-#        
-#    if (old_mesh.users == 0):
-#        bpy.data.meshes.remove(old_mesh)  
-#            
-#    o.data = mesh  
-#    o.modifiers.remove(bool)
     
     ops.object.mode_set(mode = 'EDIT')
     ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))
     ops.mesh.separate(type = 'LOOSE')
     ops.object.mode_set(mode = 'OBJECT')
     
+    newnames = []
+    for ob in context.scene.objects:
+        if ob.name not in oldnames and ob.name != o.name:
+           newnames.append(ob.name)
+    
+    oldSel = o.select  
     o.select = True
-    ops.object.origin_set(type='ORIGIN_GEOMETRY')
-    o.select = False
+    ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+    o.select = oldSel
+    
+    return newnames    
+        

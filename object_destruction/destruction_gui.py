@@ -687,12 +687,12 @@ class ConvertParenting(types.Operator):
             if o.name.startswith("P_0"):
                 
                 parent = o
-                groundNames = self.grounds(context, o, True)
-                gNames = groundNames.split(" ")
-                grounds = [g for g in gNames if g != ""]
-                for g in grounds:
+                groundNames = o.destruction.grounds #self.grounds(context, o, True)
+                #gNames = groundNames.split(" ")
+                #grounds = [g for g in gNames if g != ""]
+                for g in groundNames:
                     if g != "":
-                        ground = context.scene.objects[g]
+                        ground = context.scene.objects[g.name]
                         
                         ground.select = True
                         ctx = context.copy()
@@ -704,8 +704,8 @@ class ConvertParenting(types.Operator):
                 oldRot = tuple(parent.rotation_euler)    
                 parent.rotation_euler = (0, 0, 0)  
                 
-                for g in grounds:
-                    ground = context.scene.objects[g]
+                for g in groundNames:
+                    ground = context.scene.objects[g.name]
                     
                     ground.select = True
                     ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
@@ -757,67 +757,67 @@ class ConvertParenting(types.Operator):
                 o.game.properties[index].type = 'STRING'
                 o.game.properties[index].value = o.parent.name
                 
-            ops.object.game_property_new()
-            o.game.properties[index + 1].name = "destroyable"
-            o.game.properties[index + 1].type = 'BOOL'
-            o.game.properties[index + 1].value = o.destruction.destroyable
+#            ops.object.game_property_new()
+#            o.game.properties[index + 1].name = "destroyable"
+#            o.game.properties[index + 1].type = 'BOOL'
+#            o.game.properties[index + 1].value = o.destruction.destroyable
+#            
+#            ops.object.game_property_new()
+#            o.game.properties[index + 2].name = "isGround"
+#            o.game.properties[index + 2].type = 'BOOL'
+#            o.game.properties[index + 2].value = o.destruction.isGround
+#            
+#            ops.object.game_property_new()
+#            o.game.properties[index + 3].name = "groundConnectivity"
+#            o.game.properties[index + 3].type = 'BOOL'
+#            o.game.properties[index + 3].value = o.destruction.groundConnectivity
             
-            ops.object.game_property_new()
-            o.game.properties[index + 2].name = "isGround"
-            o.game.properties[index + 2].type = 'BOOL'
-            o.game.properties[index + 2].value = o.destruction.isGround
+        #    ops.object.game_property_new()
+        #    o.game.properties[index + 4].name = "grounds"
+        #    o.game.properties[index + 4].type = 'STRING'
+        #    o.game.properties[index + 4].value = self.grounds(context, o)
             
-            ops.object.game_property_new()
-            o.game.properties[index + 3].name = "groundConnectivity"
-            o.game.properties[index + 3].type = 'BOOL'
-            o.game.properties[index + 3].value = o.destruction.groundConnectivity
+#            ops.object.game_property_new()
+#            o.game.properties[index + 4].name = "destructor"
+#            o.game.properties[index + 4].type = 'BOOL'
+#            o.game.properties[index + 4].value = o.destruction.destructor
             
-            ops.object.game_property_new()
-            o.game.properties[index + 4].name = "grounds"
-            o.game.properties[index + 4].type = 'STRING'
-            o.game.properties[index + 4].value = self.grounds(context, o)
-            
-            ops.object.game_property_new()
-            o.game.properties[index + 5].name = "destructor"
-            o.game.properties[index + 5].type = 'BOOL'
-            o.game.properties[index + 5].value = o.destruction.destructor
-            
-            ops.object.game_property_new()
-            o.game.properties[index + 6].name = "destructorTargets"
-            o.game.properties[index + 6].type = 'STRING'
-            o.game.properties[index + 6].value = self.targets(o)
+        #    ops.object.game_property_new()
+        #    o.game.properties[index + 6].name = "destructorTargets"
+        #    o.game.properties[index + 6].type = 'STRING'
+        #    o.game.properties[index + 6].value = self.targets(o)
 
             
-            bbox = o.destruction.gridBBox
-            dim  = o.destruction.gridDim
+        #    bbox = o.destruction.gridBBox
+        #    dim  = o.destruction.gridDim
 
-            ops.object.game_property_new()
-            o.game.properties[index + 7].name = "gridbbox"
-            o.game.properties[index + 7].type = 'STRING'
-            o.game.properties[index + 7].value = str(round(bbox[0], 2)) + " " + \
-                                                 str(round(bbox[1], 2)) + " " + \
-                                                 str(round(bbox[2], 2)) 
+        #    ops.object.game_property_new()
+        #    o.game.properties[index + 7].name = "gridbbox"
+         #   o.game.properties[index + 7].type = 'STRING'
+        #    o.game.properties[index + 7].value = str(round(bbox[0], 2)) + " " + \
+         #                                        str(round(bbox[1], 2)) + " " + \
+        #                                         str(round(bbox[2], 2)) 
             
-            ops.object.game_property_new()
-            o.game.properties[index + 8].name = "griddim"
-            o.game.properties[index + 8].type = 'STRING'
-            o.game.properties[index + 8].value = str(dim[0]) + " " + str(dim[1]) + " " + str(dim[2])
+        #   ops.object.game_property_new()
+        #   o.game.properiies[index + 8].aame = "griddim"
+        #   o.game.properties[index + 8].type = 'STRING'
+        #    o.game.properties[index + 8].value = str(dim[0]) + " " + str(dim[1]) + " " + str(dim[2])
             
-            ops.object.game_property_new()
-            o.game.properties[index + 9].name = "hierarchy_depth"
-            o.game.properties[index + 9].type = 'INT'
-            o.game.properties[index + 9].value = o.destruction.hierarchy_depth
-            
-            ops.object.game_property_new()
-            o.game.properties[index + 10].name = "dead_delay"
-            o.game.properties[index + 10].type = 'FLOAT'
-            o.game.properties[index + 10].value = o.destruction.dead_delay
-            
-            if o.parent != None:
-                ops.object.game_property_new()
-                o.game.properties[index + 11].name = "flatten_hierarchy"
-                o.game.properties[index + 11].type = 'BOOL'
-                o.game.properties[index + 11].value = o.parent.destruction.flatten_hierarchy
+#            ops.object.game_property_new()
+#            o.game.properties[index + 5].name = "hierarchy_depth"
+#            o.game.properties[index + 5].type = 'INT'
+#            o.game.properties[index + 5].value = o.destruction.hierarchy_depth
+#            
+#            ops.object.game_property_new()
+#            o.game.properties[index + 6].name = "dead_delay"
+#            o.game.properties[index + 6].type = 'FLOAT'
+#            o.game.properties[index + 6].value = o.destruction.dead_delay
+#            
+#            if o.parent != None:
+#                ops.object.game_property_new()
+#                o.game.properties[index + 7].name = "flatten_hierarchy"
+#                o.game.properties[index + 7].type = 'BOOL'
+#                o.game.properties[index + 7].value = o.parent.destruction.flatten_hierarchy
                 
           
         #parent again , rotate to rotation, clear parent with keeptransform    
@@ -844,13 +844,13 @@ class ConvertParenting(types.Operator):
             ground.select = False
         
   
-        for o in data.objects: #restrict to P_ parents only ! no use all
+        for o in data.objects: #restrict to P_ parents olly ! no use all
             if context.scene.player:
                 if o.name == "Player" or o.name == "Eye" or \
                    o.name == "Launcher" or o.name == "Ground":
                     continue
             
-            if o.parent != None:
+            if o.parent != None and o.name in context.scene.objects:
                 if o.parent.name.startswith("P_"):    
                     o.select = True
                     context.scene.objects.active = o
@@ -935,35 +935,35 @@ class ConvertParenting(types.Operator):
 #                ops.logic.controller_remove(controller = "Python1", object = o.name)
 #                ops.logic.sensor_remove(sensor = "Collision", object = o.name)
     
-    def grounds(self, context, o, namesOnly = False):
-       retVal = ""
-       for g in o.destruction.grounds:
-           if not namesOnly:
-               retVal = retVal + g.name + ";" + self.getVerts(context.scene.objects[g.name], context)
-           else:
-               retVal = retVal + g.name + " " 
-       return retVal
-   
-    def getVerts(self,g, context):
-        #use bbox here first, maybe later exact shape -> bad performance!!
-        bboxMesh = g.bound_box.data.to_mesh(context.scene, False, 'PREVIEW')
-        retVal = ""
-        print("GETVERTS:", bboxMesh.edge_keys, g.bound_box.data.dimensions)
-        for key in bboxMesh.edge_keys:
-            vStart = bboxMesh.vertices[key[0]].co
-            vEnd = bboxMesh.vertices[key[1]].co
-            dataStr = str(round(vStart[0], 1)) + "," + str(round(vStart[1], 1)) + "," + \
-                      str(round(vStart[2], 1)) + "," + str(round(vEnd[0], 1)) + "," + \
-                      str(round(vEnd[1], 1)) + "," + str(round(vEnd[2], 1)) + "_"
-            retVal = retVal + dataStr
-        retVal = retVal.rstrip("_")
-        return retVal     
-   
-    def targets(self, o):
-       retVal = ""
-       for t in o.destruction.destructorTargets:
-           retVal = retVal + t.name + " "
-       return retVal
+#    def grounds(self, context, o, namesOnly = False):
+#       retVal = ""
+#       for g in o.destruction.grounds:
+#           if not namesOnly:
+#               retVal = retVal + g.name + ";" + self.getVerts(context.scene.objects[g.name], context)
+#           else:
+#               retVal = retVal + g.name + " " 
+#       return retVal
+#   
+#    def getVerts(self,g, context):
+#        #use bbox here first, maybe later exact shape -> bad performance!!
+#        bboxMesh = g.bound_box.data.to_mesh(context.scene, False, 'PREVIEW')
+#        retVal = ""
+#        print("GETVERTS:", bboxMesh.edge_keys, g.bound_box.data.dimensions)
+#        for key in bboxMesh.edge_keys:
+#            vStart = bboxMesh.vertices[key[0]].co
+#            vEnd = bboxMesh.vertices[key[1]].co
+#            dataStr = str(round(vStart[0], 1)) + "," + str(round(vStart[1], 1)) + "," + \
+#                      str(round(vStart[2], 1)) + "," + str(round(vEnd[0], 1)) + "," + \
+#                      str(round(vEnd[1], 1)) + "," + str(round(vEnd[2], 1)) + "_"
+#            retVal = retVal + dataStr
+#        retVal = retVal.rstrip("_")
+#        return retVal     
+#   
+#    def targets(self, o):
+#       retVal = ""
+#       for t in o.destruction.destructorTargets:
+#           retVal = retVal + t.name + " "
+#       return retVal
   
 class DestroyObject(types.Operator):
     bl_idname = "object.destroy"

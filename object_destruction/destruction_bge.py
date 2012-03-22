@@ -5,6 +5,7 @@ from mathutils import Vector, Matrix
 from time import clock
 import bpy
 from threading import Timer
+import sys
 
 
 #this is the bge part of the destructability editor.
@@ -39,7 +40,7 @@ delay = 0
 
 #TODO, temporary hack
 ground = None
-destructors = []
+#destructors = []
 
 def project(p, n):
     
@@ -101,7 +102,7 @@ def distance(p, a, b, c, obj):
     f = -n.dot(p-a) / n.dot(n)
     q = p + f * n
     
-    dist = 10000000000
+    dist = sys.maxsize #10000000000
     if inside(q, n, obj):
         dist = (p - q).length
     return dist
@@ -110,9 +111,8 @@ def getFaceDistance(a, b):
     
     # hack
     #print(a, b)
-    global destructors
-    if a in destructors and isGround(a):
-        mindist = 10000000000
+    if isDestructor(a) and isGround(a):
+        mindist = sys.maxsize# 10000000000
         obj = bpyObjs[a.name]
         for f in obj.data.polygons:
            v1 = obj.data.vertices[f.vertices[0]].co
@@ -123,7 +123,7 @@ def getFaceDistance(a, b):
            
            if dist < mindist:
                mindist = dist
-       # print("MinDist", mindist)
+               #print("MinDist", mindist, a)
         return mindist
     else:
         return a.getDistanceTo(b)        
@@ -146,7 +146,7 @@ def setup():
     global firstShard
     global ground
     global children
-    global destructors
+   # global destructors
     
     #temporarily parent
     for o in scene.objects:
@@ -170,36 +170,33 @@ def setup():
                 o["activated"] = False
         if o.name == "Ground":
             bpyObjs[o.name] = bpy.context.scene.objects[o.name]
-        if "destructor" in o.getPropertyNames():
-            destructors.append(o)
-            bpyObjs[o.name] = bpy.context.scene.objects[o.name]
+       # if isDestructor(o):
+        #    destructors.append(o)
+        #    bpyObjs[o.name] = bpy.context.scene.objects[o.name]
     
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():  
             #print(o, o.parent, len(o.parent.children))
-            if "flatten_hierarchy" in o.getPropertyNames():
-                if o["flatten_hierarchy"]:
-                    for fp in firstparent:
+            if flattenHierarchy(o):
+                for fp in firstparent:
+                    desc = descendants(fp)
+                    if bpyObjs[o.name].game.use_collision_compound and o in desc :
+                        if fp.name not in firstShard.keys():
+                            print("Setting compound", o.name)
+                            firstShard[fp.name] = o
+                             
+                    if fp.name not in children.keys() and o in desc and not o.name.startswith("P_"):
+                        children[fp.name] = list()
+                        children[fp.name].append(o.name)
                         
-                        desc = descendants(fp)
-                      #  print(desc)
-                        if bpyObjs[o.name].game.use_collision_compound and o in desc :
-                            if fp.name not in firstShard.keys():
-                                print("Setting compound", o.name)
-                                firstShard[fp.name] = o
-                                 
-                        if fp.name not in children.keys() and o in desc and not o.name.startswith("P_"):
-                            children[fp.name] = list()
-                            children[fp.name].append(o.name)
-                            
-                        elif o in desc and not o.name.startswith("P_"):
-                            children[fp.name].append(o.name)
-                            
-                else:
-                     if not o.name.startswith("P_"):
-                        if o.parent.name not in children.keys():
-                            children[o.parent.name] = list()
-                        children[o.parent.name].append(o.name)
+                    elif o in desc and not o.name.startswith("P_"):
+                        children[fp.name].append(o.name)
+                        
+            else:
+                if not o.name.startswith("P_"):
+                    if o.parent.name not in children.keys():
+                        children[o.parent.name] = list()
+                    children[o.parent.name].append(o.name)
     
     for o in scene.objects:
         if "myParent" in o.getPropertyNames(): 
@@ -239,29 +236,28 @@ def setup():
         for c in i[1]:
             if c != parent:
                 o = scene.objects[c] 
-                if "flatten_hierarchy" in o.getPropertyNames():
-                    if o["flatten_hierarchy"] and o not in firstShard:
-                        #if oldPar.name in firstShard: 
-                        parent = firstShard[oldPar.name]
-                        print("Setting parent", o, " -> ", parent)
-                        o.setParent(parent, True, False)   
-                    elif c not in firstShard:
-                        #if c != backup:
-                        print("Setting parent hierarchically", c, " -> ", parent)  
-                        o.setParent(parent, True, False)
-                 
-                    #keep sticky if groundConnectivity is wanted
-                    if isGroundConnectivity(oldPar):
-                        o.suspendDynamics()
-                     #   scene.objects[parent].suspendDynamics()
-                        ground = scene.objects["Ground"]
-                        o.setParent(ground, True, False)
+                if flattenHierarchy(o) and o not in firstShard:
+                    #if oldPar.name in firstShard: 
+                    parent = firstShard[oldPar.name]
+                    print("Setting parent", o, " -> ", parent)
+                    o.setParent(parent, True, False)   
+                elif c not in firstShard:
+                    #if c != backup:
+                    print("Setting parent hierarchically", c, " -> ", parent)  
+                    o.setParent(parent, True, False)
+             
+                #keep sticky if groundConnectivity is wanted
+                if isGroundConnectivity(oldPar):
+                    o.suspendDynamics()
+                 #   scene.objects[parent].suspendDynamics()
+                    ground = scene.objects["Ground"]
+                    o.setParent(ground, True, False)
         
         if start not in compounds.keys():
             return
         
         print(compounds[start])                
-        if len(compounds[start]) > 1:
+        if len(compounds[start]) > 1: #TODO, what if there are no real compounds left... use other layers for correct substitution
             real = scene.objects[realcompounds[start]]
             for c in compounds[start]:
                 if c != real.name:
@@ -289,6 +285,10 @@ def checkSpeed():
     
     for p in children.keys():
         for obj in children[p]:
+            
+            if p not in scene.objects:
+                return
+            
             if obj == owner.name and not isGroundConnectivity(scene.objects[p]):
                 return 
         
@@ -315,8 +315,10 @@ def calculateGrids():
         if isGroundConnectivity(o) or (isGround(o) and not isDestructor(o)):
             print("ISGROUNDCONN")
             
-            bbox = getFloats(o["gridbbox"])
-            dim = getInts(o["griddim"])
+          #  bbox = getFloats(o["gridbbox"])
+        #    dim = getInts(o["griddim"])
+            bbox = bpy.context.scene.objects[o.name].destruction.gridBBox
+            dim = bpy.context.scene.objects[o.name].destruction.gridDim
             
             grounds = getGrounds(o)
             groundObjs = [logic.getCurrentScene().objects[g.name] for g in grounds]
@@ -347,15 +349,28 @@ def calculateGrids():
     print("Grids: ", dd.DataStore.grids) 
     
 
-def distSpeed(owner, obj, maxDepth):
-    speed = (owner.worldLinearVelocity - obj.worldLinearVelocity).length
-    dist = getFaceDistance(owner, obj)
-            
-    modSpeed = 1 + speed
-    if owner.name == "Ball": # and bpy.context.scene.hideLayer == 1:
-        modSpeed = math.sqrt(speed / 2)
+def distSpeed(owner, obj, maxDepth, lastSpeed):
+    speed = 0
+    tempSpeed = (owner.worldLinearVelocity - obj.worldLinearVelocity).length
+    if owner.name != "Ball":
+        if tempSpeed != 0:
+            speed = tempSpeed
+        else:
+            speed = lastSpeed # only compound parents have a speed....
+    else:
+        speed = tempSpeed
     
-    depth = math.ceil(maxDepth * 1.0 / modSpeed) 
+    dist = getFaceDistance(owner, obj)
+    
+    print(owner, obj, dist, speed)        
+    modSpeed = 1+speed * 0.66
+    if owner.name == "Ball": # and bpy.context.scene.hideLayer == 1:
+       modSpeed = math.sqrt(speed / 2)
+    
+    if modSpeed > 0:
+        depth = math.ceil(maxDepth * 1.0 / modSpeed)
+    else:
+        depth = 1 
     #return dist < modSpeed
     return dist, modSpeed, depth
     
@@ -372,7 +387,7 @@ def collide():
     owner = sensor.owner
     
    
-    maxHierarchyDepth = owner["hierarchy_depth"]
+    maxHierarchyDepth = hierarchyDepth(owner)
     
     gridValid = False
     
@@ -384,20 +399,53 @@ def collide():
           #  print("objname", p, objname)
             if not objname.startswith("P_"):
                 objs.append(objname)
-            
+    
+    lastSpeed = 0        
     for ob in objs:
         if ob in scene.objects:
             obj = scene.objects[ob]
-            dist, speed, depth =  distSpeed(owner, obj, maxHierarchyDepth)
+            dist, speed, depth =  distSpeed(owner, obj, maxHierarchyDepth, lastSpeed)
+            if speed > 0:
+                lastSpeed = speed
             
             strength = 0 #handle bomb here
             if "strength" in owner.getPropertyNames():
                 strength = owner["strength"]
                 depth = maxHierarchyDepth #blow all apart
             
-            if dist < speed or dist < strength:   
+            if dist < speed or dist < strength:  
                 dissolve(obj, depth, maxHierarchyDepth, owner)
-    
+                
+ 
+def findCompound(childs):
+    compound = None
+    for c in childs:
+        if bpy.context.scene.objects[c.name].game.use_collision_compound and \
+        not c.name in bpy.context.scene.backups: 
+            mesh = bpy.context.scene.objects[c.name].data.name
+            print("Adding compound", c.name)
+            compound = scene.addObject(c.name, c.name)
+            compound.replaceMesh(mesh, True, True)    
+            return compound
+    if compound == None:
+        for c in childs:
+            compound = bpy.context.scene.objects[c.name].destruction.backup
+            print("Testing: ", compound)
+            if compound != None and \
+            bpy.context.scene.objects[compound].game.use_collision_compound:
+                print("Adding compound(b)", compound)
+                if compound not in scene.objects:
+                    #mesh = bpy.context.scene.objects[compound].data.name
+                    comp = scene.addObject(compound, compound)
+                    #comp.replaceMesh(mesh, True, True)
+                    return comp
+                return scene.objects[compound]
+        
+        #descend if necessary
+#        for c in childs:
+#            ch= bpy.context.scene.objects[c.name].destruction.children
+#            return findCompound(ch, c.name, True)
+                
             
                 
 def swapBackup(obj):    
@@ -416,6 +464,7 @@ def swapBackup(obj):
     else:
        par = scene.objects[parent]
     
+    parents = {}  
     #TODO: hack -> find first parent, ground connectivity on subparents is unsupported by now.
     #what about loose parts parents (they have another name mostly) ?
     #maybe store a reference to the firstparent directly.
@@ -430,67 +479,90 @@ def swapBackup(obj):
             first = fp
           
     childs= bpy.context.scene.objects[parent].destruction.children
-    compound = None
-    for c in childs:
-        if bpy.context.scene.objects[c.name].game.use_collision_compound: 
-            mesh = bpy.context.scene.objects[c.name].data.name
-            print("Adding compound", c.name)
-            compound = scene.addObject(c.name, c.name)
-            compound.replaceMesh(mesh, True, True)
-            if not isGroundConnectivity(first):
-                compound.worldPosition += obj.worldPosition
-            ret.append(compound)
-                     
+    compound = findCompound(childs)
+    
+    if compound != None:
+        #if not isGroundConnectivity(first):   
+        parents[compound.name] = parent    
+        ret.append(compound)       
+                   
     for c in childs:
         if c.name != compound.name and c.name != obj.name:
-            print("Adding children", c.name)
             
             if c.name.startswith("P_"):
+                
+                if c.name in scene.objects:
+                    cPar = scene.objects[c.name]
+                else:
+                    cPar = scene.addObject(c.name, c.name)
+                
                 name = bpy.context.scene.objects[c.name].destruction.backup
+                parents[name] = c.name
+                parents[c.name] = parent
+                ret.append(cPar)
+                if name == compound.name:
+                    continue
             else:
                 name = c.name
+                parents[name] = parent
             
+            print("Adding children", name)
             mesh = bpy.context.scene.objects[name].data.name
             o = scene.addObject(name, name)
             o.replaceMesh(mesh, True, True)
             if not isGroundConnectivity(first):
-                o.worldPosition += obj.worldPosition
+           #     o.worldPosition = obj.worldPosition
                 o.setParent(compound, True, False)
             else:
                 
                 if not o.invalid:
                     o.suspendDynamics()
-                    o.setParent(ground, True, False)
+                    o.setParent(ground, False, False)
                          
             ret.append(o)
     
-    if not isGroundConnectivity(first):        
+    if not isGroundConnectivity(first):
+        compound.worldPosition = obj.worldPosition        
         compound.worldOrientation = obj.worldOrientation
         compound.linearVelocity = obj.linearVelocity
         compound.angularVelocity = obj.angularVelocity
     else:
-        compound.setParent(ground, True, False)
+        compound.setParent(ground, False, False)
     
     if parent in children.keys():
-        children[parent].remove(obj.name)
+        if obj.name in children[parent]:
+            children[parent].remove(obj.name)
     obj.endObject()
     
+   # if objParent in children.keys():
+    #    if parent in children[objParent]:
+     #       children[objParent].remove(parent)
+    #parent.endObject()
+    
     for r in ret:
-        if parent not in children.keys():
-            children[parent] = list()
-        children[parent].append(r.name)
+        p = parents[r.name]
+        if p not in children.keys():
+            children[p] = list()
+        children[p].append(r.name)
     
     if isGroundConnectivity(first):
         calculateGrids()
       
     return ret
 
-def inside(c):
-    return c in scene.objects
+#def pChildren(parent):
+#    childs = bpy.context.scene.objects[parent.name].destruction.children
+#    ret = []
+#    for c in childs:
+#        if c.name in scene.objects:
+#            ret.append(scene.objects[c.name])
+#        else:
+#            ret.append(scene.addObject(c.name, c.name))
+#    return ret
    
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
-   # print("dissolve")               
+    print("dissolve", obj, depth)               
     parent = None
     for p in children.keys():
         if obj.name in children[p]:
@@ -499,37 +571,65 @@ def dissolve(obj, depth, maxdepth, owner):
         
     par = None
     if parent != None:
-       par = scene.objects[parent]
+        if parent in scene.objects:
+            par = scene.objects[parent]
+        else:
+            par = scene.addObject(parent, parent)
     else:
-       par = ground
+        par = ground
+       
     
-   # print("Owner:", owner, isRegistered(par, owner))      
-    if isDestroyable(par) and isRegistered(par, owner) or isGround(par):
+    print("Owner:", owner, isRegistered(par, owner), isDestroyable(par), parent, par)
+     
+    if isDestroyable(par) and (isRegistered(par, owner) or isGround(par)):
         
         grid = None
         if par.name in dd.DataStore.grids.keys():
             grid = dd.DataStore.grids[par.name]                
         
         #only activate objects at current depth
-        if par != None and par.name != "Ground":
+        if par != None:# and par.name != "Ground":
             digitEnd = par.name.split("_")[1]
-            objDepth = int(digitEnd)
-            bDepth = backupDepth(obj)
+            objDepth = int(digitEnd) 
             
-            #swap and re-check distance
-          #  print(depth, objDepth+1, bDepth+1)
-            if bpy.context.scene.hideLayer != 1 and depth == bDepth + 1 and isBackup(obj):
-                print(depth, bDepth+1)
+            if obj.name.startswith("P_"):
+                backup = bpy.context.scene.objects[obj.name].destruction.backup
+                if backup in scene.objects:
+                    obj = scene.objects[backup]
+                else:
+                    return
+                
+            bDepth = backupDepth(obj)
+             
+            print(depth, objDepth+1, bDepth+1)
+            if bpy.context.scene.hideLayer != 1 and (depth >= bDepth+1) and \
+            isBackup(obj):
+                
+                print(depth, bDepth)
+                if bpy.context.scene.objects[obj.name].game.use_collision_compound:
+                   for ch in obj.children:
+                        if isBackup(ch):
+                            swapBackup(ch)
+                            ch["swapped"] = True
+                        else:
+                            activate(ch, owner, grid)
+                            
                 objs = swapBackup(obj)
                 obj["swapped"] = True
-                #[activate(ob, owner, grid) for ob in objs if distSpeed(owner,ob)]
+              #  [activate(ob, owner, grid) for ob in objs]
             
-            if depth == objDepth + 1:
+            if depth == objDepth:
                 activate(obj, owner, grid)
-       
-        if depth < maxdepth and parent != None: 
-            childs = [scene.objects[c] for c in children[parent] if inside(c)]
-            [dissolve(c, depth + 1, maxdepth, owner) for c in childs]
+    
+        if depth < maxdepth and parent != None:
+            pParent = None
+            for p in children.keys():
+                if parent in children[p]:
+                    pParent = p
+                    break
+          #  print(children[p], parent)
+            if pParent != None:
+                [dissolve(scene.objects[c], depth+1, maxdepth, owner) for c in children[pParent]]
 
 def activate(child, owner, grid):
     
@@ -538,10 +638,7 @@ def activate(child, owner, grid):
      global firstShard
      global delay
      
-     if "dead_delay" in owner.getPropertyNames():
-        delay = owner["dead_delay"]
-     else:
-        delay = 0
+     delay = deadDelay(owner)
      
      parent = None
      for p in children.keys():
@@ -554,6 +651,12 @@ def activate(child, owner, grid):
          par = ground
      else:
          par = scene.objects[parent]
+         
+     #remove all compound children if it is hit
+    # if bpy.context.scene.objects[child.name].game.use_collision_compound:
+    #     for ch in child.children:
+    #         ch.removeParent()
+    #         ch.restoreDynamics()     
                  
      #if isGroundConnectivity(par) or isGround(par) and gridValid:
      if isGroundConnectivity(par) and gridValid:
@@ -595,34 +698,76 @@ def activate(child, owner, grid):
             t.start()
             
 def isGroundConnectivity(obj):
-    if obj == None or "groundConnectivity" not in obj.getPropertyNames():
+    if obj == None:
         return False
-    return obj["groundConnectivity"]
+    groundConnectivity = bpy.context.scene.objects[obj.name].destruction.groundConnectivity
+    return groundConnectivity
+#    if obj == None or "groundConnectivity" not in obj.getPropertyNames():
+#        return False
+#    return obj["groundConnectivity"]
 
-def isDestroyable(destroyable):
-    if destroyable == None or "destroyable" not in destroyable.getPropertyNames():
+def isDestroyable(obj):
+    if obj == None:
         return False
-    return destroyable["destroyable"]
+    destroyable = bpy.context.scene.objects[obj.name].destruction.destroyable
+    return destroyable
+#    if destroyable == None or "destroyable" not in destroyable.getPropertyNames():
+#        return False
+#    return destroyable["destroyable"]
 
 def isDestructor(obj):
-    if obj == None or "destructor" not in obj.getPropertyNames():
+    if obj == None:
         return False
-    return obj["destructor"]
+    destructor = bpy.context.scene.objects[obj.name].destruction.destructor
+    return destructor
+#    if obj == None or "destructor" not in obj.getPropertyNames():
+#        return False
+#    return obj["destructor"]
 
 def isGround(obj):
-    if obj == None or "isGround" not in obj.getPropertyNames():
+    if obj == None:
         return False
-    return obj["isGround"]
+    isground = bpy.context.scene.objects[obj.name].destruction.isGround
+    return isground
+#    if obj == None or "isGround" not in obj.getPropertyNames():
+#        return False
+#    return obj["isGround"]
+
+def flattenHierarchy(obj):
+    if obj == None:
+        return False
+    flatten = bpy.context.scene.objects[obj.name].destruction.flatten_hierarchy
+    return flatten
+
+def hierarchyDepth(obj):
+    if obj == None:
+        return -1
+    depth = bpy.context.scene.objects[obj.name].destruction.hierarchy_depth
+    return depth
+
+def deadDelay(obj):
+    if obj == None:
+        return 0
+    delay = bpy.context.scene.objects[obj.name].destruction.dead_delay
+    return delay
 
 def isRegistered(destroyable, destructor):
-    if destroyable == None:
-        return False
-    if not destructor["destructor"]:
-        return False
+#    if destroyable == None:
+#        return False
+#    if not destructor["destructor"]:
+#        return False
     
-    targets = destructor["destructorTargets"].split(" ")
+   # targets = destructor["destructorTargets"].split(" ")
+#    print(targets, destructor)
+
+    if not isDestroyable(destroyable):
+        return False
+    if not isDestructor(destructor):
+        return False
+     
+    targets = bpy.context.scene.objects[destructor.name].destruction.destructorTargets
     for t in targets:
-        if t == destroyable.name:
+        if t.name == destroyable.name:
             return True
         
     return False
@@ -639,38 +784,52 @@ def isBackup(backup):
     return swapped
         
 
-def getFloats(str):
-    parts = str.split(" ")
-    return (float(parts[0]), float(parts[1]), float(parts[2]))
-
-def getInts(str):
-    parts = str.split(" ")
-    return (int(parts[0]), int(parts[1]), int(parts[2]))
-
+#def getFloats(str):
+#    parts = str.split(" ")
+#    return (float(parts[0]), float(parts[1]), float(parts[2]))
+#
+#def getInts(str):
+#    parts = str.split(" ")
+#    return (int(parts[0]), int(parts[1]), int(parts[2]))
+#
 def getGrounds(obj):
-    if "grounds" not in obj.getPropertyNames():
-        return None
-    grounds = []
-    print(obj["grounds"])
-    parts = obj["grounds"].split(" ")
-    for part in parts:
-        p = part.split(";")
-        if p[0] == "" or p[0] == " ":
-            continue
-        ground = dd.Ground()
-        ground.name = p[0]
-  
-        vert = p[1]
-        verts = vert.split("_")
-        for coords in verts:
-            coord = coords.split(",")
- 
-            vertexStart = (float(coord[0]), float(coord[1]), float(coord[2]))
-            vertexEnd = (float(coord[3]), float(coord[4]), float(coord[5]))
-            edge = (vertexStart, vertexEnd)
-            ground.edges.append(edge)
-        grounds.append(ground)
-    return grounds
+    grounds = bpy.context.scene.objects[obj.name].destruction.grounds
+    ret = []
+    for ground in grounds:
+        g = dd.Ground()
+        g.name = ground
+        
+        bGround = bpy.context.objects[ground]
+        for e in bGround.data.edges:
+            vStart = bGround.data.vertices[e.vertices[0]].co
+            vEnd = bGround.data.vertices[e.vertices[1]].co
+            g.edges.append((vStart, vEnd))
+        ret.append(g)
+    return ret
+    
+#    if "grounds" not in obj.getPropertyNames():
+#        return None
+#    grounds = []
+#    print(obj["grounds"])
+#    parts = obj["grounds"].split(" ")
+#    for part in parts:
+#        p = part.split(";")
+#        if p[0] == "" or p[0] == " ":
+#            continue
+#        ground = dd.Ground()
+#        ground.name = p[0]
+#  
+#        vert = p[1]
+#        verts = vert.split("_")
+#        for coords in verts:
+#            coord = coords.split(",")
+# 
+#            vertexStart = (float(coord[0]), float(coord[1]), float(coord[2]))
+#            vertexEnd = (float(coord[3]), float(coord[4]), float(coord[5]))
+#            edge = (vertexStart, vertexEnd)
+#            ground.edges.append(edge)
+#        grounds.append(ground)
+#    return grounds
         
 
 def destroyNeighborhood(cell):

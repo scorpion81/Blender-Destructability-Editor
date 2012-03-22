@@ -72,15 +72,21 @@ class Processor():
                 o.select = False
             
             for o in sel:
-                o.select = True
-                context.scene.objects.active = o
-                if transMode == context.object.destruction.transModes[1][0]: #selected
-                    objects.append(o)
-                elif transMode == context.object.destruction.transModes[2][0] or \
-                transMode == context.object.destruction.transModes[3][0]:
-                    objects.append(o)
-                    self.applyToChildren(o, objects, transMode)
-                o.select = False
+                if o.type == "MESH":
+                    o.select = True
+                    context.scene.objects.active = o
+                    if transMode == context.object.destruction.transModes[1][0]: #selected
+                        objects.append(o)
+                         #apply values of current object to all selected objects
+                        o.destruction.remesh_depth = context.object.destruction.remesh_depth
+                        o.destruction.voro_path = context.object.destruction.voro_path
+                        o.destruction.voro_exact_shape = context.object.destruction.voro_exact_shape
+                        o.destruction.voro_particles = context.object.destruction.voro_particles
+#                elif transMode == context.object.destruction.transModes[2][0] or \ #not supported atm
+#                transMode == context.object.destruction.transModes[3][0]:
+#                    objects.append(o)
+#                    self.applyToChildren(o, objects, transMode)
+#                o.select = False
         
         if (parts > 1) or ((parts == 1) and cubify):
             print("OBJECTS: ", objects)   
@@ -89,11 +95,11 @@ class Processor():
         return None
     
     
-    def applyToChildren(self, ob, objects, transMode):
-        for c in ob.children:
-           if transMode == ob.destruction.transModes[3][0]:
-               self.applyToChildren(c, objects, transMode) #apply recursively...
-           objects.append(c)
+#    def applyToChildren(self, ob, objects, transMode):
+#        for c in ob.children:
+#           if transMode == ob.destruction.transModes[3][0]:
+#               self.applyToChildren(c, objects, transMode) #apply recursively...
+#           objects.append(c)
            
                
     def createBackup(self, context, obj):
@@ -250,7 +256,8 @@ class Processor():
            # print("LEN: ", len(backup.name.split(".")))
             if len(backup.name.split(".")) == 1:
                 backup.name += ".000"
-         
+            
+           
             if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
             else:
@@ -258,6 +265,12 @@ class Processor():
             
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                 context.scene.objects.unlink(backup)
+            else:
+                oldSel = backup.select
+                context.scene.objects.active = backup
+                backup.select = True
+                ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+                backup.select = oldSel
                     
             #do the parenting
             self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)     
@@ -434,10 +447,12 @@ class Processor():
         if backup.game.use_collision_compound and context.scene.hideLayer != 1:
             self.setCompound(parent.parent)
              
-        self.setCompound(parent)
+        comp = self.setCompound(parent)
         
         if not obj.destruction.flatten_hierarchy and context.scene.hideLayer != 1:
-            backup.game.use_collision_compound = False
+            #backup.game.use_collision_compound = False
+            if not comp:
+                self.setBackupCompound(parent)
             if backup.name.endswith(".000"):
                 backup.select = True
                 ops.object.origin_set(type = "GEOMETRY_ORIGIN")
@@ -457,7 +472,7 @@ class Processor():
         loc = Vector((0, 0, 0)) 
         mindist = sys.maxsize
         closest = None
-            
+        
         for c in parent.children:
             if c.type == 'MESH' and c.name not in bpy.context.scene.backups:
                 if delOld and c.game.use_collision_compound:
@@ -471,7 +486,27 @@ class Processor():
                 
         if closest != None:
             print("Closest", closest.name)
-            closest.game.use_collision_compound = True   
+            closest.game.use_collision_compound = True
+        return closest != None
+            
+    
+    def setBackupCompound(self, parent):
+        loc = Vector((0, 0, 0))
+        mindist = sys.maxsize
+        closestBackup = None
+         
+        for c in parent.children:
+            if c.type == 'EMPTY' and c.name.startswith("P_"):
+                backup = c.destruction.backup
+                dist = (loc - backup.location).length
+                # print(mindist, dist, c)
+                if dist < mindist:
+                    mindist = dist
+                    closestBackup = backup        
+                
+        if closestBackup != None:
+            print("ClosestBackup", closestBackup.name)
+            closestBackup.game.use_collision_compound = True   
         
     def prepareParenting(self, context, obj):
         
@@ -640,7 +675,7 @@ class Processor():
             backup = self.createBackup(context, obj) 
             
             #fracture the sub objects if cubify is selected
-           
+            
             if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
             else:

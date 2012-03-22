@@ -365,8 +365,8 @@ def distSpeed(owner, obj, maxDepth, lastSpeed):
     
     dist = getFaceDistance(owner, obj)
     
-    print(owner, obj, dist, speed)        
-    modSpeed = 1+speed * 0.66
+ #   print(owner, obj, dist, speed)        
+    modSpeed = 1 + 0.025 *speed
     if owner.name == "Ball": # and bpy.context.scene.hideLayer == 1:
        modSpeed = math.sqrt(speed / 2)
     
@@ -604,13 +604,14 @@ def dissolve(obj, depth, maxdepth, owner):
                 
             bDepth = backupDepth(obj)
              
-            print(depth, objDepth+1, bDepth+1)
-            if bpy.context.scene.hideLayer != 1 and (depth >= bDepth+1) and \
+            #print(depth, objDepth+1, bDepth+1)
+            if bpy.context.scene.hideLayer != 1 and ((depth == bDepth+1) or (depth == bDepth)) and \
             isBackup(obj):
                 
                 print(depth, bDepth)
                 if bpy.context.scene.objects[obj.name].game.use_collision_compound:
                    for ch in obj.children:
+                        ch.removeParent()
                         if isBackup(ch):
                             swapBackup(ch)
                             ch["swapped"] = True
@@ -621,18 +622,18 @@ def dissolve(obj, depth, maxdepth, owner):
                 obj["swapped"] = True
               #  [activate(ob, owner, grid) for ob in objs]
             
-            if (depth == objDepth) or (flattenHierarchy(obj) and depth == objDepth + 1):
+            if (depth == objDepth+1) or (depth == objDepth):
                 activate(obj, owner, grid)
-    
+        
         if depth < maxdepth and parent != None:
-            pParent = None
-            for p in children.keys():
-                if parent in children[p]:
-                    pParent = p
-                    break
-          #  print(children[p], parent)
-            if pParent != None:
-                [dissolve(scene.objects[c], depth+1, maxdepth, owner) for c in children[pParent]]
+#                pParent = None
+#                for p in children.keys():
+#                    if parent in children[p]:
+#                        pParent = p
+#                        break
+#              #  print(children[p], parent)
+#                if pParent != None:
+            [dissolve(scene.objects[c], depth+1, maxdepth, owner) for c in children[parent]]
 
 def activate(child, owner, grid):
     

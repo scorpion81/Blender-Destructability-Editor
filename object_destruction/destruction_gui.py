@@ -446,10 +446,10 @@ class SetupPlayer(types.Operator):
         context.active_object.game.controllers[9].module = "player.screenshot" 
         
         ops.logic.sensor_add(type = 'KEYBOARD', object = "Player")
-        context.active_object.game.sensors[8].key = 'C'
+        context.active_object.game.sensors[9].key = 'C'
         
         context.active_object.game.controllers[9].link(
-            context.active_object.game.sensors[8])
+            context.active_object.game.sensors[9])
         
               
             

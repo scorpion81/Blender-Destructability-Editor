@@ -750,6 +750,7 @@ def flattenHierarchy(obj):
     if obj == None:
         return False
     flatten = bpy.context.scene.objects[obj.name].destruction.flatten_hierarchy
+ #   print("Flatten: ", obj, flatten)
     return flatten
 
 def hierarchyDepth(obj):

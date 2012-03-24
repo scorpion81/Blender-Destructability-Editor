@@ -104,9 +104,8 @@ class DestructabilityPanel(types.Panel):
             if context.object.destruction.destructionMode != 'DESTROY_L':
                 row.prop_search(context.object.destruction, "inner_material", data, 
                         "materials", icon = 'MATERIAL', text = "Inner Material:")
-                row = layout.row()
-                row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
-                
+            row = layout.row()
+            row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")    
             row = layout.row()
             row.prop(context.scene, "hideLayer", text = "Hierarchy Layer")
             row = layout.row()

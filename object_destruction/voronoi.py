@@ -351,6 +351,7 @@ def voronoiCube(context, obj, parts, vol, walls):
             context.scene.objects.active = obj
             ctx = context.copy()
             ctx["object"] = obj
+            ctx["modifier"] = rem
             ops.object.modifier_apply(ctx, apply_as='DATA', modifier = rem.name)
         
         [deselect(o) for o in context.scene.objects]

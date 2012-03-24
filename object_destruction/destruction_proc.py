@@ -187,6 +187,8 @@ class Processor():
             if not parent.name.startswith("P_"):
                 parent.name = "P_" + str(depth) + "_S_" + parent.name
                 parent.destruction.destroyable = True
+                parent.destruction.flatten_hierarchy = context.active_object.destruction.flatten_hierarchy
+                print("FLatten", parent.destruction.flatten_hierarchy)
         
         dupes = []        
         ops.object.select_all(action = 'DESELECT')

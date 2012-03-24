@@ -11,6 +11,7 @@ from mathutils import Vector, Quaternion, Euler, Matrix
 import math
 import bisect
 import sys
+import bmesh
 
 #since a modification of fracture_ops is necessary, redistribute it
 from . import fracture_ops as fo
@@ -622,15 +623,20 @@ class Processor():
             c.material_slots[slots].material = material
             
           #  print("Normals", normals)
-            facelist = [f for f in c.data.polygons if not self.testNormal(f.normal, normals)]
+            context.scene.objects.active = c
+            ops.object.mode_set(mode = 'EDIT')
+            bm = bmesh.from_edit_mesh(c.data)
+            facelist = [f for f in bm.faces if not self.testNormal(f.normal, normals)]
             for f in facelist:
         #        print("Assigning index", slots)
                 f.material_index = slots
+                
+            ops.object.mode_set(mode = 'OBJECT')
         
         #update stale data
-        context.scene.objects.active = c
-        ops.object.mode_set(mode = 'EDIT')
-        ops.object.mode_set(mode = 'OBJECT')
+       # context.scene.objects.active = c
+       # ops.object.mode_set(mode = 'EDIT')
+    #    ops.object.mode_set(mode = 'OBJECT')
         
         c.game.collision_bounds_type = 'CONVEX_HULL'
         c.game.collision_margin = 0.0 
@@ -728,8 +734,8 @@ class Processor():
         
     def testNormal(self, normal, normals):
         for n in normals:
-            dot = round(n.dot(normal), 5)
-            prod = round(n.length * normal.length, 5)
+            dot = round(n.dot(normal), 3)
+            prod = round(n.length * normal.length, 3)
             if dot == prod or n == normal:
                 #normals point in same direction
                 return True

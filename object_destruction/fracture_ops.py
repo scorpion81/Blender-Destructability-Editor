@@ -106,7 +106,7 @@ def getIslands(shard):
 
             while len(gproc) > 0:
                 i = gproc.pop(0)
-                for f in sm.faces:
+                for f in sm.polygons:
                     for v in f.vertices:
                         if v == i:
                             for v1 in f.vertices:
@@ -178,6 +178,7 @@ def boolop(ob, cutter, op):
     
     ctx = bpy.context.copy()
     ctx["object"] = a
+    ctx["modifier"] = mod 
     bpy.ops.object.modifier_apply(ctx, apply_as='DATA', modifier=mod.name)
     nmesh=a.data
 
@@ -290,4 +291,3 @@ def fracture_basic(context, objects, nshards, crack_type, roughness):
             #print('fracture_basic: lenobs', len(context.scene.objects))
 
         iter += 1
-

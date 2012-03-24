@@ -385,6 +385,7 @@ def booleanIntersect(context, o, obj, oldnames):
     
     ctx = context.copy()
     ctx["object"] = o
+    ctx["modifier"] = bool
     ops.object.modifier_apply(ctx, apply_as='DATA', modifier = bool.name)
     
     ops.object.mode_set(mode = 'EDIT')

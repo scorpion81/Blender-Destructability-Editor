@@ -1561,7 +1561,7 @@ so only unconnected parts collapse according to their parent relations", update 
     voro_path = props.StringProperty(name="voro_path", default = "test.out",
     description = "Set path and filename to intermediate voronoi file here, leave default and it will be created in blender executable dir")
     inner_material = props.StringProperty(name = "inner_material", description = "Material the inner shards will get")
-    remesh_depth = props.IntProperty(name="remesh_depth", default = 5, min = 0, max = 10, 
+    remesh_depth = props.IntProperty(name="remesh_depth", default = 0, min = 0, max = 10, 
     description = "Optionally apply remesh modifier prior to fracture with the given octree depth, set to 0 to omit remeshing")
     wasCompound = props.BoolProperty(name="wasCompound", default = False)
     children = props.CollectionProperty(type = types.PropertyGroup, name = "children")

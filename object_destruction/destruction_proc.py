@@ -371,14 +371,15 @@ class Processor():
         if parent == None:
             for o in data.objects:
                 if o.destruction != None:
-                    if o.destruction.is_backup_for == "P_0_" + nameStart + ".000":
+                    if o.destruction.is_backup_for == "P_0_" + nameStart + "." + largest:# + ".000":
                         pos = o.location
                         pos += Vector(o.destruction.tempLoc) #needed for voronoi
                         o.destruction.tempLoc = Vector((0, 0, 0))
             print("EMPTY Pos: ", pos)
             context.active_object.location = pos
         else:
-            pos = Vector((0.0, 0.0, 0.0)) 
+            pos = Vector((0.0, 0.0, 0.0))
+                 
         oldPar = parent
         
         parent = context.active_object
@@ -530,6 +531,9 @@ class Processor():
             s = s.lstrip(".")
             nameStart =  s
             nameEnd = split[-1]
+            if not nameStart.startswith("S_"):
+                nameStart = "S_" + nameStart
+            obj.name = nameStart
         else:
             if not obj.name.startswith("S_"):
                 nameStart = "S_" + obj.name
@@ -537,7 +541,7 @@ class Processor():
                 nameStart = obj.name
             obj.name = nameStart# + ".000"
             nameEnd = "000"
-        
+             
         parentName = "P_0_" + nameStart + "." + nameEnd
    
         #and parent them all to an empty created before -> this is the key
@@ -552,7 +556,7 @@ class Processor():
             level = int(pLevel)
             level += 1
             #get child with lowest number, must search for it if its not child[0]
-            parentName = "P_" + str(level) + "_" + obj.name
+            parentName = "P_" + str(level) + "_" + obj.name + "." + nameEnd
             print("Subparenting...", children)
             length = len(obj.parent.children)
             
@@ -647,7 +651,7 @@ class Processor():
         
         c.game.mass = mass 
         
-        c.destruction.transmitMode = 'T_SELF'
+        c.destruction.transmitMode = 'T_SELECTED'
         c.destruction.destroyable = False
         c.destruction.partCount = 1
         c.destruction.wallThickness = 0.01
@@ -1529,7 +1533,7 @@ so only unconnected parts collapse according to their parent relations", update 
     gridBBox = props.FloatVectorProperty(name = "gridbbox", default = (0, 0, 0))
     destructorTargets = props.CollectionProperty(type = types.PropertyGroup, name = "destructorTargets")
     grounds = props.CollectionProperty(type = types.PropertyGroup, name = "grounds")
-    transmitMode = props.EnumProperty(items = transModes, name = "Transmit Mode", update = updateTransmitMode)
+    transmitMode = props.EnumProperty(items = transModes, name = "Transmit Mode", default = 'T_SELECTED')
     active_target = props.IntProperty(name = "active_target", default = 0)
     active_ground = props.IntProperty(name = "active_ground", default = 0)
  

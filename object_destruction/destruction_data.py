@@ -212,8 +212,7 @@ class Cell:
                # print(vec.to_tuple(), self.center, self.gridPos)
                 if self.isInside(vec.to_tuple(), percentage) and not self.isGroundCell:
                     print("Found Ground Cell: ", self.gridPos, vec, percentage)
-                    self.isGroundCell = True
-                    
+                    self.isGroundCell = True                        
                    
 class Grid:
     
@@ -259,8 +258,74 @@ class Grid:
     
     def getCellByName(self, name):
         return self.cellCoord[name]
+    
+    def inLayer(self, cell, layer):
+        return cell.gridPos[2] == layer
+    
+    def aboveLayer(self, cell, layer):
+        return cell.gridPos[2] >= layer
+    
+    def layerIntegrity(self, layer, integr):
+       # if layer > self.cellCounts[2]:
+      #        return False
+        print("Integrity", layer, integr)
+        layercells = [c for c in self.cells.values() if self.inLayer(c, layer)]
+        layercount = 0
+        layerchilds = 0
+        for c in layercells:
+            layerchilds += len(c.children)
+            layercount += c.count
+            
+        if layercount == 0:
+            return False
+        print(layerchilds, layercount)
+        return (layerchilds / layercount) > integr
+    
+    def weightOnLayer(self, layer):
+        weight = [c.children for c in self.cells.values() if self.aboveLayer(c, layer)]
+        return len(weight)
+    
+    def cellDistribution(self, layer):
+        left = 0
+        right = 0
+        front = 0
+        rear = 0
         
-
+        if weightOnLayer(layer) > 0:
+            layercells = [c for c in self.cells.values() if self.inLayer(c, layer)]
+            for c in layercells:
+                layerchilds += len(c.children)
+            
+            for c in layercells:
+                if dim[0] % 2 == 0: 
+                    if c.gridPos[0] <= cellCounts[0] / 2:
+                        left += len(c.children)
+                    elif c.gridPos[0] > cellCounts[0] / 2:
+                        right += len(c.children)
+                elif dim[0] % 2 == 1:
+                    if c.gridPos[0] <= math.floor(cellCounts[0] / 2):
+                        left += len(c.children)
+                    elif c.gridPos[0] > math.ceil(cellCounts[0] / 2):
+                        right += len(c.children) 
+                
+                if dim[1] % 2 == 0: 
+                    if c.gridPos[1] <= cellCounts[1] / 2:
+                        front += len(c.children)
+                    elif c.gridPos[1] > cellCounts[1] / 2:
+                        rear += len(c.children)
+                elif dim[1] % 2 == 1:
+                    if c.gridPos[1] <= math.floor(cellCounts[1] / 2):
+                        front += len(c.children)
+                    elif c.gridPos[1] > math.ceil(cellCounts[1] / 2):
+                        rear += len(c.children)
+                          
+            left = left / layerchilds
+            right = right / layerchilds
+            front = front / layerchilds
+            rear = rear / layerchilds
+            
+        return left, right, front, rear   
+                    
 class DataStore:
     grids = {}
 

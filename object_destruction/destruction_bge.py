@@ -114,6 +114,7 @@ def getFaceDistance(a, b):
     if isDestructor(a) and isGround(a):
         mindist = sys.maxsize# 10000000000
         obj = bpyObjs[a.name]
+        #obj = bpy.context.scene.objects[a.name]
         for f in obj.data.polygons:
            v1 = obj.data.vertices[f.vertices[0]].co
            v2 = obj.data.vertices[f.vertices[1]].co
@@ -140,6 +141,10 @@ def descendants(p):
 #    if not obj.invalid and obj.getLinearVelocity() <= alive_threshold:
 #        obj.suspendDynamics()               
 
+
+def hasMyParent(obj):
+    return "myParent" in obj.getPropertyNames() 
+
 def setup():
     
     global firstparent
@@ -153,7 +158,7 @@ def setup():
         if o.name != "Player":
             if "myParent" in o.getPropertyNames():
                 parent = o["myParent"]
-                
+                           
                 if bpy.context.scene.hideLayer != 1:
                     if parent not in scene.objects:
                         p = scene.addObject(parent, parent)
@@ -163,7 +168,8 @@ def setup():
                     p = scene.objects[parent]
                 
                 if parent.startswith("P_0") and p not in firstparent:
-                    firstparent.append(p)
+                    firstparent.append(p)   
+                            
                 print("Setting temp parent", o, parent)
                 o.setParent(p)
                 bpyObjs[o.name] = bpy.context.scene.objects[o.name]
@@ -173,6 +179,25 @@ def setup():
        # if isDestructor(o):
         #    destructors.append(o)
         #    bpyObjs[o.name] = bpy.context.scene.objects[o.name]
+            
+    
+    #setup clusters
+#    parents = [p for p in scene.objects if p.name.startswith("P_")]
+#    childs = [c for c in scene.objects if hasMyParent(c)]
+    
+#    for p in parents:
+#        par = bpy.context.scene.objects[p.name]
+#        if par.destruction.cluster:
+#            for c in childs:
+#                ch = bpy.context.scene.objects[c.name]
+#                bboxX = ch.bound_box.data.dimensions[0]
+#                bboxY = ch.bound_box.data.dimensions[1]
+#                bboxZ = ch.bound_box.data.dimensions[2]
+#                distVec = c.worldPosition - p.worldPosition
+#                if distVec[0] <= par.destruction.cluster_dist[0] / 100 * bboxX and \
+#                   distVec[1] <= par.destruction.cluster_dist[1] / 100 * bboxY and \
+#                   distVec[2] <= par.destruction.cluster_dist[2] / 100 * bboxZ:
+#                       c.setParent(p)
     
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():  
@@ -203,6 +228,7 @@ def setup():
             o.removeParent()                   
             
     print(len(children))
+        
          
     compounds = {}
     realcompounds = {}              
@@ -222,6 +248,7 @@ def setup():
         #backup = bpyObjs[oldPar.name].destruction.backup
         
         for c in i[1]:    
+           
             if bpyObjs[c].game.use_collision_compound or \
             bpyObjs[c].destruction.wasCompound:
                 parent = c
@@ -235,7 +262,15 @@ def setup():
                  
         for c in i[1]:
             if c != parent:
-                o = scene.objects[c] 
+                o = scene.objects[c]
+                #if isDeformable(o):
+                #    p = scene.objects[parent]
+                #    print("PARENT", p)
+                #    o.setSoftbodyLJoint(p) # joints must be set between adjacent(!) objects
+                #    o["joint"] = parent
+                #    o.suspendDynamics()
+                #    p.suspendDynamics()
+                     
                 if flattenHierarchy(o) and o not in firstShard:
                     #if oldPar.name in firstShard: 
                     parent = firstShard[oldPar.name]
@@ -253,26 +288,29 @@ def setup():
                     ground = scene.objects["Ground"]
                     o.setParent(ground, True, False)
         
-        if start not in compounds.keys():
-            return
-        
-        print(compounds[start])                
-        if len(compounds[start]) > 1: #TODO, what if there are no real compounds left... use other layers for correct substitution
-            real = scene.objects[realcompounds[start]]
-            for c in compounds[start]:
-                if c != real.name:
-                    childs = [ob for ob in scene.objects[c].children]
-                    for ch in childs:
-                        print("Re-Setting compound", ch,  " -> ", real) 
-                        ch.removeParent()
-                        ch.setParent(real, True, False)
-                        #ch["compound"] = c
-                    
-                    o = scene.objects[c]    
-                    print("Re-Setting compound", o,  " -> ", real) 
-                    o.setParent(real, True, False)
-                                   
+        if start in compounds.keys():
+            print(compounds[start])                
+            if len(compounds[start]) > 1: #TODO, what if there are no real compounds left... use other layers for correct substitution
+                real = scene.objects[realcompounds[start]]
+                for c in compounds[start]:
+                    if c != real.name:
+                        childs = [ob for ob in scene.objects[c].children]
+                        for ch in childs:
+                            print("Re-Setting compound", ch,  " -> ", real) 
+                            ch.removeParent()
+                            ch.setParent(real, True, False)
+                            #ch["compound"] = c
                         
+                        o = scene.objects[c]    
+                        print("Re-Setting compound", o,  " -> ", real) 
+                        o.setParent(real, True, False)
+
+    #swap immediately
+    if bpy.context.scene.hideLayer != 1:
+        for p in firstparent:
+            par = bpy.context.scene.objects[p.name]
+            swapBackup(scene.objects[par.destruction.backup])
+                                           
 def checkSpeed():
     #print("In checkSpeed")
     global gridValid
@@ -418,7 +456,68 @@ def collide():
             
             if dist < speed or dist < strength:  
                 dissolve(obj, depth, maxHierarchyDepth, owner)
-                
+            #if isDeformable(obj):
+            #    obj.cutSoftbodyLink(owner.worldPosition, dist)
+            #    child.setSoftbodyPose(True, True)
+
+#def destroyCellDelayed(cell, cells):
+#    #break connection then destroy cell after a delay
+#    for item in cells.items():
+#        if cell == item[1] and item[0] in cells:
+#            del cells[item[0]]
+#            break
+#    
+#    childs = [c for c in cell.children]
+#    for child in cell.children:
+#      #  print("cell child: ", o)
+#        if child in scene.objects:
+#           # o = scene.objects[child]
+#           # o.restoreDynamics()
+#        #    o.removeParent()
+#            childs.remove(child)
+#         #   o["activated"] = True
+#        else:
+#            childs.remove(child) #remove invalid child
+#                    
+#    cell.children = childs 
+#    #timer...
+    
+
+                         
+
+def checkGravityCollapse():
+    #check for gravity collapse (with ground connectivity)
+    global firstparent
+    
+    if not bpy.context.scene.useGravityCollapse:
+        return 
+    
+    for first in firstparent:
+        if isGroundConnectivity(first):
+            if first.name in dd.DataStore.grids.keys():
+                grid = dd.DataStore.grids[first.name]
+                if grid.dim[2] > 1:
+                    intPerLayer = 0.5 / (grid.cellCounts[2] - 1)
+                    for layer in range(0, grid.cellCounts[2]):
+                        if not grid.layerIntegrity(layer, 0.75 - layer * intPerLayer):
+                            print("layer integrity low, destroying layer", layer)
+                            cells = dict(grid.cells)
+                            
+                            #tilt building ?
+                            #g = scene.objects["Ground"]
+                            #g.worldOrientation = Matrix.Rotation(math.radians(15), 3, 'X')
+                            [destroyCell(c, cells) for c in grid.cells.values() if grid.inLayer(c, layer)]
+                            
+                            for c in cells.values():
+                                destroyNeighborhood(c)
+                 
+                            for c in cells.values():
+                                c.visit = False
+                                
+                            #apply horizontal impulse according to cell distribution to make
+                            #object rotate...
+                            #g.worldOrientation = Matrix.Rotation(math.radians(0), 3, 'X')
+                            break    
  
 def findCompound(childs):
     compound = None
@@ -449,7 +548,21 @@ def findCompound(childs):
 #            ch= bpy.context.scene.objects[c.name].destruction.children
 #            return findCompound(ch, c.name, True)
                 
-            
+
+def findFirstParent(parent):
+    #TODO: hack -> find first parent, ground connectivity on subparents is unsupported by now.
+    #what about loose parts parents (they have another name mostly) ?
+    #maybe store a reference to the firstparent directly.
+    temp = parent.split(".")[0]
+    pstart = temp.split("_")[3]
+    
+    for fp in firstparent:
+        temp = fp.name.split(".")[0]
+        fstart = temp.split("_")[3]
+        if fstart == pstart:
+            return fp
+    return None
+                        
                 
 def swapBackup(obj):    
     
@@ -468,18 +581,8 @@ def swapBackup(obj):
        par = scene.objects[parent]
     
     parents = {}  
-    #TODO: hack -> find first parent, ground connectivity on subparents is unsupported by now.
-    #what about loose parts parents (they have another name mostly) ?
-    #maybe store a reference to the firstparent directly.
-    temp = parent.split(".")[0]
-    pstart = temp.split("_")[3]
     
-    first = None
-    for fp in firstparent:
-        temp = fp.name.split(".")[0]
-        fstart = temp.split("_")[3]
-        if fstart == pstart:
-            first = fp
+    first = findFirstParent(parent)
           
     childs= bpy.context.scene.objects[parent].destruction.children
     compound = findCompound(childs)
@@ -605,10 +708,10 @@ def dissolve(obj, depth, maxdepth, owner):
             bDepth = backupDepth(obj)
              
             #print(depth, objDepth+1, bDepth+1)
-            if bpy.context.scene.hideLayer != 1 and ((depth == bDepth+1) or (depth == bDepth)) and \
-            isBackup(obj):
-                
-                print(depth, bDepth)
+            first = findFirstParent(par.name)
+            if bpy.context.scene.hideLayer != 1 and isBackup(obj) and ((depth == bDepth+1) or \
+            ((depth == bDepth) and not isGroundConnectivity(first))):
+                print(depth, bDepth, isGroundConnectivity(first))
                 if bpy.context.scene.objects[obj.name].game.use_collision_compound:
                    for ch in obj.children:
                         ch.removeParent()
@@ -624,7 +727,7 @@ def dissolve(obj, depth, maxdepth, owner):
             
             if (depth == objDepth+1) or (depth == objDepth):
                 activate(obj, owner, grid)
-        
+            
         if depth < maxdepth and parent != None:
 #                pParent = None
 #                for p in children.keys():
@@ -693,6 +796,12 @@ def activate(child, owner, grid):
         child.removeParent()
         child["activated"] = True
         
+    #    if isDeformable(child):
+    #       child.setSoftbodyPose(True, True)
+           
+    #       if "joint" in child.getPropertyNames():
+    #            child.cutSoftbodyJoint(scene.objects[child["joint"]])
+        
         if parent != None:
             if child.name in children[parent]:
                 children[parent].remove(child.name)
@@ -700,6 +809,11 @@ def activate(child, owner, grid):
         if not child.invalid:
             t = Timer(delay, child.suspendDynamics)
             t.start()
+
+#def isDeformable(obj):
+#    if obj == None:
+#        return False
+#    return bpy.context.scene.objects[obj.name].destruction.deform
             
 def isGroundConnectivity(obj):
     global children
@@ -873,7 +987,7 @@ def destroyCell(cell, cells):
                 del cells[item[0]]
                 break
         
-    print("Destroyed: ", cell.gridPos)
+    #print("Destroyed: ", cell.gridPos)
     childs = [c for c in cell.children]
     for child in cell.children:
       #  print("cell child: ", o)

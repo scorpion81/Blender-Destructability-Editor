@@ -95,6 +95,15 @@ class DestructabilityPanel(types.Panel):
        # if isMesh or isParent:
        #    row = layout.row()
        #    row.prop(context.active_object.destruction, "transmitMode",  text = "Apply To")
+       
+        
+    #    if isMesh or isParent:
+    #        row = layout.row()
+    #        row.prop(context.object.destruction, "cluster", text = "Use Clusters")
+    #        if context.object.destruction.cluster:
+    #            row = layout.row()
+    #            col = row.column()
+    #            col.prop(context.object.destruction, "cluster_dist", text = "Cluster Distance in %")
         
         row = layout.row()
         names = []
@@ -121,6 +130,10 @@ class DestructabilityPanel(types.Panel):
         row.label("Game Engine Settings: ")
         row.scale_x = 1.5
         row.scale_y = 1.5
+        
+        #does not work correctly
+        #if isMesh or isParent:
+        #    layout.prop(context.object.destruction, "deform", text = "Enable Deformation")
        
         if isMesh or isParent:
             layout.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
@@ -150,6 +163,9 @@ class DestructabilityPanel(types.Panel):
                 col = row.column()
                 col.prop(context.object.destruction, "gridDim", text = "Connectivity Grid")
                 #col.active = context.object.destruction.groundConnectivity
+                
+                row = layout.row()
+                row.prop(context.scene, "useGravityCollapse", text = "Use Gravity Collapse")
        
         if isMesh or isParent: #if destroyables were able to be dynamic....
             layout.prop(context.object.destruction, "destructor", text = "Destructor")
@@ -459,6 +475,20 @@ class SetupPlayer(types.Operator):
         
         context.active_object.game.controllers[9].link(
             context.active_object.game.sensors[9])
+            
+        
+        #gravity collapse check timer brick
+        ops.logic.controller_add(type = 'PYTHON', object = "Player")
+        context.active_object.game.controllers[10].mode = 'MODULE'
+        context.active_object.game.controllers[10].module = "destruction_bge.checkGravityCollapse"
+        
+        ops.logic.sensor_add(type = 'ALWAYS', object = "Player")
+        context.active_object.game.sensors[10].use_pulse_true_level = True
+        context.active_object.game.sensors[10].frequency = 100
+        
+        context.active_object.game.controllers[10].link(
+            context.active_object.game.sensors[10])
+        
         
               
             

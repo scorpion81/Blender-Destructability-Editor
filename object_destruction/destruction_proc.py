@@ -83,6 +83,9 @@ class Processor():
                         o.destruction.voro_path = context.object.destruction.voro_path
                         o.destruction.voro_exact_shape = context.object.destruction.voro_exact_shape
                         o.destruction.voro_particles = context.object.destruction.voro_particles
+                        o.destruction.deform = context.object.destruction.deform
+                        o.destruction.cluster_dist = context.object.destruction.cluster_dist
+                        o.destruction.cluster = context.object.destruction.cluster
 #                elif transMode == context.object.destruction.transModes[2][0] or \ #not supported atm
 #                transMode == context.object.destruction.transModes[3][0]:
 #                    objects.append(o)
@@ -197,7 +200,11 @@ class Processor():
             if obj.type == 'MESH':
                 if not obj.name.startswith("S_"):
                     obj.name = "S_" + obj.name + ".000"
-                obj.game.physics_type = 'RIGID_BODY'
+                
+                if obj.destruction.deform:
+                    obj.game.physics_type = 'SOFT_BODY'
+                else:
+                    obj.game.physics_type = 'RIGID_BODY'
                 obj.game.collision_bounds_type = 'CONVEX_HULL'
                 obj.game.collision_margin = 0.0 
                 obj.game.radius = 0.01
@@ -398,6 +405,9 @@ class Processor():
         parent.destruction.cubify = obj.destruction.cubify
         parent.destruction.flatten_hierarchy = obj.destruction.flatten_hierarchy
         parent.destruction.backup = backup.name
+        parent.destruction.deform = obj.destruction.deform
+        parent.destruction.cluster_dist = obj.destruction.cluster_dist
+        parent.destruction.cluster = obj.destruction.cluster
         
         
         #distribute the object mass to the single pieces, equally for now
@@ -414,6 +424,13 @@ class Processor():
     
         [self.applyDataSet(context, c, largest, parentName, pos, mass, backup, normalList) for c in context.scene.objects if 
          self.isRelated(c, context, nameStart, oldPar)] 
+         
+        #cluster processing for this parent
+        for c in context.scene.objects:
+            if self.isRelated(c, context, nameStart, oldPar):
+                if self.isInCluster(c, parentName):
+                    p = context.scene.objects[parentName]
+                    c.parent = p
          
         if (not obj.destruction.flatten_hierarchy) and context.scene.hideLayer != 1:
            # backup.name += "backup"
@@ -447,7 +464,7 @@ class Processor():
             prop = context.scene.backups.add()
             prop.name = backup.name
         
-        #re-assign compound if parent is fractured     
+        #re-assign compound if parent is fractured
         if backup.game.use_collision_compound and context.scene.hideLayer != 1:
             self.setCompound(parent.parent)
              
@@ -490,7 +507,10 @@ class Processor():
                 
         if closest != None:
             print("Closest", closest.name)
-            closest.game.use_collision_compound = True
+            if closest.destruction.deform:
+                closest.destruction.wasCompound = True
+            else:
+                closest.game.use_collision_compound = True
         return closest != None
             
     
@@ -510,7 +530,10 @@ class Processor():
                 
         if closestBackup != None:
             print("ClosestBackup", closestBackup.name)
-            closestBackup.game.use_collision_compound = True   
+            if closestBackup.destruction.deform:
+                closestBackup.destruction.wasCompound = True
+            else:
+                closestBackup.game.use_collision_compound = True   
         
     def prepareParenting(self, context, obj):
         
@@ -566,7 +589,21 @@ class Processor():
          
         return parentName, nameStart, largest, bbox    
         
+    
+    def isInCluster(self, child, parentName):
+        parent = data.objects[parentName]
+        if not parent.destruction.cluster:
+            return False
         
+        bboxX = child.bound_box.data.dimensions[0]
+        bboxY = child.bound_box.data.dimensions[1]
+        bboxZ = child.bound_box.data.dimensions[2]
+        distVec = child.location - parent.location
+        if distVec[0] <= parent.destruction.cluster_dist[0] / 100 * bboxX and \
+           distVec[1] <= parent.destruction.cluster_dist[1] / 100 * bboxY and \
+           distVec[2] <= parent.destruction.cluster_dist[2] / 100 * bboxZ:   
+            return True
+        return False    
     
     def valid(self,context, child):
         return child.name.startswith(context.object.name)
@@ -579,7 +616,7 @@ class Processor():
             split = c.name.split(".")
             end = split[1]
         
-        if (int(end) > int(nameEnd)) or (self.isBeingSplit(c, parentName, backup)) or c.parent == None:
+        if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName, backup) or c.parent == None:
             self.assign(c, parentName, pos, mass, backup, context, normals)  
         
     def assign(self, c, parentName, pos, mass, backup, context, normals):
@@ -609,11 +646,33 @@ class Processor():
             c.parent = data.objects[parentName]
             c.destruction.flatten_hierarchy = c.parent.destruction.flatten_hierarchy
             c.layers = c.parent.layers
+            c.destruction.deform = c.parent.destruction.deform
         
         if c == backup and b == None:
             c.location -= pos
+        
+        if c.destruction.deform:
+            c.game.physics_type = 'SOFT_BODY'
+            c.game.soft_body.dynamic_friction = 1
+            c.game.soft_body.shape_threshold = 0.25
+            c.game.soft_body.use_cluster_rigid_to_softbody = True
+            c.game.soft_body.use_cluster_soft_to_softbody = True
+            c.game.soft_body.linear_stiffness = 1
+            c.game.soft_body.use_bending_constraints = False
+            context.scene.objects.active = c
+            c.select = True
+            ops.object.transform_apply(location = True)
+            c.select = False
+            ops.object.mode_set(mode = 'EDIT')
+            ops.mesh.subdivide()
+            #ops.mesh.subdivide()
+            ops.object.mode_set(mode = 'OBJECT')
             
-        c.game.physics_type = 'RIGID_BODY'
+        else:
+            c.game.physics_type = 'RIGID_BODY'
+            c.game.collision_bounds_type = 'CONVEX_HULL'
+            c.game.use_collision_bounds = True
+            c.game.collision_margin = 0.0 
         
         materialname = backup.destruction.inner_material
        # print("Mat", materialname)
@@ -641,11 +700,7 @@ class Processor():
        # context.scene.objects.active = c
        # ops.object.mode_set(mode = 'EDIT')
     #    ops.object.mode_set(mode = 'OBJECT')
-        
-        c.game.collision_bounds_type = 'CONVEX_HULL'
-        c.game.collision_margin = 0.0 
         c.game.radius = 0.01
-        c.game.use_collision_bounds = True
        
         c.select = True
         
@@ -1579,7 +1634,12 @@ so only unconnected parts collapse according to their parent relations", update 
     children = props.CollectionProperty(type = types.PropertyGroup, name = "children")
     backup = props.StringProperty(name = "backup")
     dead_delay = props.FloatProperty(name = "dead_delay", default = 0, min = 0, max = 10, 
-                                    description ="After which time period activated objects get inactive again, set 0 for never")
+                                    description = "After which time period activated objects get inactive again, set 0 for never")
+    deform = props.BoolProperty(name = "deform", default = False)
+    cluster_dist = props.IntVectorProperty(name = "cluster_dist", default = (200, 200, 200), min = 0, subtype = 'XYZ',
+                                    description = "Distance or size of cluster in % of according bounding box dimension")
+    cluster = props.BoolProperty(name = "cluster", default = False, description = "Use Clustering of child objects to build irregular shapes")
+    
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',
@@ -1617,6 +1677,8 @@ def initialize():
     Scene.hideLayer = props.IntProperty(name = "hideLayer", min = 1, max = 20, default = 1, 
                                         description = "Layer where to hide the object hierarchy, needed for object substitution in game engine")
     Scene.backups = props.CollectionProperty(name = "backups", type = types.PropertyGroup)
+    Scene.useGravityCollapse = props.BoolProperty(name = "useGravityCollapse", 
+                                        description = "Collapse object automatically based on layer integrity (the lower, the weaker) ")
     dd.DataStore.proc = Processor()  
   
 def uninitialize():

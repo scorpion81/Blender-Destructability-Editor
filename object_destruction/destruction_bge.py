@@ -208,6 +208,7 @@ def setup():
                     if bpyObjs[o.name].game.use_collision_compound and o in desc :
                         if fp.name not in firstShard.keys():
                             print("Setting compound", o.name)
+                            fp["compound"] = o.name
                             firstShard[fp.name] = o
                              
                     if fp.name not in children.keys() and o in desc and not o.name.startswith("P_"):
@@ -258,6 +259,7 @@ def setup():
                 
                 if bpyObjs[c].game.use_collision_compound:
                     realcompounds[start] = c
+                    oldPar["compound"] = c
                 
                  
         for c in i[1]:
@@ -284,7 +286,7 @@ def setup():
                 #keep sticky if groundConnectivity is wanted
                 if isGroundConnectivity(oldPar):
                     o.suspendDynamics()
-                 #   scene.objects[parent].suspendDynamics()
+                    #parent.suspendDynamics()
                     ground = scene.objects["Ground"]
                     o.setParent(ground, True, False)
         
@@ -419,6 +421,7 @@ def collide():
     
     global maxHierarchyDepth
     global ground
+    global firstparent
     #colliders have collision sensors attached, which trigger for registered destructibles only
     
     #first the script controller brick, its sensor and owner are needed
@@ -432,7 +435,14 @@ def collide():
     
     gridValid = False
     
-   # print("collide")
+    #print("collide")
+    
+    for fp in firstparent:
+        if not isGroundConnectivity(fp):
+            compound = scene.objects[fp["compound"]]
+            if (compound.worldLinearVelocity.length < 0.05 and owner.name == "Ground"):
+                return #if compound does not move, ignore collisions...
+            
     
     objs = []
     for p in children.keys():
@@ -506,7 +516,7 @@ def checkGravityCollapse():
                             #tilt building ?
                             #g = scene.objects["Ground"]
                             #g.worldOrientation = Matrix.Rotation(math.radians(15), 3, 'X')
-                            [destroyCell(c, cells) for c in grid.cells.values() if grid.inLayer(c, layer)]
+                            [destroyCell(c, cells, None) for c in grid.cells.values() if grid.inLayer(c, layer)]
                             
                             for c in cells.values():
                                 destroyNeighborhood(c)
@@ -590,7 +600,8 @@ def swapBackup(obj):
     if compound != None:
         #if not isGroundConnectivity(first):   
         parents[compound.name] = parent    
-        ret.append(compound)       
+        ret.append(compound)
+        par["compound"] = compound.name       
                    
     for c in childs:
         if c.name != compound.name and c.name != obj.name:
@@ -668,7 +679,7 @@ def swapBackup(obj):
    
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
-   # print("dissolve", obj, depth)               
+    #print("dissolve", obj, depth)               
     parent = None
     for p in children.keys():
         if obj.name in children[p]:
@@ -780,7 +791,7 @@ def activate(child, owner, grid):
                 
                  if not cell.integrity(integrity):
                     print("Low Integrity, destroying cell!")
-                    destroyCell(cell, cells)
+                    destroyCell(cell, cells, None)
                     
                     
                  for c in cells.values():
@@ -960,7 +971,12 @@ def getGrounds(obj):
 #            ground.edges.append(edge)
 #        grounds.append(ground)
 #    return grounds
-        
+
+def destroyFalling(children):
+    print("destroyFalling")
+    for c in children:
+        c.restoreDynamics()
+        c.removeParent()
 
 def destroyNeighborhood(cell):
     
@@ -973,39 +989,65 @@ def destroyNeighborhood(cell):
     
     cells = cell.grid.cells
     
-    for c in destlist:
-        destroyCell(c, cells)  
-   
+    compound = None
     
-def destroyCell(cell, cells):
+    if bpy.context.scene.useGravityCollapse:
+        for c in destlist:
+            for ch in c.children:
+                if bpyObjs[ch].game.use_collision_compound: #find highest compound!
+                    compound = scene.objects[ch]
+                    compound.removeParent()
+                    break
+            if compound != None:
+                break
+        
+    children = []
+    for c in destlist:
+        children.extend(destroyCell(c, cells, compound))
+    
+    if compound != None:
+        compound.restoreDynamics()
+        t = Timer(2.0, destroyFalling, args = [children])
+        t.start()
+    
+     
+def destroyCell(cell, cells, compound):
     
     global delay
     
+    ret = []
     if delay == 0:
         for item in cells.items():
             if cell == item[1] and item[0] in cells:
                 del cells[item[0]]
                 break
         
-    #print("Destroyed: ", cell.gridPos)
+   # print("Destroyed: ", cell.gridPos)
     childs = [c for c in cell.children]
     for child in cell.children:
       #  print("cell child: ", o)
         if child in scene.objects:
             o = scene.objects[child]
-            o.restoreDynamics()
-            if delay == 0:
-                o.removeParent()
-                childs.remove(child)
-                o["activated"] = True
+            
+            if compound != None:
+               o.setParent(compound, True, False)
+               ret.append(o)
+               childs.remove(child) 
             else:
-                if not o.invalid:
-                    t = Timer(delay, o.suspendDynamics)
-                    t.start()
+                o.restoreDynamics()
+                if delay == 0:
+                    o.removeParent()
+                    childs.remove(child)
+                    o["activated"] = True
+                else:
+                    if not o.invalid:
+                        t = Timer(delay, o.suspendDynamics)
+                        t.start()
         else:
             childs.remove(child) #remove invalid child
                     
-    cell.children = childs      
+    cell.children = childs
+    return ret      
     
 
 def destructionList(cell, destList):

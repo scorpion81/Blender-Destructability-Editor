@@ -491,6 +491,14 @@ class Processor():
     
     def setCompound(self, parent, delOld=False):
         loc = Vector((0, 0, 0)) 
+        
+        #set compound at topmost position when groundconnectivity is enabled
+        if parent.destruction.groundConnectivity and bpy.context.scene.useGravityCollapse:
+            backup = bpy.context.scene.objects[parent.destruction.backup]
+            dim = backup.bound_box.data.dimensions
+            loc = Vector(0, 0, dim[2]/2)
+            print("LOC: ", loc) 
+        
         mindist = sys.maxsize
         closest = None
         

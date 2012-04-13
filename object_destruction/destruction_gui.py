@@ -166,6 +166,9 @@ class DestructabilityPanel(types.Panel):
                 
                 row = layout.row()
                 row.prop(context.scene, "useGravityCollapse", text = "Use Gravity Collapse")
+                
+                if context.scene.useGravityCollapse:
+                    row.prop(context.scene, "collapse_delay", text = "Collapse Delay")
        
         if isMesh or isParent: #if destroyables were able to be dynamic....
             layout.prop(context.object.destruction, "destructor", text = "Destructor")

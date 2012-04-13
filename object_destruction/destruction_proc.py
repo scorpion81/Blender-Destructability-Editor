@@ -1700,6 +1700,8 @@ def initialize():
     Scene.backups = props.CollectionProperty(name = "backups", type = types.PropertyGroup)
     Scene.useGravityCollapse = props.BoolProperty(name = "useGravityCollapse", 
                                         description = "Collapse object automatically based on layer integrity (the lower, the weaker) ")
+    Scene.collapse_delay = props.FloatProperty(name = "collapse_delay", min = 0.0, default = 1.0, 
+                                        description = "Delay in seconds after which the dropping building should collapse completely") 
     dd.DataStore.proc = Processor()  
   
 def uninitialize():

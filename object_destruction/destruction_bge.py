@@ -1010,7 +1010,7 @@ def getGrounds(obj):
 
 def destroyFalling(children):
     print("destroyFalling")
-    for c in children:
+    for c in reversed(children):
         c.restoreDynamics()
         c.removeParent()
 
@@ -1043,7 +1043,7 @@ def destroyNeighborhood(cell):
     
     if compound != None:
         compound.restoreDynamics()
-        t = Timer(2.0, destroyFalling, args = [children])
+        t = Timer(bpy.context.scene.collapse_delay, destroyFalling, args = [children])
         t.start()
     
      

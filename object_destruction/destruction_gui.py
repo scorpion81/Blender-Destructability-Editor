@@ -97,13 +97,13 @@ class DestructabilityPanel(types.Panel):
        #    row.prop(context.active_object.destruction, "transmitMode",  text = "Apply To")
        
         
-    #    if isMesh or isParent:
-    #        row = layout.row()
-    #        row.prop(context.object.destruction, "cluster", text = "Use Clusters")
-    #        if context.object.destruction.cluster:
-    #            row = layout.row()
-    #            col = row.column()
-    #            col.prop(context.object.destruction, "cluster_dist", text = "Cluster Distance in %")
+        if isMesh or isParent:
+            row = layout.row()
+            row.prop(context.object.destruction, "cluster", text = "Use Clusters")
+            if context.object.destruction.cluster:
+                row = layout.row()
+                col = row.column()
+                col.prop(context.object.destruction, "cluster_dist", text = "Cluster Distance in %")
         
         row = layout.row()
         names = []

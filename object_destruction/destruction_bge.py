@@ -141,9 +141,61 @@ def descendants(p):
 #    if not obj.invalid and obj.getLinearVelocity() <= alive_threshold:
 #        obj.suspendDynamics()               
 
+def setupClusters():
+    #setup clusters
+    clusterchilds = {}
+    parents = [p for p in scene.objects if p.name.startswith("P_")]
+    
+    #determine max level
+    level = 0
+    for p in parents:
+        lev = int(p.name.split("_")[1])
+        if lev > level:
+            level = lev
+            
+    #compare with max level
+    leafparents = []        
+    for p in parents:
+        lev = int(p.name.split("_")[1])
+        if lev == level:
+            leafparents.append(p)
+            
+    childs = [c for c in scene.objects if hasMyParent(c, leafparents)]
+    
+    for p in leafparents:
+        par = bpy.context.scene.objects[p.name]
+        if par.destruction.cluster:
+            for c in childs:
+                ch = bpy.context.scene.objects[c.name]
+                if not ch.name.startswith("P_") and ch.destruction.is_backup_for == "":  
 
-def hasMyParent(obj):
-    return "myParent" in obj.getPropertyNames() 
+                   bboxX = ch.bound_box.data.dimensions[0]
+                   bboxY = ch.bound_box.data.dimensions[1]
+                   bboxZ = ch.bound_box.data.dimensions[2]
+                   distVec = c.worldPosition - p.worldPosition
+                   if distVec[0] <= par.destruction.cluster_dist[0] / 100 * bboxX and \
+                       distVec[1] <= par.destruction.cluster_dist[1] / 100 * bboxY and \
+                       distVec[2] <= par.destruction.cluster_dist[2] / 100 * bboxZ:
+                           c.setParent(p)
+                           if p.name not in clusterchilds.keys():
+                                clusterchilds[p.name] = []
+                           clusterchilds[p.name].append(c.name)
+                           
+    #append to higher parents as well
+    for p in parents:
+        desc = descendants(p)
+        for n in clusterchilds.keys():
+            if scene.objects[n] in desc:
+                for d in desc:
+                    if d.name.startswith("P_"):
+                        for c in clusterchilds[n]:
+                            ch = scene.objects[c]
+                            ch.setParent(d) #evtl verdoppeln der objekte....(mehrere Parents geht nicht....)
+    
+
+def hasMyParent(obj, leafparents):
+    return "myParent" in obj.getPropertyNames() and \
+    scene.objects[obj["myParent"]] in leafparents 
 
 def setup():
     
@@ -179,26 +231,9 @@ def setup():
        # if isDestructor(o):
         #    destructors.append(o)
         #    bpyObjs[o.name] = bpy.context.scene.objects[o.name]
-            
-    
-    #setup clusters
-#    parents = [p for p in scene.objects if p.name.startswith("P_")]
-#    childs = [c for c in scene.objects if hasMyParent(c)]
-    
-#    for p in parents:
-#        par = bpy.context.scene.objects[p.name]
-#        if par.destruction.cluster:
-#            for c in childs:
-#                ch = bpy.context.scene.objects[c.name]
-#                bboxX = ch.bound_box.data.dimensions[0]
-#                bboxY = ch.bound_box.data.dimensions[1]
-#                bboxZ = ch.bound_box.data.dimensions[2]
-#                distVec = c.worldPosition - p.worldPosition
-#                if distVec[0] <= par.destruction.cluster_dist[0] / 100 * bboxX and \
-#                   distVec[1] <= par.destruction.cluster_dist[1] / 100 * bboxY and \
-#                   distVec[2] <= par.destruction.cluster_dist[2] / 100 * bboxZ:
-#                       c.setParent(p)
-    
+        
+    setupClusters()
+        
     for o in scene.objects:
         if "myParent" in o.getPropertyNames():  
             #print(o, o.parent, len(o.parent.children))
@@ -439,9 +474,10 @@ def collide():
     
     for fp in firstparent:
         if not isGroundConnectivity(fp):
-            compound = scene.objects[fp["compound"]]
-            if (compound.worldLinearVelocity.length < 0.05 and owner.name == "Ground"):
-                return #if compound does not move, ignore collisions...
+            if "compound" in fp.getPropertyNames() and fp["compound"] in scene.objects:
+                compound = scene.objects[fp["compound"]]
+                if (compound.worldLinearVelocity.length < 0.05 and owner.name == "Ground"):
+                    return #if compound does not move, ignore collisions...
             
     
     objs = []
@@ -543,7 +579,7 @@ def findCompound(childs):
         for c in childs:
             compound = bpy.context.scene.objects[c.name].destruction.backup
             print("Testing: ", compound)
-            if compound != None and \
+            if compound != None and compound != "" and \
             bpy.context.scene.objects[compound].game.use_collision_compound:
                 print("Adding compound(b)", compound)
                 if compound not in scene.objects:

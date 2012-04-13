@@ -73,10 +73,11 @@ class Processor():
                 o.select = False
             
             for o in sel:
-                if o.type == "MESH":
+                if o.type == "MESH":         
                     o.select = True
                     context.scene.objects.active = o
-                    if transMode == context.object.destruction.transModes[1][0]: #selected
+                    if transMode == context.object.destruction.transModes[1][0] and \
+                    o.destruction.is_backup_for == "": #selected and no backup
                         objects.append(o)
                          #apply values of current object to all selected objects
                         o.destruction.remesh_depth = context.object.destruction.remesh_depth
@@ -375,17 +376,19 @@ class Processor():
         backup.destruction.is_backup_for = context.active_object.name
         
         #get the first backup, need that position
+        pos = Vector((0.0, 0.0, 0.0))
         if parent == None:
             for o in data.objects:
                 if o.destruction != None:
                     if o.destruction.is_backup_for == "P_0_" + nameStart + "." + largest:# + ".000":
                         pos = o.location
-                        pos += Vector(o.destruction.tempLoc) #needed for voronoi
-                        o.destruction.tempLoc = Vector((0, 0, 0))
+                        if o.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
+                            pos += Vector(o.destruction.tempLoc) #needed for voronoi
+                            o.destruction.tempLoc = Vector((0, 0, 0))
             print("EMPTY Pos: ", pos)
             context.active_object.location = pos
-        else:
-            pos = Vector((0.0, 0.0, 0.0))
+        #else:
+        #    pos = Vector((0.0, 0.0, 0.0))
                  
         oldPar = parent
         
@@ -424,13 +427,6 @@ class Processor():
     
         [self.applyDataSet(context, c, largest, parentName, pos, mass, backup, normalList) for c in context.scene.objects if 
          self.isRelated(c, context, nameStart, oldPar)] 
-         
-        #cluster processing for this parent
-        for c in context.scene.objects:
-            if self.isRelated(c, context, nameStart, oldPar):
-                if self.isInCluster(c, parentName):
-                    p = context.scene.objects[parentName]
-                    c.parent = p
          
         if (not obj.destruction.flatten_hierarchy) and context.scene.hideLayer != 1:
            # backup.name += "backup"
@@ -502,17 +498,24 @@ class Processor():
         mindist = sys.maxsize
         closest = None
         
+        for n in bpy.context.scene.backups:
+            if n.name in bpy.context.scene.objects:
+                o = bpy.context.scene.objects[n.name]
+                if o.game.use_collision_compound:
+                    return True
+        
         for c in parent.children:
-            if c.type == 'MESH' and c.name not in bpy.context.scene.backups:
+            #print(c.name, c.destruction.is_backup_for)
+            if c.type == 'MESH' and not c.name in bpy.context.scene.backups:
                 if delOld and c.game.use_collision_compound:
                     c.game.use_collision_compound = False
                     c.destruction.wasCompound = True
+                                    
                 dist = (loc - c.location).length
                 # print(mindist, dist, c)
                 if dist < mindist:
                     mindist = dist
-                    closest = c         
-                
+                    closest = c                
         if closest != None:
             print("Closest", closest.name)
             if closest.destruction.deform:
@@ -524,6 +527,14 @@ class Processor():
     
     def setBackupCompound(self, parent):
         loc = Vector((0, 0, 0))
+        
+        #set compound at topmost position when groundconnectivity is enabled
+        if parent.destruction.groundConnectivity and bpy.context.scene.useGravityCollapse:
+            backup = bpy.context.scene.objects[parent.destruction.backup]
+            dim = backup.bound_box.data.dimensions
+            loc = Vector(0, 0, dim[2]/2)
+            print("LOC: ", loc) 
+        
         mindist = sys.maxsize
         closestBackup = None
          
@@ -564,16 +575,16 @@ class Processor():
             nameEnd = split[-1]
             if not nameStart.startswith("S_"):
                 nameStart = "S_" + nameStart
-            obj.name = nameStart
+            obj.name = nameStart + "." + nameEnd
         else:
             if not obj.name.startswith("S_"):
                 nameStart = "S_" + obj.name
             else:
                 nameStart = obj.name
-            obj.name = nameStart# + ".000"
+            obj.name = nameStart + ".000"
             nameEnd = "000"
              
-        parentName = "P_0_" + nameStart + "." + nameEnd
+        parentName = "P_0_" + obj.name #nameStart + "." + nameEnd
    
         #and parent them all to an empty created before -> this is the key
         #P_name = Parent of
@@ -587,7 +598,7 @@ class Processor():
             level = int(pLevel)
             level += 1
             #get child with lowest number, must search for it if its not child[0]
-            parentName = "P_" + str(level) + "_" + obj.name + "." + nameEnd
+            parentName = "P_" + str(level) + "_" + obj.name #+ "." + nameEnd
             print("Subparenting...", children)
             length = len(obj.parent.children)
             
@@ -598,20 +609,20 @@ class Processor():
         return parentName, nameStart, largest, bbox    
         
     
-    def isInCluster(self, child, parentName):
-        parent = data.objects[parentName]
-        if not parent.destruction.cluster:
-            return False
-        
-        bboxX = child.bound_box.data.dimensions[0]
-        bboxY = child.bound_box.data.dimensions[1]
-        bboxZ = child.bound_box.data.dimensions[2]
-        distVec = child.location - parent.location
-        if distVec[0] <= parent.destruction.cluster_dist[0] / 100 * bboxX and \
-           distVec[1] <= parent.destruction.cluster_dist[1] / 100 * bboxY and \
-           distVec[2] <= parent.destruction.cluster_dist[2] / 100 * bboxZ:   
-            return True
-        return False    
+#   # def isInCluster(self, child, parentName):
+#        parent = data.objects[parentName]
+#        if not parent.destruction.cluster:
+#           return False
+#        
+#        bboxX = child.bound_box.data.dimensions[0]
+#        bboxY = child.bound_box.data.dimensions[1]
+#        bboxZ = child.bound_box.data.dimensions[2]
+#        distVec = child.location - parent.location
+#        if distVec[0] <= parent.destruction.cluster_dist[0] / 100 * bboxX and \
+#           distVec[1] <= parent.destruction.cluster_dist[1] / 100 * bboxY and \
+#           distVec[2] <= parent.destruction.cluster_dist[2] / 100 * bboxZ:   
+#            return True
+#        return False    
     
     def valid(self,context, child):
         return child.name.startswith(context.object.name)
@@ -655,6 +666,10 @@ class Processor():
             c.destruction.flatten_hierarchy = c.parent.destruction.flatten_hierarchy
             c.layers = c.parent.layers
             c.destruction.deform = c.parent.destruction.deform
+            c.destruction.partCount = c.parent.destruction.partCount
+            c.destruction.wallThickness = c.parent.destruction.wallThickness
+            c.destruction.pieceGranularity = c.parent.destruction.pieceGranularity
+            c.destruction.destructionMode = c.parent.destruction.destructionMode
         
         if c == backup and b == None:
             c.location -= pos
@@ -709,17 +724,15 @@ class Processor():
        # ops.object.mode_set(mode = 'EDIT')
     #    ops.object.mode_set(mode = 'OBJECT')
         c.game.radius = 0.01
-       
         c.select = True
-        
         c.game.mass = mass 
-        
         c.destruction.transmitMode = 'T_SELECTED'
         c.destruction.destroyable = False
-        c.destruction.partCount = 1
-        c.destruction.wallThickness = 0.01
-        c.destruction.pieceGranularity = 0
-        c.destruction.destructionMode = 'DESTROY_F'
+        
+#        c.destruction.partCount = 1
+#        c.destruction.wallThickness = 0.01
+#        c.destruction.pieceGranularity = 0
+#        c.destruction.destructionMode = 'DESTROY_F'
         
         
     

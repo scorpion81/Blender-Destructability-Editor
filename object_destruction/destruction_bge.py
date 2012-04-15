@@ -471,21 +471,46 @@ def collide():
     gridValid = False
     
     #print("collide")
-    
+    cellsToCheck = []
+    lastSpeed = 0 
+    #low speed ball makes no damage, so ignore it in collision calculation
+    if owner.name == "Ball":
+        if owner.worldLinearVelocity.length < 8:
+            return
+        
     for fp in firstparent:
         if not isGroundConnectivity(fp):
             if "compound" in fp.getPropertyNames() and fp["compound"] in scene.objects:
                 compound = scene.objects[fp["compound"]]
                 if (compound.worldLinearVelocity.length < 0.05 and owner.name == "Ground"):
                     return #if compound does not move, ignore collisions...
-            
+        else: # a quicker pre-test of cells (less than objects)
+            if fp.name in dd.DataStore.grids.keys():
+                grid = dd.DataStore.grids[fp.name] 
+                for cell in grid.cells.values():
+                    modSpeed = math.sqrt(owner.worldLinearVelocity.length / 2)
+                    celldist = (owner.worldPosition - Vector(cell.center)).length
+                    if celldist < modSpeed:
+                        cellsToCheck.append(cell)
+                          
+                
+    #g = scene.objects["Plane"]
+    #print(sensor.hitObjectList)
+    #if g in sensor.hitObjectList:
+    #    return       
     
+    
+        
     objs = []
-    for p in children.keys():
-        for objname in children[p]:
-          #  print("objname", p, objname)
-            if not objname.startswith("P_"):
-                objs.append(objname)
+    if len(cellsToCheck) == 0: #without grid, check all objects (bad)
+        for p in children.keys():
+            for objname in children[p]:
+            #  print("objname", p, objname)
+                if not objname.startswith("P_"):
+                    objs.append(objname)
+    else:
+        for c in cellsToCheck:
+            objs.extend(c.children)
     
     lastSpeed = 0        
     for ob in objs:
@@ -546,7 +571,7 @@ def checkGravityCollapse():
                     intPerLayer = 0.5 / (grid.cellCounts[2] - 1)
                     for layer in range(0, grid.cellCounts[2]):
                         if not grid.layerIntegrity(layer, 0.75 - layer * intPerLayer):
-                            print("layer integrity low, destroying layer", layer)
+                            #print("layer integrity low, destroying layer", layer)
                             cells = dict(grid.cells)
                             
                             #tilt building ?
@@ -826,7 +851,7 @@ def activate(child, owner, grid):
                         cell.children.remove(child.name)
                 
                  if not cell.integrity(integrity):
-                    print("Low Integrity, destroying cell!")
+                    #print("Low Integrity, destroying cell!")
                     destroyCell(cell, cells, None)
                     
                     

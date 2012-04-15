@@ -268,7 +268,7 @@ class Grid:
     def layerIntegrity(self, layer, integr):
        # if layer > self.cellCounts[2]:
       #        return False
-        print("Integrity", layer, integr)
+       # print("Integrity", layer, integr)
         layercells = [c for c in self.cells.values() if self.inLayer(c, layer)]
         layercount = 0
         layerchilds = 0

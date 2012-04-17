@@ -628,7 +628,7 @@ class Processor():
         return child.name.startswith(context.object.name)
     
     def applyDataSet(self, context, c, nameEnd, parentName, pos, mass, backup, normals):
-        print("NAME: ", c.name)
+       # print("NAME: ", c.name)
         
         end = 0
         if not c.name.endswith("backup"):
@@ -641,7 +641,7 @@ class Processor():
     def assign(self, c, parentName, pos, mass, backup, context, normals):
          
         #correct a parenting "error": the parts are moved pos too far
-        print(backup.parent)
+        #print(backup.parent)
         b = None
         temp = c.name.split(".")[0]
         start = temp.split("_")[1]
@@ -660,7 +660,7 @@ class Processor():
                 c.location += pos
           
         if c != backup and (c.name != b or b == None):
-            print("Setting parent", pos)
+            #print("Setting parent", pos)
             c.location -= pos                         
             c.parent = data.objects[parentName]
             c.destruction.flatten_hierarchy = c.parent.destruction.flatten_hierarchy
@@ -1588,7 +1588,7 @@ class DestructionContext(types.PropertyGroup):
                          description = "This object can be destroyed, according to parent relations", 
                          update = updateDestroyable)
     
-    partCount = props.IntProperty(name = "partCount", default = 10, min = 1, max = 999, update = updatePartCount,
+    partCount = props.IntProperty(name = "partCount", default = 10, min = 1, max = 10000, update = updatePartCount,
                         description = "How many shards shall be made out of this object")
     destructionMode = props.EnumProperty(items = destModes, update = updateDestructionMode)
     destructor = props.BoolProperty(name = "destructor", 

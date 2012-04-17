@@ -117,7 +117,7 @@ def buildCell(cell, name, walls):
     obj.parent = bpy.context.scene.objects[name].parent
    
     obj.data = None
-    nmesh.update(calc_edges=True) 
+ #  nmesh.update(calc_edges=True) 
  #   nmesh.validate()    
     obj.data = nmesh
     obj.select = True
@@ -380,6 +380,7 @@ def voronoiCube(context, obj, parts, vol, walls):
   #  context.scene.objects.unlink(obj) 
     
 def booleanIntersect(context, o, obj, oldnames):  
+      
     bool = o.modifiers.new("Boolean", 'BOOLEAN')
     bool.object = obj
     bool.operation = 'INTERSECT'

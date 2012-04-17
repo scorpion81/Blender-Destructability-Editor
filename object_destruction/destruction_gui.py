@@ -760,25 +760,27 @@ class ConvertParenting(types.Operator):
                 break
             
         
-        for o in context.scene.objects:    
+        #for o in context.scene.objects:    
             #poll speed of ANY destroyable object's child
-            if o.parent != None:
-                if o.parent.name.startswith("P_") and o.parent.name != "Player":             #regexp PNumber !!
-                    context.scene.objects.active = o
-                    
-                    controllers = len(context.active_object.game.controllers)
-                    sensors = len(context.active_object.game.sensors)
-                    
-                    ops.logic.controller_add(type = 'PYTHON', object = o.name)
-                    ops.logic.sensor_add(type = 'ALWAYS', object = o.name)
-                    context.active_object.game.sensors[sensors].name = "Always"
-            
-            
-                    context.active_object.game.controllers[controllers].mode = 'MODULE'
-                    context.active_object.game.controllers[controllers].module = "destruction_bge.checkSpeed"
-            
-                    context.active_object.game.controllers[controllers].link(
-                    context.active_object.game.sensors[sensors])    
+        #    if o.parent != None:
+#                if o.parent.name.startswith("P_") and o.parent.name != "Player":             #regexp PNumber !!
+#                    context.scene.objects.active = o
+#                    
+#                    controllers = len(context.active_object.game.controllers)
+#                    sensors = len(context.active_object.game.sensors)
+#                    
+#                    ops.logic.controller_add(type = 'PYTHON', object = o.name)
+#                    ops.logic.sensor_add(type = 'ALWAYS', object = o.name)
+#                    context.active_object.game.sensors[sensors].name = "Always"
+#                    context.active_object.game.sensors[sensors].use_pulse_true_level = True
+#                    context.active_object.game.sensors[sensors].frequency = 100
+#            
+#            
+#                    context.active_object.game.controllers[controllers].mode = 'MODULE'
+#                    context.active_object.game.controllers[controllers].module = "destruction_bge.checkSpeed"
+#            
+#                    context.active_object.game.controllers[controllers].link(
+#                    context.active_object.game.sensors[sensors])    
         
         dp.updateIsGround(context)
         dp.updateDestructor(context)          

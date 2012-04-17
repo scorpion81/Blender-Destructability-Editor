@@ -226,6 +226,8 @@ def setup():
                 o.setParent(p)
                 bpyObjs[o.name] = bpy.context.scene.objects[o.name]
                 o["activated"] = False
+                o["suspended"] = False
+                #o["lastSpeed"] = 0.0
         if o.name == "Ground":
             bpyObjs[o.name] = bpy.context.scene.objects[o.name]
        # if isDestructor(o):
@@ -347,32 +349,43 @@ def setup():
         for p in firstparent:
             par = bpy.context.scene.objects[p.name]
             swapBackup(scene.objects[par.destruction.backup])
+    
+    for first in firstparent:
+        if isGroundConnectivity(first):
+            calculateGrids()
                                            
 def checkSpeed():
-    #print("In checkSpeed")
-    global gridValid
-    control = logic.getCurrentController()
-    owner = control.sensors["Always"].owner #name it correctly
+#    global gridValid
+    #control = logic.getCurrentController()
+   # owner = control.sensors["Always"].owner #name it correctly
     
+    for owner in scene.objects:
+        if owner.name.startswith("P_"):
+            continue
+        if not "activated" in owner.getPropertyNames():
+            continue
     
-    if owner.name.startswith("P_"):
-        return
-    
-    for p in children.keys():
-        for obj in children[p]:
+  #  for p in children.keys():
+#        for obj in children[p]:
             
-            if p not in scene.objects:
-                return
-            
-            if obj == owner.name and not isGroundConnectivity(scene.objects[p]):
-                return 
-        
-    vel = owner.linearVelocity
-    thresh = 0.001
-    if math.fabs(vel[0]) < thresh and math.fabs(vel[1]) < thresh and math.fabs(vel[2]) < thresh:
-        if not gridValid:
-            calculateGrids()
-            gridValid = True
+ #           if p not in scene.objects:
+  #              return
+#            
+#            if obj == owner.name and not isGroundConnectivity(scene.objects[p]):
+#                return 
+#        
+        vel = owner.worldLinearVelocity
+#    thresh = 0.001
+#    if math.fabs(vel[0]) < thresh and math.fabs(vel[1]) < thresh and math.fabs(vel[2]) < thresh:
+#        if not gridValid:
+#            calculateGrids()
+#            gridValid = True
+        if vel.length < 0.5 and owner["activated"] and not owner["suspended"]:
+            print("suspending", owner.name)
+            owner["suspended"] = True
+            owner["lastdist"] = math.fabs((owner.worldPosition - scene.objects["Ground"].worldPosition)[2])
+           # print("d", owner["lastdist"])
+            owner.suspendDynamics()
         
 
 def calculateGrids():
@@ -472,10 +485,11 @@ def collide():
     
     #print("collide")
     cellsToCheck = []
-    lastSpeed = 0 
+    lastSpeed = 0
+    isGroundConn = False 
     #low speed ball makes no damage, so ignore it in collision calculation
     if owner.name == "Ball":
-        if owner.worldLinearVelocity.length < 8:
+        if owner.worldLinearVelocity.length < 5:
             return
         
     for fp in firstparent:
@@ -485,6 +499,7 @@ def collide():
                 if (compound.worldLinearVelocity.length < 0.05 and owner.name == "Ground"):
                     return #if compound does not move, ignore collisions...
         else: # a quicker pre-test of cells (less than objects)
+            isGroundConn = True
             if fp.name in dd.DataStore.grids.keys():
                 grid = dd.DataStore.grids[fp.name] 
                 for cell in grid.cells.values():
@@ -494,21 +509,23 @@ def collide():
                         cellsToCheck.append(cell)
                           
                 
-    #g = scene.objects["Plane"]
-    #print(sensor.hitObjectList)
-    #if g in sensor.hitObjectList:
-    #    return       
     
     
         
     objs = []
-    if len(cellsToCheck) == 0: #without grid, check all objects (bad)
+    restoreAll()
+        
+    #print("LEN", len(cellsToCheck))
+    if not isGroundConn: #without grid, check all objects (bad)
+        #print("checking all")
         for p in children.keys():
             for objname in children[p]:
-            #  print("objname", p, objname)
-                if not objname.startswith("P_"):
+                print("objname", p, objname)
+                if not objname.startswith("P_") and not \
+                scene.objects[objname]["activated"]:
                     objs.append(objname)
     else:
+    #print("checking cells")
         for c in cellsToCheck:
             objs.extend(c.children)
     
@@ -560,6 +577,9 @@ def checkGravityCollapse():
     #check for gravity collapse (with ground connectivity)
     global firstparent
     
+    
+    checkSpeed()
+    
     if not bpy.context.scene.useGravityCollapse:
         return 
     
@@ -571,24 +591,27 @@ def checkGravityCollapse():
                     intPerLayer = 0.5 / (grid.cellCounts[2] - 1)
                     for layer in range(0, grid.cellCounts[2]):
                         if not grid.layerIntegrity(layer, 0.75 - layer * intPerLayer):
-                            #print("layer integrity low, destroying layer", layer)
-                            cells = dict(grid.cells)
+                            if not grid.layerDestroyed(layer):
+                                #print("layer integrity low, destroying layer", layer)
+                                cells = dict(grid.cells)
                             
-                            #tilt building ?
-                            #g = scene.objects["Ground"]
-                            #g.worldOrientation = Matrix.Rotation(math.radians(15), 3, 'X')
-                            [destroyCell(c, cells, None) for c in grid.cells.values() if grid.inLayer(c, layer)]
+                                #tilt building ?
+                                #g = scene.objects["Ground"]
+                                #g.worldOrientation = Matrix.Rotation(math.radians(15), 3, 'X')
+                                [destroyCell(c, cells, None) for c in grid.cells.values() if grid.inLayer(c, layer)]
                             
-                            for c in cells.values():
-                                destroyNeighborhood(c)
+                                for c in cells.values():
+                                    destroyNeighborhood(c)
                  
-                            for c in cells.values():
-                                c.visit = False
+                                for c in cells.values():
+                                    c.visit = False
                                 
-                            #apply horizontal impulse according to cell distribution to make
-                            #object rotate...
-                            #g.worldOrientation = Matrix.Rotation(math.radians(0), 3, 'X')
-                            break    
+                                #apply horizontal impulse according to cell distribution to make
+                                #object rotate...
+                                #g.worldOrientation = Matrix.Rotation(math.radians(0), 3, 'X')
+                            
+                                restoreAll()
+                                break    
  
 def findCompound(childs):
     compound = None
@@ -838,7 +861,7 @@ def activate(child, owner, grid):
     #         ch.restoreDynamics()     
                  
      #if isGroundConnectivity(par) or isGround(par) and gridValid:
-     if isGroundConnectivity(par) and gridValid:
+     if isGroundConnectivity(par):# and gridValid:
          if grid != None:
              cells = dict(grid.cells)
              gridPos = grid.getCellByName(child.name)
@@ -1033,11 +1056,24 @@ def getGrounds(obj):
 #        grounds.append(ground)
 #    return grounds
 
+def restoreAll():
+    for c in scene.objects:
+        if "activated" in c.getPropertyNames() and c["activated"]:
+            if "lastdist" in c.getPropertyNames():
+                dist = c["lastdist"]
+                if dist > 0.1:
+                    c["suspended"] = False
+                    c.restoreDynamics()
+
+
 def destroyFalling(children):
     print("destroyFalling")
     for c in reversed(children):
         c.restoreDynamics()
+        c["suspended"] = False
+        c["activated"] = True
         c.removeParent()
+    restoreAll()   
 
 def destroyNeighborhood(cell):
     

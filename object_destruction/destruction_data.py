@@ -281,50 +281,53 @@ class Grid:
         print(layerchilds, layercount)
         return (layerchilds / layercount) > integr
     
+    def layerDestroyed(self, layer):
+        return not self.layerIntegrity(layer, 0)
+    
     def weightOnLayer(self, layer):
         weight = [c.children for c in self.cells.values() if self.aboveLayer(c, layer)]
         return len(weight)
     
-    def cellDistribution(self, layer):
-        left = 0
-        right = 0
-        front = 0
-        rear = 0
-        
-        if weightOnLayer(layer) > 0:
-            layercells = [c for c in self.cells.values() if self.inLayer(c, layer)]
-            for c in layercells:
-                layerchilds += len(c.children)
-            
-            for c in layercells:
-                if dim[0] % 2 == 0: 
-                    if c.gridPos[0] <= cellCounts[0] / 2:
-                        left += len(c.children)
-                    elif c.gridPos[0] > cellCounts[0] / 2:
-                        right += len(c.children)
-                elif dim[0] % 2 == 1:
-                    if c.gridPos[0] <= math.floor(cellCounts[0] / 2):
-                        left += len(c.children)
-                    elif c.gridPos[0] > math.ceil(cellCounts[0] / 2):
-                        right += len(c.children) 
-                
-                if dim[1] % 2 == 0: 
-                    if c.gridPos[1] <= cellCounts[1] / 2:
-                        front += len(c.children)
-                    elif c.gridPos[1] > cellCounts[1] / 2:
-                        rear += len(c.children)
-                elif dim[1] % 2 == 1:
-                    if c.gridPos[1] <= math.floor(cellCounts[1] / 2):
-                        front += len(c.children)
-                    elif c.gridPos[1] > math.ceil(cellCounts[1] / 2):
-                        rear += len(c.children)
-                          
-            left = left / layerchilds
-            right = right / layerchilds
-            front = front / layerchilds
-            rear = rear / layerchilds
-            
-        return left, right, front, rear   
+#    def cellDistribution(self, layer):
+#        left = 0
+#        right = 0
+#        front = 0
+#        rear = 0
+#        
+#        if weightOnLayer(layer) > 0:
+#            layercells = [c for c in self.cells.values() if self.inLayer(c, layer)]
+#            for c in layercells:
+#                layerchilds += len(c.children)
+#            
+#            for c in layercells:
+#                if dim[0] % 2 == 0: 
+#                    if c.gridPos[0] <= cellCounts[0] / 2:
+#                        left += len(c.children)
+#                    elif c.gridPos[0] > cellCounts[0] / 2:
+#                        right += len(c.children)
+#                elif dim[0] % 2 == 1:
+#                    if c.gridPos[0] <= math.floor(cellCounts[0] / 2):
+#                        left += len(c.children)
+#                    elif c.gridPos[0] > math.ceil(cellCounts[0] / 2):
+#                        right += len(c.children) 
+#                
+#                if dim[1] % 2 == 0: 
+#                    if c.gridPos[1] <= cellCounts[1] / 2:
+#                        front += len(c.children)
+#                    elif c.gridPos[1] > cellCounts[1] / 2:
+#                        rear += len(c.children)
+#                elif dim[1] % 2 == 1:
+#                    if c.gridPos[1] <= math.floor(cellCounts[1] / 2):
+#                        front += len(c.children)
+#                    elif c.gridPos[1] > math.ceil(cellCounts[1] / 2):
+#                        rear += len(c.children)
+#                          
+#            left = left / layerchilds
+#            right = right / layerchilds
+#            front = front / layerchilds
+#            rear = rear / layerchilds
+#            
+#        return left, right, front, rear   
                     
 class DataStore:
     grids = {}

@@ -117,14 +117,24 @@ class DestructabilityPanel(types.Panel):
             if context.object.destruction.destructionMode != 'DESTROY_L':
                 row.prop_search(context.object.destruction, "inner_material", data, 
                         "materials", icon = 'MATERIAL', text = "Inner Material:")
+            
             row = layout.row()
-            row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
+            row.prop(context.object.destruction, "dynamic_mode", expand = True)
+            
+            if (context.object.destruction.dynamic_mode == "D_PRECALCULATED"):
+            
+                row = layout.row()
+                row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
+            
             if not context.object.destruction.flatten_hierarchy:    
                 row = layout.row()
                 row.prop(context.scene, "hideLayer", text = "Hierarchy Layer")
-            row = layout.row()
-            row.operator("object.destroy")
-        
+            
+            if (context.object.destruction.dynamic_mode == "D_PRECALCULATED"):
+                
+                row = layout.row()
+                row.operator("object.destroy")
+            
         layout.separator()
         row = layout.row()
         row.label("Game Engine Settings: ")
@@ -337,6 +347,19 @@ class SetupPlayer(types.Operator):
              return {'CANCELLED'}
         
         context.scene.player = True
+        
+        #transfer settings to all selected objects if NOT precalculated(done via destroy if precalculated)
+        if context.object.destruction.dynamic_mode == "D_DYNAMIC":
+            dd.DataStore.proc.copySettings(context, None)
+            ops.mesh.primitive_cube_add(layers = [False, True, False, False, False,
+                                                   False, False, False, False, False,
+                                                   False, False, False, False, False,
+                                                   False, False, False, False, False])
+            context.active_object.name = "Dummy"
+            context.active_object.game.physics_type = 'RIGID_BODY'
+            context.active_object.game.radius = 0.01
+            context.active_object.game.use_collision_bounds = True
+            context.active_object.game.collision_bounds_type = 'TRIANGLE_MESH'
        
         
         ops.object.add()
@@ -377,7 +400,7 @@ class SetupPlayer(types.Operator):
             context.active_object.name = "Ball"
             ball = context.active_object 
             ball.game.physics_type = 'RIGID_BODY'
-            ball.game.collision_bounds_type = 'SPHERE'
+            #ball.game.collision_bounds_type = 'SPHERE'
             ball.game.mass = 100.0
               
         else:
@@ -385,7 +408,7 @@ class SetupPlayer(types.Operator):
             if ball.type == 'MESH':
                 context.scene.objects.active = ball
                 context.active_object.game.physics_type = 'RIGID_BODY'
-                context.active_object.game.collision_bounds_type = 'SPHERE' #what about non-spheres ?
+                #context.active_object.game.collision_bounds_type = 'SPHERE' #what about non-spheres ?
                 context.active_object.game.mass = 100.0
             elif ball.type == 'EMPTY' and len(ball.children) > 0 and ball.name != "Player" and \
             ball.name != "Launcher":
@@ -709,8 +732,8 @@ class ConvertParenting(types.Operator):
         
         #copy ground/destructor settings over to children
         for o in context.scene.objects:
-            if o.name.startswith("P_"):
-                for c in o.children: 
+            if o.name.startswith("P_") and not o.destruction.converted:
+                for c in o.children:
                     c.destruction.flatten_hierarchy = o.destruction.flatten_hierarchy 
                     c.destruction.isGround = o.destruction.isGround
                     c.destruction.destructor = o.destruction.destructor
@@ -719,6 +742,9 @@ class ConvertParenting(types.Operator):
                         prop.name = p.name
       
         for o in context.scene.objects:
+            
+            if o.destruction.converted:
+                continue
             
             if o.destruction.destructor and o.destruction.isGround:
                 o.select = True
@@ -782,9 +808,12 @@ class ConvertParenting(types.Operator):
 #                    context.active_object.game.controllers[controllers].link(
 #                    context.active_object.game.sensors[sensors])    
         
-        dp.updateIsGround(context)
+#        dp.updateIsGround(context)
         dp.updateDestructor(context)          
         for o in context.scene.objects: #data.objects
+            
+            if o.destruction.converted:
+                continue
             
             if context.scene.player:
                 if o.name == "Player" or o.name == "Eye" or \
@@ -803,6 +832,10 @@ class ConvertParenting(types.Operator):
           
         #parent again , rotate to rotation, clear parent with keeptransform    
         for g in grounds:
+            
+            if parent == None:
+                continue
+            
             ground = context.scene.objects[g]
             
             
@@ -817,6 +850,10 @@ class ConvertParenting(types.Operator):
             parent.rotation_euler = oldRot  
         
         for g in grounds:
+            
+            if parent == None:
+                continue
+            
             ground = context.scene.objects[g]
             
             ground.select = True
@@ -825,13 +862,18 @@ class ConvertParenting(types.Operator):
             ground.select = False
         
   
-        for o in data.objects: #restrict to P_ parents olly ! no use all
+        for o in data.objects: #restrict to P_ parents only ! no use all
             if context.scene.player:
                 if o.name == "Player" or o.name == "Eye" or \
                    o.name == "Launcher" or o.name == "Ground":
                     continue
+            if o.destruction.converted:
+                continue
             
             if o.parent != None and o.name in context.scene.objects:
+                #if not o.destruction.destructor:
+                o.destruction.converted = True
+                
                 if o.parent.name.startswith("P_"):    
                     o.select = True
                     context.scene.objects.active = o
@@ -845,18 +887,26 @@ class ConvertParenting(types.Operator):
         
         #destructors
         for o in context.scene.objects:
+            
+           # if o.destruction.converted:
+        #        continue
+            
             if o.destruction.destructor:
+         #       o.destruction.converted = True
                 context.scene.objects.active = o
                 
                 controllers = len(context.active_object.game.controllers)
                 sensors = len(context.active_object.game.sensors)
-            
                 
+                sensornames = [s.name for s in context.active_object.game.sensors]
+                if "Collision" in sensornames:
+                    continue
+                    
                 ops.logic.controller_add(type = 'PYTHON', object = o.name)
                 ops.logic.sensor_add(type = 'COLLISION', object = o.name)
                 context.active_object.game.sensors[sensors].name = "Collision"
             
-                context.active_object.game.sensors[sensors].use_pulse_true_level = True
+            #    context.active_object.game.sensors[sensors].use_pulse_true_level = True
             
                 context.active_object.game.controllers[controllers].mode = 'MODULE'
                 context.active_object.game.controllers[controllers].module = "destruction_bge.collide"
@@ -927,19 +977,19 @@ class DestroyObject(types.Operator):
         undo = context.user_preferences.edit.use_global_undo
         context.user_preferences.edit.use_global_undo = False
         #set a heavy mass as workaround, until mass update works correctly...
-        context.object.game.mass = 1000
+        context.active_object.game.mass = 1000
         
-        if context.object.destruction.destructionMode == 'DESTROY_V' or \
-        context.object.destruction.destructionMode == 'DESTROY_VB':
-            vol = context.object.destruction.voro_volume
+        if context.active_object.destruction.destructionMode == 'DESTROY_V' or \
+        context.active_object.destruction.destructionMode == 'DESTROY_VB':
+            vol = context.active_object.destruction.voro_volume
             if vol != None and vol != "":
                 obj = context.scene.objects[vol]
-                if obj.type != "MESH" or obj == context.object:
+                if obj.type != "MESH" or obj == context.active_object:
                    self.report({'ERROR_INVALID_INPUT'},"Object must be a mesh other than the original object")
                    return {'CANCELLED'}
         
-        if context.object.destruction.destructionMode == 'DESTROY_L':        
-            if context.object.parent == None or context.object.parent.type != "EMPTY":
+        if context.active_object.destruction.destructionMode == 'DESTROY_L':        
+            if context.active_object.parent == None or context.active_object.parent.type != "EMPTY":
                 self.report({'ERROR_INVALID_INPUT'},"Object must be parented to an empty before")
                 return {'CANCELLED'}
                   
@@ -962,7 +1012,7 @@ class UndestroyObject(types.Operator):
         volobj = None
         for o in data.objects:
             if o.destruction != None:
-                if o.destruction.is_backup_for == context.object.name:
+                if o.destruction.is_backup_for == context.active_object.name:
                     backup = o
                     vol = o.destruction.voro_volume 
                     if vol != "":
@@ -971,7 +1021,7 @@ class UndestroyObject(types.Operator):
         
         for o in data.objects:
             if o.destruction != None:
-                if o.destruction.is_backup_for == context.object.name:
+                if o.destruction.is_backup_for == context.active_object.name:
                     backup = o    
                     if context.scene.hideLayer == 1 and o != volobj:
                        # print("LINK", o.name) 
@@ -985,8 +1035,8 @@ class UndestroyObject(types.Operator):
         for o in data.objects:
             o.select = False
             
-        context.object.select = True
-        self.selectShards(context.object, backup)
+        context.active_object.select = True
+        self.selectShards(context.active_object, backup)
         ops.object.delete()
         
         context.user_preferences.edit.use_global_undo = undo     

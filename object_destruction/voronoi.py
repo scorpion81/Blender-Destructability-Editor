@@ -24,7 +24,7 @@ import random
 from mathutils import Vector
 import bpy
 from bpy import ops
-#import bmesh
+import bmesh
 
 #start = 0
 
@@ -339,6 +339,7 @@ def voronoiCube(context, obj, parts, vol, walls):
     
     if not walls:
         
+        context.scene.objects.active = obj
         if obj.destruction.remesh_depth > 0:
             rem = obj.modifiers.new("Remesh", 'REMESH')
             rem.mode = 'SHARP'
@@ -348,13 +349,30 @@ def voronoiCube(context, obj, parts, vol, walls):
             rem.remove_disconnected_pieces = False
             #  rem.threshold = 1.0
        
-            context.scene.objects.active = obj
+            #context.scene.objects.active = obj
             ctx = context.copy()
             ctx["object"] = obj
             ctx["modifier"] = rem
             ops.object.modifier_apply(ctx, apply_as='DATA', modifier = rem.name)
         
         [deselect(o) for o in context.scene.objects]
+        
+        #try to fix non-manifolds...
+        ops.object.mode_set(mode = 'EDIT')
+        ops.mesh.remove_doubles()
+        ops.mesh.select_all(action = 'DESELECT')
+        ops.mesh.select_non_manifold()
+        #ops.mesh.edge_collapse()
+        bm = bmesh.from_edit_mesh(obj.data)
+        verts = [v for v in bm.verts if len(v.link_edges) < 3 and v.select]
+        for v in verts:
+            print(len(v.link_edges))
+            bm.verts.remove(v)
+            
+        ops.mesh.select_all(action = 'DESELECT')
+        ops.mesh.select_non_manifold()
+        ops.mesh.edge_collapse()   
+        ops.object.mode_set(mode = 'OBJECT')
         
         newnames = []       
         for o in context.scene.objects:
@@ -380,9 +398,11 @@ def voronoiCube(context, obj, parts, vol, walls):
   #  context.scene.objects.unlink(obj) 
     
 def booleanIntersect(context, o, obj, oldnames):  
-      
+            
     bool = o.modifiers.new("Boolean", 'BOOLEAN')
+    #use the original boolean object always, otherwise boolean op errors occur...
     bool.object = obj
+ #    bool.object = bpy.data.objects[obj.destruction.boolean_original]
     bool.operation = 'INTERSECT'
     
     ctx = context.copy()

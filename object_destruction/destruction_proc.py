@@ -43,55 +43,34 @@ class Processor():
                      
         #make an object backup if necessary (if undo doesnt handle this)
         #according to mode call correct method
-        mode = context.object.destruction.destructionMode
-        parts = context.object.destruction.partCount
-        granularity = context.object.destruction.pieceGranularity
-        thickness = context.object.destruction.wallThickness
-        destroyable = context.object.destruction.destroyable
-        roughness = context.object.destruction.roughness
-        crack_type = context.object.destruction.crack_type
-        groundConnectivity = context.object.destruction.groundConnectivity
-        cubify = context.object.destruction.cubify
-        jitter = context.object.destruction.jitter
-        cut_type = context.object.destruction.cut_type
-        volume = context.object.destruction.voro_volume
+        mode = context.active_object.destruction.destructionMode
+        parts = context.active_object.destruction.partCount
+        granularity = context.active_object.destruction.pieceGranularity
+        thickness = context.active_object.destruction.wallThickness
+        destroyable = context.active_object.destruction.destroyable
+        roughness = context.active_object.destruction.roughness
+        crack_type = context.active_object.destruction.crack_type
+        groundConnectivity = context.active_object.destruction.groundConnectivity
+        cubify = context.active_object.destruction.cubify
+        jitter = context.active_object.destruction.jitter
+        cut_type = context.active_object.destruction.cut_type
+        volume = context.active_object.destruction.voro_volume
         
         objects = []
         #determine HERE, which objects will be decomposed
-        transMode = context.object.destruction.transmitMode
-        if transMode == context.object.destruction.transModes[0][0]: #self
-            sel = [o for o in context.selected_objects]
-            for o in sel:
-                if o != context.object:
-                    o.select = False  
-                      
-            objects = [context.object]
+        transMode = context.active_object.destruction.transmitMode
+        if transMode == context.active_object.destruction.transModes[0][0]: #self
+            if context.selected_objects != None:
+                sel = [o for o in context.selected_objects]
+                for o in sel:
+                    if o != context.active_object:
+                        o.select = False  
+            
+           # print("CTX:", context.object)          
+            objects = [context.active_object]
             
         else:
-            sel = [o for o in context.selected_objects]
-            for o in sel:
-                o.select = False
-            
-            for o in sel:
-                if o.type == "MESH":         
-                    o.select = True
-                    context.scene.objects.active = o
-                    if transMode == context.object.destruction.transModes[1][0] and \
-                    o.destruction.is_backup_for == "": #selected and no backup
-                        objects.append(o)
-                         #apply values of current object to all selected objects
-                        o.destruction.remesh_depth = context.object.destruction.remesh_depth
-                        o.destruction.voro_path = context.object.destruction.voro_path
-                        o.destruction.voro_exact_shape = context.object.destruction.voro_exact_shape
-                        o.destruction.voro_particles = context.object.destruction.voro_particles
-                        o.destruction.deform = context.object.destruction.deform
-                        o.destruction.cluster_dist = context.object.destruction.cluster_dist
-                        o.destruction.cluster = context.object.destruction.cluster
-#                elif transMode == context.object.destruction.transModes[2][0] or \ #not supported atm
-#                transMode == context.object.destruction.transModes[3][0]:
-#                    objects.append(o)
-#                    self.applyToChildren(o, objects, transMode)
-#                o.select = False
+            self.copySettings(context, objects)
         
         if (parts > 1) or ((parts == 1) and cubify):
             print("OBJECTS: ", objects)   
@@ -106,14 +85,45 @@ class Processor():
 #               self.applyToChildren(c, objects, transMode) #apply recursively...
 #           objects.append(c)
            
-               
+    def copySettings(self, context, objects):
+        
+        sel = [o for o in context.selected_objects]
+        for o in sel:
+            o.select = False
+        
+        for o in sel:
+            if o.type == "MESH":         
+                o.select = True
+                context.scene.objects.active = o
+                transMode = context.active_object.destruction.transmitMode
+                if transMode == context.active_object.destruction.transModes[1][0] and \
+                o.destruction.is_backup_for == "": #selected and no backup
+                    if objects != None:
+                        objects.append(o)
+                     #apply values of current object to all selected objects
+                    o.destruction.cubify = context.active_object.destruction.cubify 
+                    o.destruction.remesh_depth = context.active_object.destruction.remesh_depth
+                    o.destruction.voro_path = context.active_object.destruction.voro_path
+                    o.destruction.voro_exact_shape = context.active_object.destruction.voro_exact_shape
+                    o.destruction.voro_particles = context.active_object.destruction.voro_particles
+                    o.destruction.deform = context.active_object.destruction.deform
+                    o.destruction.cluster_dist = context.active_object.destruction.cluster_dist
+                    o.destruction.cluster = context.active_object.destruction.cluster
+                    o.destruction.dynamic_mode = context.active_object.destruction.dynamic_mode
+#                elif transMode == context.object.destruction.transModes[2][0] or \ #not supported atm
+#                transMode == context.object.destruction.transModes[3][0]:
+#                    objects.append(o)
+#                    self.applyToChildren(o, objects, transMode)
+#                o.select = False
+                   
     def createBackup(self, context, obj):
         
         sel = []
-        for o in context.selected_objects:
-            if o != obj:
-                sel.append(o)
-                o.select = False
+        if context.selected_objects != None:
+            for o in context.selected_objects:
+                if o != obj:
+                    sel.append(o)
+                    o.select = False
                 
         obj.select = True  
         context.scene.objects.active = obj
@@ -165,7 +175,7 @@ class Processor():
     def explo(self, context, obj, parts, granularity, thickness, massive, pairwise):
                    
         context.scene.objects.active = obj # context.object
-        currentParts = [context.object.name]
+        currentParts = [context.active_object.name]
         
         if granularity > 0:
             ops.object.mode_set(mode = 'EDIT')
@@ -251,7 +261,19 @@ class Processor():
         for obj in objects:
             if obj.parent != None and obj.parent.type == "EMPTY":
                 self.looseParts(context, obj.parent, 0)
-               
+    
+    def setLargest(self, largest, backup):
+        bEnd = int(backup.name.split(".")[1])
+        lEnd = int(largest)
+        if bEnd > lEnd:
+            if bEnd < 10:
+                largest = "00" + str(bEnd)
+            if bEnd < 100:
+                largest = "0" + str(bEnd)
+            else:
+                largest = str(bEnd)
+        return largest
+                   
     def applyVoronoi(self, context, objects, parts , volume, wall):
         
         for obj in objects:
@@ -268,6 +290,11 @@ class Processor():
             if len(backup.name.split(".")) == 1:
                 backup.name += ".000"
             
+            if backup.name.endswith(".000"):
+                print("ORIGINAL", obj.name)    
+                obj.destruction.boolean_original = obj.name
+            
+            largest = self.setLargest(largest, backup)
            
             if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
@@ -298,6 +325,8 @@ class Processor():
             #prepare parenting
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = self.createBackup(context, obj)
+            
+            largest = self.setLargest(largest, backup)
             
             if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
@@ -411,6 +440,7 @@ class Processor():
         parent.destruction.deform = obj.destruction.deform
         parent.destruction.cluster_dist = obj.destruction.cluster_dist
         parent.destruction.cluster = obj.destruction.cluster
+        parent.destruction.dynamic_mode = obj.destruction.dynamic_mode
         
         
         #distribute the object mass to the single pieces, equally for now
@@ -556,10 +586,11 @@ class Processor():
         
     def prepareParenting(self, context, obj):
         
-        context.object.destruction.pos = obj.location.to_tuple()
+        context.scene.objects.active = obj
+        context.active_object.destruction.pos = obj.location.to_tuple()
         bbox = obj.bound_box.data.dimensions.to_tuple()
         
-        context.scene.objects.active = obj
+        #context.scene.objects.active = obj
         
         split = obj.name.split(".")
         parentName = ""
@@ -625,7 +656,7 @@ class Processor():
 #        return False    
     
     def valid(self,context, child):
-        return child.name.startswith(context.object.name)
+        return child.name.startswith(context.active_object.name)
     
     def applyDataSet(self, context, c, nameEnd, parentName, pos, mass, backup, normals):
        # print("NAME: ", c.name)
@@ -670,6 +701,9 @@ class Processor():
             c.destruction.wallThickness = c.parent.destruction.wallThickness
             c.destruction.pieceGranularity = c.parent.destruction.pieceGranularity
             c.destruction.destructionMode = c.parent.destruction.destructionMode
+            c.destruction.boolean_original = backup.destruction.boolean_original
+            c.destruction.dynamic_mode = c.parent.destruction.dynamic_mode
+            c.destruction.cubify = c.parent.destruction.cubify
         
         if c == backup and b == None:
             c.location -= pos
@@ -763,6 +797,7 @@ class Processor():
             backup = self.createBackup(context, obj) 
             
             #fracture the sub objects if cubify is selected
+            largest = self.setLargest(largest, backup)
             
             if obj.destruction.cubify:
                 self.cubify(context, obj, bbox, parts)
@@ -773,8 +808,8 @@ class Processor():
             
             for c in parent.children:
                 c.destruction.groundConnectivity = False
-                c.destruction.cubify = False
-                c.destruction.gridDim = (1,1,1)
+                #c.destruction.cubify = False
+                #c.destruction.gridDim = (1,1,1)
                          
         return None
     
@@ -808,8 +843,8 @@ class Processor():
             
             for c in parent.children:
                 c.destruction.groundConnectivity = False
-                c.destruction.cubify = False
-                c.destruction.gridDim = (1,1,1)
+            #    c.destruction.cubify = False
+            #    c.destruction.gridDim = (1,1,1)
         
         
     def testNormal(self, normal, normals):
@@ -1306,7 +1341,7 @@ class Processor():
         objname = objname.lstrip(".")
       #  print("OBJ", objname, nameStart)
     #    print("Related: ", c.name, c.parent, parent)
-        return (objname == nameStart) and c.parent == parent
+        return (objname == nameStart) and c.parent == parent and (not c.destruction.converted)
               
     def endStr(self, nr):
         if nr < 10:
@@ -1325,15 +1360,19 @@ class Processor():
                        bbox, 
                        [], 
                        object.destruction.grounds)
-            
+        
+        #o = context.object
+      #  obj = context.active_object    
         ops.mesh.primitive_cube_add()
+#        print(context.object, context.active_object)
+        
         cutter = context.active_object
         cutter.name = "Cutter"
         cutter.select = False
      
         cubes = []
         for cell in grid.cells.values():
-            ob = self.cubifyCell(cell,cutter, context)
+            ob = self.cubifyCell(cell,cutter, context, object)
             cubes.append(ob)
            
        
@@ -1358,8 +1397,8 @@ class Processor():
             
             elif object.destruction.destructionMode == 'DESTROY_V' or \
                  object.destruction.destructionMode == 'DESTROY_VB':
-                 volume = context.object.destruction.voro_volume
-                 wall = context.object.destruction.wall
+                 volume = context.active_object.destruction.voro_volume
+                 wall = context.active_object.destruction.wall
                  context.scene.objects.unlink(object)
                  
                  for cube in cubes:
@@ -1389,16 +1428,19 @@ class Processor():
                     self.explo(context, cube, parts, granularity, thickness, massive, pairwise)
                 
         else:
-             context.scene.objects.unlink(context.object)   
+             context.scene.objects.unlink(object)   
               
-    def cubifyCell(self, cell, cutter, context):
-        context.object.select = True #maybe link it before...
-        context.scene.objects.active = context.object
+    def cubifyCell(self, cell, cutter, context, obj):
+      #  context.active_object.select = True #maybe link it before...
+        context.scene.objects.active = obj #= context.object
+        obj.select = True
+      #  print(context.object)
         
         ops.object.duplicate()
-        context.object.select = False
+        #context.object.select = False
+        obj.select = False
         ob = context.active_object
-        print(ob, context.selected_objects)
+       # print(ob, context.object, context.scene.objects, context.selected_objects)
         
        # print(cell, cell.center)
         cutter.location = Vector(cell.center)
@@ -1409,23 +1451,24 @@ class Processor():
         bool.object = cutter
         bool.operation = 'INTERSECT'
         
-       # copy = context.copy()
-       # copy["object"] = ob
-       # ops.object.modifier_apply(copy)
-        mesh = ob.to_mesh(context.scene, 
-                          apply_modifiers=True, 
-                          settings='PREVIEW')
-        print(mesh)                  
-        old_mesh = ob.data
-        ob.data = None
-        old_mesh.user_clear()
+        ctx = context.copy()
+        ctx["object"] = ob
+        ctx["modifier"] = bool
+        ops.object.modifier_apply(ctx, apply_as='DATA', modifier = bool.name)
+        #mesh = ob.to_mesh(context.scene, 
+        #                  apply_modifiers=True, 
+        #                  settings='PREVIEW')
+        #print(mesh)                  
+        #old_mesh = ob.data
+        #ob.data = None
+        #old_mesh.user_clear()
         
-        if (old_mesh.users == 0):
-            bpy.data.meshes.remove(old_mesh)  
+        #if (old_mesh.users == 0):
+        #    bpy.data.meshes.remove(old_mesh)  
             
-        ob.data = mesh 
+        #ob.data = mesh 
         ob.select = False
-        ob.modifiers.remove(bool)
+        #ob.modifiers.remove(bool)
         
         ops.object.mode_set(mode = 'EDIT')  
         ops.mesh.select_all(action = 'SELECT')
@@ -1433,48 +1476,48 @@ class Processor():
         ops.object.mode_set(mode = 'OBJECT') 
         
         ob.select = True
-        ops.object.origin_set(type = 'ORIGIN_GEOMETRY') 
+        ops.object.origin_set(type = 'ORIGIN_GEOMETRY', center = 'BOUNDS') 
         ob.select = False
         
-        context.scene.objects.active = context.object 
+        context.scene.objects.active = obj#context.object 
         
         return ob
                         
                     
-def updateGrid(self, context):
-    return None
+#def updateGrid(self, context):
+#    return None
 
-def updateDestructionMode(self, context):
-    return None
+#def updateDestructionMode(self, context):
+#    return None
 
-def updatePartCount(self, context):
-    return None
+#def updatePartCount(self, context):
+#    return None
 
-def updateWallThickness(self, context):
-    return None
+#def updateWallThickness(self, context):
+#    return None
 
-def updatePieceGranularity(self, context):
-    return None
+#def updatePieceGranularity(self, context):
+#    return None
 
-def updateIsGround(context):
-    for c in context.object.children:
-        c.destruction.isGround = context.object.destruction.isGround      
-    return None
+#def updateIsGround(context):
+#    for c in context.object.children:
+#        c.destruction.isGround = context.object.destruction.isGround      
+#    return None
 
 
-def updateGroundConnectivity(self, context):
-    return None
+#def updateGroundConnectivity(self, context):
+#    return None
 
 def updateDestructor(context):
     
-    for c in context.object.children:
-        c.destruction.destructor = context.object.destruction.destructor
+    for c in context.active_object.children:
+        c.destruction.destructor = context.active_object.destruction.destructor
         if c.destruction.destructor:
-            for p in context.object.destruction.destructorTargets:
+            for p in context.active_object.destruction.destructorTargets:
                 prop = c.destruction.destructorTargets.add()
                 prop.name = p.name
         else:
-            for p in context.object.destruction.destructorTargets:
+            for p in context.active_object.destruction.destructorTargets:
                 index = 0
                 found = False
                 for prop in c.destruction.destructorTargets:
@@ -1583,14 +1626,17 @@ class DestructionContext(types.PropertyGroup):
     
     transModes = [('T_SELF', 'This Object', 'Apply settings to this object only', 0), 
              ('T_SELECTED', 'Selected', 'Apply settings to all selected objects as well', 1)]
+             
+    dynamicMode = [('D_PRECALCULATED', 'Precalculated', 'Precalculate fracture by hitting destroy button', 0), 
+             ('D_DYNAMIC', 'Dynamic', 'Fracture dynamically via game engine', 1)]
     
     destroyable = props.BoolProperty(name = "destroyable",
                          description = "This object can be destroyed, according to parent relations", 
                          update = updateDestroyable)
     
-    partCount = props.IntProperty(name = "partCount", default = 10, min = 1, max = 10000, update = updatePartCount,
+    partCount = props.IntProperty(name = "partCount", default = 10, min = 1, max = 10000,
                         description = "How many shards shall be made out of this object")
-    destructionMode = props.EnumProperty(items = destModes, update = updateDestructionMode)
+    destructionMode = props.EnumProperty(items = destModes)
     destructor = props.BoolProperty(name = "destructor", 
                         description = "This object can trigger destruction")
     isGround = props.BoolProperty(name = "isGround", 
@@ -1598,9 +1644,9 @@ class DestructionContext(types.PropertyGroup):
      
     groundConnectivity = props.BoolProperty(name = "groundConnectivity", 
     description = "Determines whether connectivity of parts of this object is calculated, \
-so only unconnected parts collapse according to their parent relations", update = updateGroundConnectivity)
+so only unconnected parts collapse according to their parent relations")
     gridDim = props.IntVectorProperty(name = "grid", default = (1, 1, 1), min = 1, max = 100, 
-                                          subtype ='XYZ', update = updateGrid,
+                                          subtype ='XYZ',
                                           description = "How many connectivity cells are created per direction")
                                           
     cubifyDim = props.IntVectorProperty(name = "cubifyDim", default = (1, 1, 1), min = 1, max = 100, 
@@ -1617,9 +1663,8 @@ so only unconnected parts collapse according to their parent relations", update 
     targetSelector = props.StringProperty(name = "targetSelector", description = "Select Destructor Target to add here and click + button")
 
     wallThickness = props.FloatProperty(name = "wallThickness", default = 0.01, min = 0, max = 10,
-                                      update = updateWallThickness, description = "Thickness of the explosion modifier shards")
-    pieceGranularity = props.IntProperty(name = "pieceGranularity", default = 4, min = 0, max = 100, 
-                                         update = updatePieceGranularity, 
+                                      description = "Thickness of the explosion modifier shards")
+    pieceGranularity = props.IntProperty(name = "pieceGranularity", default = 4, min = 0, max = 100,  
     description = "How often the mesh will be subdivided before applying the explosion modifier, set higher to get more possible shards")
     
     applyDone = props.BoolProperty(name = "applyDone", default = False)
@@ -1660,6 +1705,9 @@ so only unconnected parts collapse according to their parent relations", update 
     cluster_dist = props.IntVectorProperty(name = "cluster_dist", default = (200, 200, 200), min = 0, subtype = 'XYZ',
                                     description = "Distance or size of cluster in % of according bounding box dimension")
     cluster = props.BoolProperty(name = "cluster", default = False, description = "Use Clustering of child objects to build irregular shapes")
+    boolean_original = props.StringProperty(name = "boolean_original")
+    dynamic_mode = props.EnumProperty(name = "dynamic_mode", items = dynamicMode, description = "Fracture Objects dynamically or precalculated")
+    converted = props.BoolProperty(name = "converted", default = False)
     
     
     # From pildanovak, fracture script

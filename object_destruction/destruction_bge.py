@@ -227,7 +227,7 @@ def setup():
                 bpyObjs[o.name] = bpy.context.scene.objects[o.name]
                 o["activated"] = False
                 o["suspended"] = False
-                #o["lastSpeed"] = 0.0
+               # o["lastdist"] = sys.maxsize
         if o.name == "Ground":
             bpyObjs[o.name] = bpy.context.scene.objects[o.name]
        # if isDestructor(o):
@@ -383,7 +383,7 @@ def checkSpeed():
         if vel.length < 0.5 and owner["activated"] and not owner["suspended"]:
             print("suspending", owner.name)
             owner["suspended"] = True
-            owner["lastdist"] = math.fabs((owner.worldPosition - scene.objects["Ground"].worldPosition)[2])
+            #owner["lastdist"] = math.fabs((owner.worldPosition - scene.objects["Ground"].worldPosition)[2])
            # print("d", owner["lastdist"])
             owner.suspendDynamics()
         
@@ -467,6 +467,7 @@ def distSpeed(owner, obj, maxDepth, lastSpeed):
     
 def collide():
     
+    #print("collide")
     global maxHierarchyDepth
     global ground
     global firstparent
@@ -483,7 +484,7 @@ def collide():
     
     gridValid = False
     
-    #print("collide")
+   # print("collide")
     cellsToCheck = []
     lastSpeed = 0
     isGroundConn = False 
@@ -491,7 +492,40 @@ def collide():
     if owner.name == "Ball":
         if owner.worldLinearVelocity.length < 5:
             return
-        
+                
+    isDynamic = False
+    #if "inactive" in owner.getPropertyNames() and owner["inactive"]:
+    #    return
+    #print(owner.name)
+    #print(owner["inactive"])
+    #hitObjs = [ h for h in sensor.hitObjectList]    
+    for hitObj in sensor.hitObjectList:
+        print(hitObj.name)
+        if "orig" in hitObj.getPropertyNames():
+            bpyObj = bpy.data.objects[hitObj["orig"]]
+        else:
+            bpyObj = bpy.data.objects[hitObj.name]
+                
+        if bpyObj.destruction.dynamic_mode == "D_DYNAMIC" and bpyObj.name != "Ground":
+            isDynamic = True 
+          
+            bpy.context.scene.objects.active = bpyObj
+            bpyObj.select = True
+            bpyObj.destruction.transmitMode = "T_SELF"
+            
+            name = bpyObj.name
+            #bpyObj.data = bpyObj.data.copy()  
+            bpy.ops.object.destroy()
+        #    owner["inactive"] = True 
+            bpyObj.select = False
+            objs = swapDynamic(name, hitObj)
+            #substitute parent with children.... maybe before convert ? is convert necessary at all ?
+            #for o in objs:
+            #    o.restoreDynamics()           
+    if isDynamic:
+        print("Returning")
+        return    
+            
     for fp in firstparent:
         if not isGroundConnectivity(fp):
             if "compound" in fp.getPropertyNames() and fp["compound"] in scene.objects:
@@ -509,9 +543,6 @@ def collide():
                         cellsToCheck.append(cell)
                           
                 
-    
-    
-        
     objs = []
     restoreAll()
         
@@ -577,7 +608,7 @@ def checkGravityCollapse():
     #check for gravity collapse (with ground connectivity)
     global firstparent
     
-    
+    #print("checkGravityCollapse")
     checkSpeed()
     
     if not bpy.context.scene.useGravityCollapse:
@@ -588,9 +619,9 @@ def checkGravityCollapse():
             if first.name in dd.DataStore.grids.keys():
                 grid = dd.DataStore.grids[first.name]
                 if grid.dim[2] > 1:
-                    intPerLayer = 0.5 / (grid.cellCounts[2] - 1)
+                    intPerLayer = 0.50 / (grid.cellCounts[2] - 1)
                     for layer in range(0, grid.cellCounts[2]):
-                        if not grid.layerIntegrity(layer, 0.75 - layer * intPerLayer):
+                        if not grid.layerIntegrity(layer, 0.90 - layer * intPerLayer):
                             if not grid.layerDestroyed(layer):
                                 #print("layer integrity low, destroying layer", layer)
                                 cells = dict(grid.cells)
@@ -656,6 +687,64 @@ def findFirstParent(parent):
         if fstart == pstart:
             return fp
     return None
+
+
+def swapDynamic(objname, obj):
+    
+    print("swap dynamic")
+    obname = objname
+    if len(objname.split(".")) == 1:
+        obname = "S_" + objname + ".000"
+    bpyOb = bpy.data.objects[obname]
+    
+    print(bpyOb.name)    
+    parent = bpyOb.destruction.is_backup_for
+    if parent == "":
+        return
+    
+    #dynamic case, can only load meshes dynamically (not objects)
+    #use ball (always there on layer 2, assumption) as dummy, add it multiple times
+    if bpyOb.destruction.dynamic_mode == "D_DYNAMIC":
+        par = bpy.data.objects[parent]
+       
+        childs = [c.name for c in par.children if c.destruction.backup == ""]
+        meshcopies = [bpy.data.objects[c].data.copy().name for c in childs]
+        #meshes = [m.name for m in meshcopies]
+        
+        #for c in childs:
+        #    bpy.context.scene.objects.active = c
+        #    bpy.ops.mode_set(mode = 'EDIT')
+        #    bpy.ops.mesh.duplicate() 
+                
+        
+        logic.LibNew(meshcopies[0], "Mesh", meshcopies)
+        print("after lib new")
+        
+        ret = []
+        for i in range(0, len(childs)):
+            child = bpy.data.objects[childs[i]]
+           # bpy.context.scene.unlink(child)
+            #c.data.use_fake_user = True
+            o = scene.addObject("Dummy", "Dummy")
+            o.replaceMesh(meshcopies[i], True, True)
+            print(o.reinstancePhysicsMesh(o, meshcopies[i]))
+                
+            o.worldPosition = obj.worldPosition + child.location
+            print(o.worldPosition)        
+          #  o.worldOrientation = obj.worldOrientation
+        #    o.linearVelocity = obj.linearVelocity
+         #   o.angularVelocity = obj.angularVelocity
+            o["orig"] = childs[i]
+            ret.append(o) 
+        print("after replace mesh")
+        obj.endObject()
+        #logic.LibFree(meshes[0])
+        
+        print("after lib free")
+        #bpy.context.scene.update()
+        return ret
+    
+    return None
                         
                 
 def swapBackup(obj):    
@@ -666,9 +755,8 @@ def swapBackup(obj):
     print("swap backup")
     ret = []   
     
-    parent = bpy.context.scene.objects[obj.name].destruction.is_backup_for
-    if parent == "":
-        return
+    obname = obj.name
+    
     if parent not in scene.objects:
        par = scene.addObject(parent, parent)
     else:
@@ -688,7 +776,7 @@ def swapBackup(obj):
         par["compound"] = compound.name       
                    
     for c in childs:
-        if c.name != compound.name and c.name != obj.name:
+        if c.name != compound.name and c.name != obname:
             
             if c.name.startswith("P_"):
                 
@@ -731,8 +819,8 @@ def swapBackup(obj):
         compound.setParent(ground, False, False)
     
     if parent in children.keys():
-        if obj.name in children[parent]:
-            children[parent].remove(obj.name)
+        if obname in children[parent]:
+            children[parent].remove(obname)
     obj.endObject()
     
    # if objParent in children.keys():
@@ -1059,11 +1147,11 @@ def getGrounds(obj):
 def restoreAll():
     for c in scene.objects:
         if "activated" in c.getPropertyNames() and c["activated"]:
-            if "lastdist" in c.getPropertyNames():
-                dist = c["lastdist"]
-                if dist > 0.1:
-                    c["suspended"] = False
-                    c.restoreDynamics()
+            #if "lastdist" in c.getPropertyNames():
+            #    dist = c["lastdist"]
+            #    if dist > 0.01:
+            c["suspended"] = False
+            c.restoreDynamics()
 
 
 def destroyFalling(children):

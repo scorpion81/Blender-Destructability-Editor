@@ -52,6 +52,7 @@ def addBall(act, value, isBomb, target):
             lastobj.worldPosition = target
         
        # last.suspendDynamics()
+        #lastobj["inactive"] = False
         balls.append(lastobj)
     
     parent = None    

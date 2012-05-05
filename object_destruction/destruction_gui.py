@@ -126,14 +126,15 @@ class DestructabilityPanel(types.Panel):
                 row = layout.row()
                 row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
             
-            if not context.object.destruction.flatten_hierarchy:    
-                row = layout.row()
-                row.prop(context.scene, "hideLayer", text = "Hierarchy Layer")
-            
-            if (context.object.destruction.dynamic_mode == "D_PRECALCULATED"):
-                
+                if not context.object.destruction.flatten_hierarchy:    
+                    row = layout.row()
+                    row.prop(context.scene, "hideLayer", text = "Hierarchy Layer")
+                 
                 row = layout.row()
                 row.operator("object.destroy")
+            else:
+                row = layout.row()
+                row.prop(context.scene, "dummyPoolSize", text = "Dummy Object Pool Size")
             
         layout.separator()
         row = layout.row()
@@ -351,16 +352,6 @@ class SetupPlayer(types.Operator):
         #transfer settings to all selected objects if NOT precalculated(done via destroy if precalculated)
         if context.object.destruction.dynamic_mode == "D_DYNAMIC":
             dd.DataStore.proc.copySettings(context, None)
-            ops.mesh.primitive_cube_add(layers = [False, True, False, False, False,
-                                                   False, False, False, False, False,
-                                                   False, False, False, False, False,
-                                                   False, False, False, False, False])
-            context.active_object.name = "Dummy"
-            context.active_object.game.physics_type = 'RIGID_BODY'
-            context.active_object.game.radius = 0.01
-            context.active_object.game.use_collision_bounds = True
-            context.active_object.game.collision_bounds_type = 'TRIANGLE_MESH'
-       
         
         ops.object.add()
         context.active_object.name = "Player"
@@ -1072,12 +1063,50 @@ class GameStart(types.Operator):
     bl_description = "Start game engine with recording enabled by default"
     
     def execute(self, context):
-  
-        context.scene.game_settings.use_animation_record = True
-        context.scene.game_settings.use_frame_rate = True
-        context.scene.game_settings.restrict_animation_updates = True
+        
+        names = []
+        if context.object.destruction.dynamic_mode == "D_DYNAMIC":
+            for i in range(0, context.scene.dummyPoolSize):
+                ops.mesh.primitive_cube_add(layers = [False, True, False, False, False,
+                                                   False, False, False, False, False,
+                                                   False, False, False, False, False,
+                                                   False, False, False, False, False])
+                                   
+                context.active_object.name = "Dummy.000" #rely on blender automatic unique naming here...
+                names.append(context.active_object.name)
+                
+                context.active_object.game.physics_type = 'RIGID_BODY'
+                context.active_object.game.radius = 0.01
+                context.active_object.game.use_collision_bounds = True
+                context.active_object.game.collision_bounds_type = 'TRIANGLE_MESH'
+                context.active_object.game.collision_margin = 0.0
+                context.active_object.game.mass = 100.0
+        
+        if context.object.destruction.dynamic_mode == "D_PRECALCULATED":  
+            context.scene.game_settings.use_animation_record = True
+            context.scene.game_settings.use_frame_rate = True
+            context.scene.game_settings.restrict_animation_updates = True
         context.scene.game_settings.show_framerate_profile = True
         ops.view3d.game_start()
+        
+        context.scene.layers = [False, True, False, False, False,
+                                False, False, False, False, False,
+                                False, False, False, False, False,
+                                False, False, False, False, False]
+        for n in names:
+            o = bpy.data.objects[n]
+            context.scene.objects.unlink(o)
+            bpy.data.objects.remove(o)
+        
+        context.scene.layers = [True, False, False, False, False,
+                                False, False, False, False, False,
+                                False, False, False, False, False,
+                                False, False, False, False, False] 
+        #undestroy all P_0 parents
+        #for o in context.scene.objects:
+        #    if o.name.startswith("P_0_"):
+        #        context.scene.objects.active = o
+        #        bpy.ops.object.undestroy() 
         
         return {'FINISHED'}
             

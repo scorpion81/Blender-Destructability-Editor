@@ -41,6 +41,8 @@ delay = 0
 #TODO, temporary hack
 ground = None
 #destructors = []
+objectCount = 0
+allInUse = False
 
 def project(p, n):
     
@@ -204,6 +206,7 @@ def setup():
     global ground
     global children
    # global destructors
+    print("setup")
     
     #temporarily parent
     for o in scene.objects:
@@ -467,10 +470,11 @@ def distSpeed(owner, obj, maxDepth, lastSpeed):
     
 def collide():
     
-    #print("collide")
+    print("collide")
     global maxHierarchyDepth
     global ground
     global firstparent
+    global allInUse
     #colliders have collision sensors attached, which trigger for registered destructibles only
     
     #first the script controller brick, its sensor and owner are needed
@@ -489,17 +493,19 @@ def collide():
     lastSpeed = 0
     isGroundConn = False 
     #low speed ball makes no damage, so ignore it in collision calculation
-    if owner.name == "Ball":
-        if owner.worldLinearVelocity.length < 5:
-            return
+    #if owner.name == "Ball":
+    #    if owner.worldLinearVelocity.length < 5:
+    #        return
                 
     isDynamic = False
-    #if "inactive" in owner.getPropertyNames() and owner["inactive"]:
+    #if "inactive" in owner.getPropertyNames():
     #    return
-    #print(owner.name)
-    #print(owner["inactive"])
-    #hitObjs = [ h for h in sensor.hitObjectList]    
-    for hitObj in sensor.hitObjectList:
+    #owner["inactive"] = True
+    if allInUse:
+        return
+    
+    hitObjs = [h for h in sensor.hitObjectList]    
+    for hitObj in hitObjs:
         print(hitObj.name)
         if "orig" in hitObj.getPropertyNames():
             bpyObj = bpy.data.objects[hitObj["orig"]]
@@ -513,15 +519,20 @@ def collide():
             bpyObj.select = True
             bpyObj.destruction.transmitMode = "T_SELF"
             
-            name = bpyObj.name
-            #bpyObj.data = bpyObj.data.copy()  
+            name = bpyObj.name 
+            #if "lastProxy" in hitObj.getPropertyNames():
+             #   #add dummy mesh to possibly avoid naming conflict ?
+             #  m = bpy.data.meshes.new(name = hitObj["lastProxy"])
+             #   print("DUMMY", m.name)    
             bpy.ops.object.destroy()
-        #    owner["inactive"] = True 
+            
+           # if "lastProxy" in hitObj.getPropertyNames():
+            #    bpy.data.meshes.remove(m)    
             bpyObj.select = False
             objs = swapDynamic(name, hitObj)
             #substitute parent with children.... maybe before convert ? is convert necessary at all ?
-            #for o in objs:
-            #    o.restoreDynamics()           
+            for o in objs:
+                o.restoreDynamics()           
     if isDynamic:
         print("Returning")
         return    
@@ -688,8 +699,22 @@ def findFirstParent(parent):
             return fp
     return None
 
+#def copy(mesh):
+#    cp = mesh.copy()
+#    cp.use_fake_user = True
+#    return cp.name
+
+def toStr(count):
+    if count < 10:
+        return ".00" + str(count)
+    if count < 100:
+        return ".0" + str(count)
+    return "." + str(count)
 
 def swapDynamic(objname, obj):
+    
+    global objectCount
+    global allInUse
     
     print("swap dynamic")
     obname = objname
@@ -708,39 +733,41 @@ def swapDynamic(objname, obj):
         par = bpy.data.objects[parent]
        
         childs = [c.name for c in par.children if c.destruction.backup == ""]
-        meshcopies = [bpy.data.objects[c].data.copy().name for c in childs]
-        #meshes = [m.name for m in meshcopies]
-        
-        #for c in childs:
-        #    bpy.context.scene.objects.active = c
-        #    bpy.ops.mode_set(mode = 'EDIT')
-        #    bpy.ops.mesh.duplicate() 
-                
-        
-        logic.LibNew(meshcopies[0], "Mesh", meshcopies)
+        print(len(childs))
+        meshes = [bpy.data.objects[c].data.copy().name for c in childs]
+   #     meshes.reverse()
+        libname = meshes[0]
+        meshproxies = logic.LibNew(libname, "Mesh", meshes)
         print("after lib new")
+        print(childs, meshproxies)
         
         ret = []
         for i in range(0, len(childs)):
             child = bpy.data.objects[childs[i]]
-           # bpy.context.scene.unlink(child)
-            #c.data.use_fake_user = True
-            o = scene.addObject("Dummy", "Dummy")
-            o.replaceMesh(meshcopies[i], True, True)
-            print(o.reinstancePhysicsMesh(o, meshcopies[i]))
+            dummy = "Dummy" + toStr(objectCount)
+            objectCount += 1
+            try:
+                o = scene.addObject(dummy, dummy)
+            except ValueError:
+                # out of pool objects, return here
+                # if a default object was used, the physics mesh
+                # was shared, and a crash is very probable.
+                allInUse = True #prevent further subdivisions
+                return
+                
+            o.suspendDynamics()
+            o.replaceMesh(meshproxies[i], True, True)
+            #print(o.reinstancePhysicsMesh())
                 
             o.worldPosition = obj.worldPosition + child.location
+           # o.worldOrientation = obj.worldOrientation
             print(o.worldPosition)        
-          #  o.worldOrientation = obj.worldOrientation
-        #    o.linearVelocity = obj.linearVelocity
-         #   o.angularVelocity = obj.angularVelocity
             o["orig"] = childs[i]
+          #  o["lastProxy"] = meshproxies[0].name
             ret.append(o) 
         print("after replace mesh")
         obj.endObject()
-        #logic.LibFree(meshes[0])
-        
-        print("after lib free")
+       # logic.LibFree(meshes[0])
         #bpy.context.scene.update()
         return ret
     

@@ -1750,6 +1750,8 @@ def initialize():
                                         description = "Collapse object automatically based on layer integrity (the lower, the weaker) ")
     Scene.collapse_delay = props.FloatProperty(name = "collapse_delay", min = 0.0, default = 1.0, 
                                         description = "Delay in seconds after which the dropping building should collapse completely") 
+    Scene.dummyPoolSize = props.IntProperty(name = "dummyPoolSize", min = 10, max = 1000, default = 100,
+                                            description = "How many dummy objects to pre-allocate for dynamic destruction (cant add them dynamically in BGE)")
     dd.DataStore.proc = Processor()  
   
 def uninitialize():

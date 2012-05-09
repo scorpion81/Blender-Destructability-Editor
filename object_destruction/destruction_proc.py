@@ -1617,10 +1617,10 @@ class DestructionContext(types.PropertyGroup):
     destModes = [('DESTROY_F', 'Boolean Fracture', 'Destroy this object using boolean fracturing', 0 ), 
              ('DESTROY_E_H', 'Explosion Modifier', 
               'Destroy this object using the explosion modifier, forming a hollow shape', 1),
-             ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 2),
-             ('DESTROY_V', 'Voronoi Fracture', 'Destroy this object using voronoi decomposition', 3),
-             ('DESTROY_VB', 'Voronoi + Boolean', 'Destroy this object using simple voronoi and a boolean  modifier', 4),
-             ('DESTROY_L', 'Loose Parts', 'Destroy this object into its predefined loose parts', 5)] 
+            # ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 2),
+             ('DESTROY_V', 'Voronoi Fracture', 'Destroy this object using voronoi decomposition', 2),
+             ('DESTROY_VB', 'Voronoi + Boolean', 'Destroy this object using simple voronoi and a boolean  modifier', 3),
+             ('DESTROY_L', 'Loose Parts', 'Destroy this object into its predefined loose parts', 4)] 
       
              
     

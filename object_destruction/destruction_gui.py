@@ -95,15 +95,6 @@ class DestructabilityPanel(types.Panel):
        # if isMesh or isParent:
        #    row = layout.row()
        #    row.prop(context.active_object.destruction, "transmitMode",  text = "Apply To")
-       
-        
-        if isMesh or isParent:
-            row = layout.row()
-            row.prop(context.object.destruction, "cluster", text = "Use Clusters")
-            if context.object.destruction.cluster:
-                row = layout.row()
-                col = row.column()
-                col.prop(context.object.destruction, "cluster_dist", text = "Cluster Distance in %")
         
         row = layout.row()
         names = []
@@ -122,6 +113,14 @@ class DestructabilityPanel(types.Panel):
             row.prop(context.object.destruction, "dynamic_mode", expand = True)
             
             if (context.object.destruction.dynamic_mode == "D_PRECALCULATED"):
+                
+                if isMesh or isParent:
+                    row = layout.row()
+                    row.prop(context.object.destruction, "cluster", text = "Use Clusters")
+                    if context.object.destruction.cluster:
+                        row = layout.row()
+                        col = row.column()
+                        col.prop(context.object.destruction, "cluster_dist", text = "Cluster Distance in %")
             
                 row = layout.row()
                 row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
@@ -963,6 +962,8 @@ class DestroyObject(types.Operator):
     bl_label = "Destroy Object"
     bl_description = "Start fracturing process"
     
+    impactLoc = bpy.props.FloatVectorProperty(default = (0, 0, 0))
+    
     def execute(self, context):
         
         undo = context.user_preferences.edit.use_global_undo
@@ -985,7 +986,7 @@ class DestroyObject(types.Operator):
                 return {'CANCELLED'}
                   
         start = clock()                   
-        dd.DataStore.proc.processDestruction(context)
+        dd.DataStore.proc.processDestruction(context, Vector((self.impactLoc)))
         print("Decomposition Time:" , clock() - start)    
         context.user_preferences.edit.use_global_undo = undo     
         return {'FINISHED'}
@@ -1072,7 +1073,7 @@ class GameStart(types.Operator):
                                                    False, False, False, False, False,
                                                    False, False, False, False, False])
                                    
-                context.active_object.name = "Dummy.000" #rely on blender automatic unique naming here...
+                context.active_object.name = "Dummy" #rely on blender automatic unique naming here...
                 names.append(context.active_object.name)
                 
                 context.active_object.game.physics_type = 'RIGID_BODY'

@@ -43,6 +43,7 @@ ground = None
 #destructors = []
 objectCount = 0
 allInUse = False
+tempLoc = Vector((0,0,0))
 
 def project(p, n):
     
@@ -504,6 +505,7 @@ def collide():
     if allInUse:
         return
     
+    lastSpeed = 0  
     hitObjs = [h for h in sensor.hitObjectList]    
     for hitObj in hitObjs:
         print(hitObj.name)
@@ -523,8 +525,8 @@ def collide():
             #if "lastProxy" in hitObj.getPropertyNames():
              #   #add dummy mesh to possibly avoid naming conflict ?
              #  m = bpy.data.meshes.new(name = hitObj["lastProxy"])
-             #   print("DUMMY", m.name)    
-            bpy.ops.object.destroy()
+             #   print("DUMMY", m.name)
+            bpy.ops.object.destroy(impactLoc = owner.worldPosition)
             
            # if "lastProxy" in hitObj.getPropertyNames():
             #    bpy.data.meshes.remove(m)    
@@ -532,7 +534,16 @@ def collide():
             objs = swapDynamic(name, hitObj)
             #substitute parent with children.... maybe before convert ? is convert necessary at all ?
             for o in objs:
-                o.restoreDynamics()           
+                o["isShard"] = True
+                
+            for o in scene.objects:
+                try:
+                    dist, speed, depth = distSpeed(owner, o, maxHierarchyDepth, lastSpeed)
+                    if dist < speed:
+                        o.restoreDynamics()
+                        o["activated"] = True
+                except AttributeError:
+                    continue           
     if isDynamic:
         print("Returning")
         return    
@@ -705,6 +716,8 @@ def findFirstParent(parent):
 #    return cp.name
 
 def toStr(count):
+    if count == 0:
+        return ""
     if count < 10:
         return ".00" + str(count)
     if count < 100:
@@ -715,6 +728,7 @@ def swapDynamic(objname, obj):
     
     global objectCount
     global allInUse
+    global tempLoc
     
     print("swap dynamic")
     obname = objname
@@ -753,13 +767,19 @@ def swapDynamic(objname, obj):
                 # if a default object was used, the physics mesh
                 # was shared, and a crash is very probable.
                 allInUse = True #prevent further subdivisions
-                return
-                
-            o.suspendDynamics()
+                return ret
+            
+            if "activated" not in obj.getPropertyNames():    
+                o.suspendDynamics()
             o.replaceMesh(meshproxies[i], True, True)
             #print(o.reinstancePhysicsMesh())
+            
+            if "isShard" not in obj.getPropertyNames():
+                o.worldPosition = obj.worldPosition + child.location
+                tempLoc = Vector(bpyOb.destruction.tempLoc)
+            else:
+                o.worldPosition = tempLoc + child.location
                 
-            o.worldPosition = obj.worldPosition + child.location
            # o.worldOrientation = obj.worldOrientation
             print(o.worldPosition)        
             o["orig"] = childs[i]

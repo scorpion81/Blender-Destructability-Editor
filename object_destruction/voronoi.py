@@ -26,9 +26,12 @@ import bpy
 from bpy import ops
 import bmesh
 
+from . import destruction_data as dd
+
 #start = 0
 
 selected = {}
+#
 
 def bracketPair(line, lastIndex):
     opening = line.index("(", lastIndex)
@@ -160,11 +163,13 @@ def buildCellMesh(cells, name, walls):
         buildCell(cell, name, walls)
         
 
-def corners(obj):
+def corners(obj, impactLoc = Vector((0,0,0))):
     
     bbox = obj.bound_box.data 
     dims = bbox.dimensions
     loc = bbox.location
+    loc += impactLoc
+    print("corners impact:", impactLoc)
     
     lowCorner = (loc[0] - dims[0] / 2, loc[1] - dims[1] / 2, loc[2] - dims[2] / 2)
     xmin = lowCorner[0]
@@ -200,7 +205,8 @@ def voronoiCube(context, obj, parts, vol, walls):
         ops.object.transform_apply(scale=True, rotation = True)
         volobj.select = False
         
-        vxmin, vxmax, vymin, vymax, vzmin, vzmax = corners(volobj)
+        print("I: ", dd.DataStore.impactLocation)
+        vxmin, vxmax, vymin, vymax, vzmin, vzmax = corners(volobj, dd.DataStore.impactLocation - loc)
         vxmin += loc[0]
         vxmax += loc[0]
         vymin += loc[1]
@@ -262,6 +268,7 @@ def voronoiCube(context, obj, parts, vol, walls):
         ymax = vymax
         zmin = vzmin
         zmax = vzmax
+        print("VOL: ", xmin, xmax, ymin, ymax, zmin, zmax)
         
     
     bm = obj.data
@@ -296,7 +303,9 @@ def voronoiCube(context, obj, parts, vol, walls):
             
     elif partsystem != None:
         for p in partsystem.particles:
-            values.append((p.location[0], p.location[1], p.location[2]))    
+            values.append((p.location[0] + dd.DataStore.impactLocation[0], 
+                           p.location[1] + dd.DataStore.impactLocation[1], 
+                           p.location[2] + dd.DataStore.impactLocation[2]))    
     else:    
         for i in range(0, particles):
             
@@ -426,4 +435,4 @@ def booleanIntersect(context, o, obj, oldnames):
     o.select = oldSel
     
     return newnames    
-        
+   

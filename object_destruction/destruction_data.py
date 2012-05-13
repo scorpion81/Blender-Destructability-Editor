@@ -331,6 +331,7 @@ class Grid:
                     
 class DataStore:
     grids = {}
+    impactLocation = Vector((0,0,0))
 
 class Ground:
     edges = []

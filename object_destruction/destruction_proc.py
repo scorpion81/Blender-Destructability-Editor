@@ -26,19 +26,20 @@ except ImportError:
 
 class Processor():
           
-    def processDestruction(self, context):
-           
+    def processDestruction(self, context, impactLoc):
+        
+        dd.DataStore.impactLocation = impactLoc   
         modes = {DestructionContext.destModes[0][0]: 
                     "self.applyFracture(context, objects, parts, roughness, crack_type)",
                  DestructionContext.destModes[1][0]: 
                      "self.applyExplo(context, objects, parts, granularity, thickness, False, False)",
+                # DestructionContext.destModes[2][0]: 
+                #     "self.applyKnife(context, objects, parts, jitter, granularity, cut_type)",
                  DestructionContext.destModes[2][0]: 
-                     "self.applyKnife(context, objects, parts, jitter, granularity, cut_type)",
-                 DestructionContext.destModes[3][0]: 
                      "self.applyVoronoi(context, objects, parts, volume, True)",  
-                 DestructionContext.destModes[4][0]: 
+                 DestructionContext.destModes[3][0]: 
                      "self.applyVoronoi(context, objects, parts, volume, False)", 
-                 DestructionContext.destModes[5][0]:
+                 DestructionContext.destModes[4][0]:
                      "self.applyLooseParts(context, objects)" } 
                      
         #make an object backup if necessary (if undo doesnt handle this)
@@ -413,7 +414,7 @@ class Processor():
                         pos = o.location
                         if o.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                             pos += Vector(o.destruction.tempLoc) #needed for voronoi
-                            o.destruction.tempLoc = Vector((0, 0, 0))
+                            #o.destruction.tempLoc = Vector((0, 0, 0))
             print("EMPTY Pos: ", pos)
             context.active_object.location = pos
         #else:

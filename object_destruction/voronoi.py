@@ -299,7 +299,9 @@ def voronoiCube(context, obj, parts, vol, walls):
         volobj.select = False
                 
         for v in volobj.data.vertices:
-            values.append((v.co[0], v.co[1], v.co[2]))
+            values.append((v.co[0] + dd.DataStore.impactLocation[0], 
+                           v.co[1] + dd.DataStore.impactLocation[1], 
+                           v.co[2] + dd.DataStore.impactLocation[2]))
             
     elif partsystem != None:
         for p in partsystem.particles:

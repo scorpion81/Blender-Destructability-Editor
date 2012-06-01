@@ -384,6 +384,10 @@ def checkSpeed():
 #        if not gridValid:
 #            calculateGrids()
 #            gridValid = True
+        
+        if not "suspended" in owner.getPropertyNames():
+            continue 
+
         if vel.length < 0.5 and owner["activated"] and not owner["suspended"]:
             print("suspending", owner.name)
             owner["suspended"] = True
@@ -540,6 +544,9 @@ def collide():
                 try:
                     dist, speed, depth = distSpeed(owner, o, maxHierarchyDepth, lastSpeed)
                     if dist < speed:
+#                        if "isShard" in o.getPropertyNames():
+#                            pos = Vector((o["posx"], o["posy"], o["posz"]))
+#                            o.worldPosition = pos
                         o.restoreDynamics()
                         o["activated"] = True
                 except AttributeError:
@@ -573,7 +580,7 @@ def collide():
         #print("checking all")
         for p in children.keys():
             for objname in children[p]:
-                print("objname", p, objname)
+               # print("objname", p, objname)
                 if not objname.startswith("P_") and not \
                 scene.objects[objname]["activated"]:
                     objs.append(objname)
@@ -777,11 +784,18 @@ def swapDynamic(objname, obj):
             if "isShard" not in obj.getPropertyNames():
                 o.worldPosition = obj.worldPosition + child.location
                 tempLoc = Vector(bpyOb.destruction.tempLoc)
+            elif "activated" in obj.getPropertyNames():
+                o.worldPosition = obj.worldPosition + child.location
             else:
                 o.worldPosition = tempLoc + child.location
                 
+#            pos = obj.worldPosition + child.location
+#            o["posx"] = pos[0]
+#            o["posy"] = pos[1]
+#            o["posz"] = pos[2]
+                
            # o.worldOrientation = obj.worldOrientation
-            print(o.worldPosition)        
+            print(obj.worldPosition, child.location)        
             o["orig"] = childs[i]
           #  o["lastProxy"] = meshproxies[0].name
             ret.append(o) 

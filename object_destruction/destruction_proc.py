@@ -1709,7 +1709,9 @@ so only unconnected parts collapse according to their parent relations")
     boolean_original = props.StringProperty(name = "boolean_original")
     dynamic_mode = props.EnumProperty(name = "dynamic_mode", items = dynamicMode, description = "Fracture Objects dynamically or precalculated")
     converted = props.BoolProperty(name = "converted", default = False)
-    
+    radius = props.FloatProperty(name = "radius", default = 1, min = 0, description = "Speed independent destruction radius, is added to Speed Modifier")
+    modifier = props.FloatProperty(name = "modifier",default = 0.25, min = 0, 
+    description = "Modifier(factor) for destructors speed relative to object speed, is added to Radius")
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',

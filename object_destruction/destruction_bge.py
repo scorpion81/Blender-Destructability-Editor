@@ -461,10 +461,16 @@ def distSpeed(owner, obj, maxDepth, lastSpeed):
     
     dist = getFaceDistance(owner, obj)
     
- #   print(owner, obj, dist, speed)        
-    modSpeed = 1 + 0.025 *speed
-    if owner.name == "Ball": # and bpy.context.scene.hideLayer == 1:
-       modSpeed = math.sqrt(speed / 2)
+ #   print(owner, obj, dist, speed)
+    #destruction radius constant or speed dependent, user specifyable
+    ownerBpy = bpy.data.objects[owner.name]
+    radius = ownerBpy.destruction.radius
+    modifier = ownerBpy.destruction.modifier
+
+    #1 + 0.025*speed        
+    modSpeed = radius + modifier *speed
+  #  if owner.name == "Ball": # and bpy.context.scene.hideLayer == 1:
+#       modSpeed = math.sqrt(speed / 2)
     
     if modSpeed > 0:
         depth = math.ceil(maxDepth * 1.0 / modSpeed)

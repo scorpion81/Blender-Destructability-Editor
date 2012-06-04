@@ -104,14 +104,15 @@ class DestructabilityPanel(types.Panel):
                     names.append(o.destruction.is_backup_for)
         if context.object.name in names and isParent:
             row.operator("object.undestroy")
+  
         elif isMesh:
             if context.object.destruction.destructionMode != 'DESTROY_L':
                 row.prop_search(context.object.destruction, "inner_material", data, 
-                        "materials", icon = 'MATERIAL', text = "Inner Material:")
-            
+                    "materials", icon = 'MATERIAL', text = "Inner Material:")    
+        
             row = layout.row()
             row.prop(context.object.destruction, "dynamic_mode", expand = True)
-            
+        
             if (context.object.destruction.dynamic_mode == "D_PRECALCULATED"):
                 
                 if isMesh or isParent:
@@ -191,6 +192,15 @@ class DestructabilityPanel(types.Panel):
                 row = layout.row()
                 row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
                 row.active = context.object.destruction.destructor
+                
+                row = layout.row()
+                row.prop(context.object.destruction, "radius", text = "Radius")
+                row.active = context.object.destruction.destructor
+                
+                row = layout.row()
+                row.prop(context.object.destruction, "modifier", text = "Speed Modifier")
+                row.active = context.object.destruction.destructor
+                
             
                 row = layout.row()
                 row.label(text = "Destructor Targets")
@@ -718,7 +728,7 @@ class ConvertParenting(types.Operator):
         parent = None
         groundNames = None
         oldRot = None
-        grounds = []
+      #  grounds = []
         
         #copy ground/destructor settings over to children
         for o in context.scene.objects:
@@ -763,16 +773,17 @@ class ConvertParenting(types.Operator):
                 parent.rotation_euler = (0, 0, 0)  
                 
                 for g in groundNames:
-                    ground = context.scene.objects[g.name]
+                    if g != "":
+                        ground = context.scene.objects[g.name]
                     
-                    ground.select = True
-                    ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
-                    ops.object.transform_apply(rotation = True)
+                        ground.select = True
+                        ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+                        ops.object.transform_apply(rotation = True)
                     
-                    #apply scale and location also, AFTER rotation
-                    ops.object.transform_apply(scale = True, location = True)
+                        #apply scale and location also, AFTER rotation
+                        ops.object.transform_apply(scale = True, location = True)
                      
-                    ground.select = False
+                        ground.select = False
                 break
             
         
@@ -821,37 +832,40 @@ class ConvertParenting(types.Operator):
                 o.game.properties[index].value = o.parent.name
           
         #parent again , rotate to rotation, clear parent with keeptransform    
-        for g in grounds:
+        #for g in grounds:
+            for g in o.destruction.grounds: #names
+                if g != "":
+                    ground = context.scene.objects[g.name]
             
-            if parent == None:
-                continue
+                    if parent == None:
+                        continue
             
-            ground = context.scene.objects[g]
+            #ground = context.scene.objects[g]
             
-            
-            ground.select = True
-            ctx = context.copy()
-            ctx["object"] = parent
-            ops.object.parent_set(ctx)
-            ground.select = False
+                    ground.select = True
+                    ctx = context.copy()
+                    ctx["object"] = parent
+                    ops.object.parent_set(ctx)
+                    ground.select = False
        
-        #restore rotation
-        if parent != None:
-            parent.rotation_euler = oldRot  
+                #restore rotation
+                if parent != None:
+                    parent.rotation_euler = oldRot  
         
-        for g in grounds:
-            
-            if parent == None:
-                continue
-            
-            ground = context.scene.objects[g]
-            
-            ground.select = True
-            ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
-            ops.object.transform_apply(rotation = True)
-            ground.select = False
+            for g in o.destruction.grounds: #names
+                if g != "":
+                    ground = context.scene.objects[g.name]
+                
+                    if parent == None:
+                        continue
+                
+                    #ground = context.scene.objects[g]
+                    print("Rotating back")
+                    ground.select = True
+                    ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+                    ops.object.transform_apply(rotation = True)
+                    ground.select = False
         
-  
         for o in data.objects: #restrict to P_ parents only ! no use all
             if context.scene.player:
                 if o.name == "Player" or o.name == "Eye" or \
@@ -1066,7 +1080,9 @@ class GameStart(types.Operator):
     def execute(self, context):
         
         names = []
+        #isDynamic = False
         if context.object.destruction.dynamic_mode == "D_DYNAMIC":
+            #isDynamic = True
             for i in range(0, context.scene.dummyPoolSize):
                 ops.mesh.primitive_cube_add(layers = [False, True, False, False, False,
                                                    False, False, False, False, False,
@@ -1089,6 +1105,9 @@ class GameStart(types.Operator):
             context.scene.game_settings.restrict_animation_updates = True
         context.scene.game_settings.show_framerate_profile = True
         ops.view3d.game_start()
+        
+        #if isDynamic:
+        #    context.scene.converted = False
         
         context.scene.layers = [False, True, False, False, False,
                                 False, False, False, False, False,

@@ -7,10 +7,17 @@ import os
 
 extname = "voronoi"
 
-setup(
+if platform.architecture()[0] == "64bit" and platform.architecture()[1] == "WindowsPE":
+    setup(
+    cmdclass = {'build_ext': build_ext},
+    ext_modules = [Extension(extname, [ "voro/src/voro++.cc", "voronoi.pyx"], language="c++",
+                             extra_compile_args=["/fp:strict"])]
+    )
+else:
+    setup(
     cmdclass = {'build_ext': build_ext},
     ext_modules = [Extension(extname, [ "voro/src/voro++.cc", "voronoi.pyx"], language="c++")]
-)
+    )
 
 #move to right directory
 if platform.architecture()[0] == "64bit":

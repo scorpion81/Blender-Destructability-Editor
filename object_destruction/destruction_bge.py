@@ -44,6 +44,7 @@ ground = None
 objectCount = 0
 allInUse = False
 tempLoc = Vector((0,0,0))
+initswap = []
 
 def project(p, n):
     
@@ -352,7 +353,7 @@ def setup():
     if bpy.context.scene.hideLayer != 1:
         for p in firstparent:
             par = bpy.context.scene.objects[p.name]
-            swapBackup(scene.objects[par.destruction.backup])
+            initswap = swapBackup(scene.objects[par.destruction.backup])
     
     for first in firstparent:
         if isGroundConnectivity(first):
@@ -935,7 +936,10 @@ def swapBackup(obj):
    
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
-    #print("dissolve", obj, depth)               
+    
+    global initswap
+    
+   # print("dissolve", obj, depth)               
     parent = None
     for p in children.keys():
         if obj.name in children[p]:
@@ -976,25 +980,36 @@ def dissolve(obj, depth, maxdepth, owner):
              
             #print(depth, objDepth+1, bDepth+1)
             first = findFirstParent(par.name)
-            if bpy.context.scene.hideLayer != 1 and isBackup(obj) and ((depth == bDepth) \
-            #or ((depth == bDepth+1) \
+            if bpy.context.scene.hideLayer != 1 and isBackup(obj) and ((depth == bDepth+1) \
+           # or (depth == bDepth and owner.name == "Ball") \
             and not isGroundConnectivity(first)):
                 print(depth, bDepth, isGroundConnectivity(first))
                 if bpy.context.scene.objects[obj.name].game.use_collision_compound:
                    for ch in obj.children:
                         ch.removeParent()
                         if isBackup(ch):
-                            swapBackup(ch)
+                            shards = swapBackup(ch)
                             ch["swapped"] = True
-                        else:
+                            [activate(s, owner, grid) for s in shards]
+                        #else:
                             activate(ch, owner, grid)
-                            
+                                        
                 objs = swapBackup(obj)
-                obj["swapped"] = True
-              #  [activate(ob, owner, grid) for ob in objs]
+                obj["swapped"] = True 
+                [activate(ob, owner, grid) for ob in objs]
             
-            if (depth == objDepth+1):# or (depth == objDepth):
+            #if owner.name == "Ball":
+            #    objs = swapBackup(obj)
+            #    obj["swapped"] = True 
+                    
+             #activate previously swapped shards    
+            if (depth == objDepth+1):
+                    
+                [activate(ob, owner, grid) for ob in initswap]
                 activate(obj, owner, grid)
+                
+           # if (depth == objDepth):# or (depth == objDepth):
+            #    activate(obj, owner, grid)
             
         if depth < maxdepth and parent != None:
 #                pParent = None
@@ -1007,7 +1022,7 @@ def dissolve(obj, depth, maxdepth, owner):
             [dissolve(scene.objects[c], depth+1, maxdepth, owner) for c in children[parent]]
 
 def activate(child, owner, grid):
-    
+   
     # print("activated: ", child)
      global integrity
      global firstShard

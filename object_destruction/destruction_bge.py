@@ -472,10 +472,15 @@ def distSpeed(owner, obj, maxDepth, lastSpeed):
   #  if owner.name == "Ball": # and bpy.context.scene.hideLayer == 1:
 #       modSpeed = math.sqrt(speed / 2)
     
+    #the faster the smaller the parts but
     if modSpeed > 0:
         depth = math.ceil(maxDepth * 1.0 / modSpeed)
     else:
-        depth = 1 
+        depth = 1
+    #not greater than maxDepth
+    if depth > maxDepth:
+        depth = maxDepth
+   # print("DEPTH", depth) 
     #return dist < modSpeed
     return dist, modSpeed, depth
     
@@ -587,9 +592,13 @@ def collide():
         for p in children.keys():
             for objname in children[p]:
                # print("objname", p, objname)
-                if not objname.startswith("P_") and not \
-                scene.objects[objname]["activated"]:
-                    objs.append(objname)
+                if not objname.startswith("P_"):
+                    if objname in scene.objects:
+                        ob = scene.objects[objname]
+                        if not "activated" in ob.getPropertyNames():
+                            objs.append(objname)
+                        elif not ob["activated"]:
+                            objs.append(objname)
     else:
     #print("checking cells")
         for c in cellsToCheck:
@@ -679,12 +688,14 @@ def checkGravityCollapse():
                                 restoreAll()
                                 break    
  
-def findCompound(childs):
+def findCompound(childs, parent):
     compound = None
     for c in childs:
-        if bpy.context.scene.objects[c.name].game.use_collision_compound and \
-        not c.name in bpy.context.scene.backups: 
-            mesh = bpy.context.scene.objects[c.name].data.name
+        ob = bpy.context.scene.objects[c.name]
+        par = bpy.context.scene.objects[parent]
+        if ob.game.use_collision_compound and c.name not in par.destruction.ascendants and \
+        not c.name.endswith(".000"): #".000" = backup of original object
+            mesh = ob.data.name
             print("Adding compound", c.name)
             compound = scene.addObject(c.name, c.name)
             compound.replaceMesh(mesh, True, True)    
@@ -823,6 +834,10 @@ def swapBackup(obj):
     ret = []   
     
     obname = obj.name
+    parent = bpy.context.scene.objects[obname].destruction.is_backup_for
+    
+    if parent == "":
+        return ret
     
     if parent not in scene.objects:
        par = scene.addObject(parent, parent)
@@ -834,13 +849,15 @@ def swapBackup(obj):
     first = findFirstParent(parent)
           
     childs= bpy.context.scene.objects[parent].destruction.children
-    compound = findCompound(childs)
+    compound = findCompound(childs, obname)
     
     if compound != None:
         #if not isGroundConnectivity(first):   
         parents[compound.name] = parent    
         ret.append(compound)
         par["compound"] = compound.name       
+    else:
+        return ret
                    
     for c in childs:
         if c.name != compound.name and c.name != obname:
@@ -959,8 +976,9 @@ def dissolve(obj, depth, maxdepth, owner):
              
             #print(depth, objDepth+1, bDepth+1)
             first = findFirstParent(par.name)
-            if bpy.context.scene.hideLayer != 1 and isBackup(obj) and ((depth == bDepth+1) or \
-            ((depth == bDepth) and not isGroundConnectivity(first))):
+            if bpy.context.scene.hideLayer != 1 and isBackup(obj) and ((depth == bDepth) \
+            #or ((depth == bDepth+1) \
+            and not isGroundConnectivity(first)):
                 print(depth, bDepth, isGroundConnectivity(first))
                 if bpy.context.scene.objects[obj.name].game.use_collision_compound:
                    for ch in obj.children:
@@ -975,7 +993,7 @@ def dissolve(obj, depth, maxdepth, owner):
                 obj["swapped"] = True
               #  [activate(ob, owner, grid) for ob in objs]
             
-            if (depth == objDepth+1) or (depth == objDepth):
+            if (depth == objDepth+1):# or (depth == objDepth):
                 activate(obj, owner, grid)
             
         if depth < maxdepth and parent != None:

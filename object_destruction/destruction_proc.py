@@ -492,7 +492,7 @@ class Processor():
             prop.name = backup.name
         
         #re-assign compound if parent is fractured
-        if backup.game.use_collision_compound and context.scene.hideLayer != 1:
+        if backup.game.use_collision_compound and context.scene.hideLayer == 1:
             self.setCompound(parent.parent)
              
         comp = self.setCompound(parent)
@@ -529,15 +529,25 @@ class Processor():
         mindist = sys.maxsize
         closest = None
         
-        for n in bpy.context.scene.backups:
-            if n.name in bpy.context.scene.objects:
-                o = bpy.context.scene.objects[n.name]
-                if o.game.use_collision_compound:
-                    return True
+        #???? deleting "wrong" backup compounds
+        #for n in bpy.context.scene.backups:
+        #    if n.name in bpy.context.scene.objects:
+        #        o = bpy.context.scene.objects[n.name]
+        #        if o.game.use_collision_compound:
+        #            return True
+        
+        #childs = []
+        #if parent.parent != None:
+        childs = parent.destruction.ascendants # old children are potential backups     
         
         for c in parent.children:
-            #print(c.name, c.destruction.is_backup_for)
-            if c.type == 'MESH' and not c.name in bpy.context.scene.backups:
+            
+            bName = c.name
+            if c.name.startswith("P_"): # since we still have P_ members, use the backup name
+                bName = c.destruction.backup
+            
+           # print(parent.name, bName, bName in childs)
+            if c.type == 'MESH' and not bName in childs and not c.name.endswith(".000"):
                 if delOld and c.game.use_collision_compound:
                     c.game.use_collision_compound = False
                     c.destruction.wasCompound = True
@@ -680,7 +690,7 @@ class Processor():
         bStart = None
         if backup.parent != None:
             b = backup.parent.destruction.backup #old backup
-            print("OLDBACKUP", b)
+         #   print("OLDBACKUP", b)
             temp = b.split(".")[0]
             bStart = temp.split("_")[1]   
             if bStart != start:
@@ -705,6 +715,7 @@ class Processor():
             c.destruction.boolean_original = backup.destruction.boolean_original
             c.destruction.dynamic_mode = c.parent.destruction.dynamic_mode
             c.destruction.cubify = c.parent.destruction.cubify
+            c.destruction.backup = backup.name
         
         if c == backup and b == None:
             c.location -= pos
@@ -763,6 +774,29 @@ class Processor():
         c.game.mass = mass 
         c.destruction.transmitMode = 'T_SELECTED'
         c.destruction.destroyable = False
+        
+        #memorize children and this way "potential" backups too.
+        par = data.objects[parentName]
+           
+        if c.name not in par.destruction.children:
+            prop = par.destruction.children.add()
+            prop.name = c.name
+           # print("Child:", c.name)
+  
+        #accumulate ascendants as forbidden compounds.
+        p = par.parent    
+        while p != None:
+            for ch in p.destruction.children:
+                if ch.name not in par.destruction.ascendants:
+                    prp = par.destruction.ascendants.add()
+                    prp.name = ch.name
+                   # print("Asc:", par.name, p.name, ch.name)
+                    
+            p = p.parent
+                
+                
+           
+            
         
 #        c.destruction.partCount = 1
 #        c.destruction.wallThickness = 0.01
@@ -1712,6 +1746,7 @@ so only unconnected parts collapse according to their parent relations")
     radius = props.FloatProperty(name = "radius", default = 1, min = 0, description = "Speed independent destruction radius, is added to Speed Modifier")
     modifier = props.FloatProperty(name = "modifier",default = 0.25, min = 0, 
     description = "Modifier(factor) for destructors speed relative to object speed, is added to Radius")
+    ascendants = props.CollectionProperty(type = types.PropertyGroup, name = "ascendants")
     
     # From pildanovak, fracture script
     crack_type = props.EnumProperty(name='Crack type',

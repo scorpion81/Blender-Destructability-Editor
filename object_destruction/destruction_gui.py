@@ -883,8 +883,8 @@ class ConvertParenting(types.Operator):
                     context.scene.objects.active = o
                     print("Clearing parent: ", o)
                     o.hide = False
-                    propNew = o.parent.destruction.children.add()
-                    propNew.name = o.name
+                   # propNew = o.parent.destruction.children.add()
+                    #propNew.name = o.name
                     ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
                     o.select = False
         

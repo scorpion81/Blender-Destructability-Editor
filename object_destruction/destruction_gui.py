@@ -8,6 +8,8 @@ import bpy
 from mathutils import Vector
 from time import clock
 
+from object_destruction.unittest import destruction_bpy_test as test
+
 class DestructabilityPanel(types.Panel):
     bl_idname = "OBJECT_PT_destructability"
     bl_label = "Destructability"
@@ -244,6 +246,26 @@ class DestructabilityPanel(types.Panel):
         row.active = not context.scene.converted
         row = layout.row()
         row.operator("game.start")
+        
+        layout.separator()
+        row = layout.row()
+        row.label("Unit Tests: ")
+        row.scale_x = 1.5
+        row.scale_y = 1.5
+        
+        row = layout.row()
+        row.operator("test.run")
+        
+        if context.scene.player:
+            
+            if context.scene.runBGETests:
+                txt = "Disable BGE Tests"
+            else:
+                txt = "Enable BGE Tests"
+                
+            row.operator("bge_test.run", text = txt) 
+        
+        
         
 class AddGroundOperator(types.Operator):
     bl_idname = "ground.add"
@@ -1129,4 +1151,52 @@ class GameStart(types.Operator):
         #        bpy.ops.object.undestroy() 
         
         return {'FINISHED'}
+    
+
+class RunUnitTest(types.Operator):
+    bl_idname = "test.run"
+    bl_label = "Run Unit Tests"
+    bl_description = "Run the destruction unit tests not related to bge"
+    
+    def execute(self, context):
+        test.run() #module test
+        return {'FINISHED'}
+
+class RunBGETest(types.Operator):
+    bl_idname = "bge_test.run"
+    bl_label = "Run BGE Unit Tests"
+    bl_description = "Enable or disable the bge related destruction unit tests"
+    
+    def execute(self, context):
+        
+        context.scene.objects.active = data.objects["Player"]
+        
+        if not context.scene.runBGETests:
+            
+            currentDir = path.abspath(os.path.split(__file__)[0])
+            print(ops.text.open(filepath = currentDir + "\\unittest\\destruction_bge_test.py", internal = False))
+            #setup logic bricks -player
+              
+            #run unit tests with key "T"
+            ops.logic.controller_add(type = 'PYTHON', object = "Player", name = "UnitTest")
+        
+            context.active_object.game.controllers[11].mode = 'MODULE'
+            context.active_object.game.controllers[11].module = "destruction_bge_test.run"
+         
+            ops.logic.sensor_add(type = 'KEYBOARD', object = "Player", name = "TestKey")
+            context.active_object.game.sensors[11].key = 'T'
+        
+            context.active_object.game.controllers[11].link(
+            context.active_object.game.sensors[11])
+            context.scene.runBGETests = True
+        
+        else:
+            
+            ops.logic.controller_remove(controller = "UnitTest", object = "Player")
+            ops.logic.sensor_remove(sensor = "TestKey", object = "Player")
+            data.texts.remove(data.texts["destruction_bge_test.py"])
+            context.scene.runBGETests = False
+            
+        return {'FINISHED'}
+        
             

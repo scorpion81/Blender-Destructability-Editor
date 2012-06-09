@@ -850,6 +850,8 @@ def swapBackup(obj):
     first = findFirstParent(parent)
           
     childs= bpy.context.scene.objects[parent].destruction.children
+    
+    print("CHILDS", childs[0])
     compound = findCompound(childs, obname)
     
     if compound != None:
@@ -874,7 +876,7 @@ def swapBackup(obj):
                 parents[name] = c.name
                 parents[c.name] = parent
                 ret.append(cPar)
-                if name == compound.name:
+                if name == compound.name or name == obname:
                     continue
             else:
                 name = c.name
@@ -919,6 +921,8 @@ def swapBackup(obj):
             children[p] = list()
         children[p].append(r.name)
     
+    print("SWAP:", ret, p, children[p])
+    
     if isGroundConnectivity(first):
         calculateGrids()
       
@@ -939,7 +943,7 @@ def dissolve(obj, depth, maxdepth, owner):
     
     global initswap
     
-   # print("dissolve", obj, depth)               
+    print("dissolve", obj, depth)               
     parent = None
     for p in children.keys():
         if obj.name in children[p]:
@@ -956,7 +960,7 @@ def dissolve(obj, depth, maxdepth, owner):
         par = ground
        
     
-   # print("Owner:", owner, isRegistered(par, owner), isDestroyable(par), parent, par)
+    #print("Owner:", owner, isRegistered(par, owner), isDestroyable(par), parent, par)
      
     if isDestroyable(par) and (isRegistered(par, owner) or isGround(par)):
         
@@ -1010,7 +1014,8 @@ def dissolve(obj, depth, maxdepth, owner):
                 
            # if (depth == objDepth):# or (depth == objDepth):
             #    activate(obj, owner, grid)
-            
+        
+        #print("DEPTH:", depth, maxdepth, parent)    
         if depth < maxdepth and parent != None:
 #                pParent = None
 #                for p in children.keys():
@@ -1019,6 +1024,7 @@ def dissolve(obj, depth, maxdepth, owner):
 #                        break
 #              #  print(children[p], parent)
 #                if pParent != None:
+            print("CHILDS", len(children[parent]))
             [dissolve(scene.objects[c], depth+1, maxdepth, owner) for c in children[parent]]
 
 def activate(child, owner, grid):

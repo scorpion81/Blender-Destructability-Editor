@@ -777,19 +777,29 @@ class Processor():
         
         #memorize children and this way "potential" backups too.
         par = data.objects[parentName]
+        
+        #needed for correct dissolve in destruction_bge.py
+        #need to consider P_ children too ! (if any) 
+        bPar = c.destruction.is_backup_for
+        n = c.name
+        if bPar != "":
+            n = bPar
            
-        if c.name not in par.destruction.children:
+        if n not in par.destruction.children:
             prop = par.destruction.children.add()
-            prop.name = c.name
-           # print("Child:", c.name)
+            prop.name = n
   
         #accumulate ascendants as forbidden compounds.
         p = par.parent    
         while p != None:
             for ch in p.destruction.children:
-                if ch.name not in par.destruction.ascendants:
+                name = ch.name
+                if ch.name.startswith("P_"):
+                    name = data.objects[ch.name].destruction.backup
+                    
+                if name not in par.destruction.ascendants:
                     prp = par.destruction.ascendants.add()
-                    prp.name = ch.name
+                    prp.name = name
                    # print("Asc:", par.name, p.name, ch.name)
                     
             p = p.parent
@@ -1790,6 +1800,7 @@ def initialize():
                                         description = "Delay in seconds after which the dropping building should collapse completely") 
     Scene.dummyPoolSize = props.IntProperty(name = "dummyPoolSize", min = 10, max = 1000, default = 100,
                                             description = "How many dummy objects to pre-allocate for dynamic destruction (cant add them dynamically in BGE)")
+    Scene.runBGETests = props.BoolProperty(name = "runBGETests")
     dd.DataStore.proc = Processor()  
   
 def uninitialize():

@@ -197,6 +197,7 @@ class Processor():
     def looseParts(self, context, parent, depth):
         
         if len(parent.children) == 0:
+            print("Returning")
             return
         
         if parent.type == 'EMPTY':
@@ -204,14 +205,15 @@ class Processor():
                 parent.name = "P_" + str(depth) + "_S_" + parent.name
                 parent.destruction.destroyable = True
                 parent.destruction.flatten_hierarchy = context.active_object.destruction.flatten_hierarchy
-                print("FLatten", parent.destruction.flatten_hierarchy)
-        
-        dupes = []        
+              #  print("FLatten", parent.destruction.flatten_hierarchy)
+              
         ops.object.select_all(action = 'DESELECT')
-        for obj in parent.children:               
+        
+        childs = [o for o in parent.children]
+        for obj in childs:               
             if obj.type == 'MESH':
                 if not obj.name.startswith("S_"):
-                    obj.name = "S_" + obj.name + ".000"
+                    obj.name = "S_" + obj.name
                 
                 if obj.destruction.deform:
                     obj.game.physics_type = 'SOFT_BODY'
@@ -223,38 +225,32 @@ class Processor():
                 obj.game.use_collision_bounds = True
                 
                 obj.select = True
-                ops.object.duplicate()
-                obj.select = False
-                dupes.append(context.active_object)
-                context.active_object.select = True
-                
-                self.setCompound(obj.parent, context.scene.hideLayer == 1)
-                
-                if context.scene.hideLayer != 1:
-                    obj.layers = self.layer(context.scene.hideLayer)
-            
-                
-        ops.object.join() # should join the dupes only !!
-        #remove "unjoined" dupes again
-        for d in dupes:
-            if d != context.active_object:
-                d.select = True
-            else:
-                d.select = False
+                    
+        ops.object.duplicate()      
+        ops.object.join() # should join the dupes only !
+        name = context.active_object.name
+        obName = name.split(".")[0]
+        context.active_object.name = obName + ".000" # this name is expected to be set
+        print("Backup", context.active_object.name)
         
-        ops.object.delete()
-        
+        for c in parent.children:
+            if "." not in c.name:
+                c.name += ".000" #rely on blender unique naming here!
+            if context.scene.hideLayer != 1 and not c.name.endswith(".000"):
+                c.layers = self.layer(context.scene.hideLayer)
+        self.setCompound(parent, context.scene.hideLayer == 1)
         context.active_object.destruction.is_backup_for = parent.name
         parent.destruction.backup = context.active_object.name
         
         if context.scene.hideLayer == 1:
             context.active_object.use_fake_user = True
             context.scene.objects.unlink(context.active_object)
-        else:
-            if depth > 0:
-                context.active_object.layers = self.layer(context.scene.hideLayer)
+        #else:
+        #    if depth > 0:
+        #        context.active_object.layers = self.layer(context.scene.hideLayer)
         
-        for obj in parent.children: 
+        for obj in childs: 
+            print("Descending")
             self.looseParts(context, obj, depth + 1)
                    
     def applyLooseParts(self, context, objects):

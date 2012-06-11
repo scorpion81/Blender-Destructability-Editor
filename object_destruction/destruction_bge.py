@@ -562,6 +562,7 @@ def collide():
                         o.restoreDynamics()
                         o["activated"] = True
                 except AttributeError:
+                    #print("AttributeError", o.name)
                     continue           
     if isDynamic:
         print("Returning")
@@ -771,7 +772,8 @@ def swapDynamic(objname, obj):
     if bpyOb.destruction.dynamic_mode == "D_DYNAMIC":
         par = bpy.data.objects[parent]
        
-        childs = [c.name for c in par.children if c.destruction.backup == ""]
+        #print("Par.children", par, par.children)
+        childs = [c.name for c in par.children if c.destruction.is_backup_for == ""]
         print(len(childs))
         meshes = [bpy.data.objects[c].data.copy().name for c in childs]
    #     meshes.reverse()

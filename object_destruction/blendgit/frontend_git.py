@@ -1,6 +1,7 @@
 import bpy
 import os
 from . import backend_git as b
+from bpy.app.handlers import persistent
 
 class GitInit(bpy.types.Operator):
     bl_idname = "git.init"
@@ -46,13 +47,13 @@ class GitPanel(bpy.types.Panel):
     bl_region_type = "WINDOW"
     
     def register():
-        currentfile = "" # need to obtain current blend file path/name  
-        currentdir = "" # thats the addon directory -> bpy.path.abspath(os.path.split(__file__)[0])
-     
-        bpy.types.Scene.workdir = bpy.props.StringProperty(name = "workdir", default = currentdir)
-        bpy.types.Scene.repo = bpy.props.StringProperty(name = "repo", default = currentdir) 
-        bpy.types.Scene.file = bpy.props.StringProperty(name = "file", default = currentfile)
+        
+        bpy.types.Scene.workdir = bpy.props.StringProperty(name = "workdir")
+        bpy.types.Scene.repo = bpy.props.StringProperty(name = "repo") 
+        bpy.types.Scene.file = bpy.props.StringProperty(name = "file")
         bpy.types.Scene.msg = bpy.props.StringProperty(name = "msg")
+        bpy.app.handlers.load_post.append(GitPanel.file_handler)
+        bpy.app.handlers.save_post.append(GitPanel.file_handler)
     
     def unregister():
         del bpy.types.Scene.workdir
@@ -77,3 +78,13 @@ class GitPanel(bpy.types.Panel):
         layout.prop(context.scene, "msg", text = "Commit Message")
         layout.operator("git.commit")
         
+    @persistent
+    def file_handler(dummy):
+        print("Load Handler:", bpy.data.filepath)
+        currentfile = bpy.path.basename(bpy.data.filepath)
+        currentdir = bpy.path.abspath("//")
+        
+        bpy.context.scene.workdir = currentdir        
+        bpy.context.scene.repo = currentdir
+        bpy.context.scene.file = currentfile
+

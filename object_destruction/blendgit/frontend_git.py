@@ -65,16 +65,28 @@ class GitPanel(bpy.types.Panel):
         
         layout = self.layout
         
-        layout.prop(context.scene, "workdir", text = "Working Directory")
+        row = layout.row(align=True)
+        row.prop(context.scene, "workdir", text = "Working Directory")
+        props = row.operator("buttons.directory_browse", text = "", icon = 'FILE_FOLDER')
+        props["filepath"] = context.scene.workdir
         layout.operator("git.status")
         
-        layout.prop(context.scene, "repo", text = "Repository Path")
+        row = layout.row(align=True)
+        row.prop(context.scene, "repo", text = "Repository Path")
+        props = row.operator("buttons.directory_browse", text = "", icon = 'FILE_FOLDER')
+        props["filepath"] = context.scene.repo
         layout.operator("git.init")
         
-        layout.prop(context.scene, "file", text = "File/Directory to add")
+        row = layout.row(align=True)
+        row.prop(context.scene, "file", text = "File to add")
+        props = row.operator("buttons.file_browse", text = "", icon = 'FILESEL')
+        props["filepath"] = context.scene.file
         layout.operator("git.add")
         
-        layout.prop(context.scene, "file", text = "File/Directory to commit")
+        row = layout.row(align=True)
+        row.prop(context.scene, "file", text = "File to commit")
+        props = row.operator("buttons.file_browse", text = "", icon = 'FILESEL')
+        props["filepath"] = context.scene.file
         layout.prop(context.scene, "msg", text = "Commit Message")
         layout.operator("git.commit")
         
@@ -87,4 +99,3 @@ class GitPanel(bpy.types.Panel):
         bpy.context.scene.workdir = currentdir        
         bpy.context.scene.repo = currentdir
         bpy.context.scene.file = currentfile
-

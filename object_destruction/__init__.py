@@ -17,7 +17,8 @@ if not __name__ in "__main__":
        import imp
        imp.reload(destruction_gui)
     else:
-        from . import destruction_gui
+        from object_destruction import destruction_gui
+        from object_destruction.blendgit import frontend_git 
 
 import bpy
 

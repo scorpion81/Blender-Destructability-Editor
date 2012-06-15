@@ -3,19 +3,9 @@ import os
 from . import backend_git as b
 from bpy.app.handlers import persistent
 
-class GitInit(bpy.types.Operator):
-    bl_idname = "git.init"
-    bl_label = "Init"
-    
-    def execute(self, context):
-        g = b.Git(context.scene.git.workdir)
-        g.init()
-        return {'FINISHED'}
-
 class GitLog(bpy.types.Operator):
     bl_idname = "git.log"
     bl_label = "Log"
-    
     
     def populateLog(self, context, log):
         records = log.split("\n\n")
@@ -46,7 +36,7 @@ class GitLog(bpy.types.Operator):
     
     def isRepo(self, context, g):
         s = g.status(context.scene.git.file)
-        stat = s.stdout.read().decode("utf-8")
+        stat = s.decode("utf-8")
         if "fatal: Not a git repository" in stat: #very hackish
             return False
         return True    
@@ -56,7 +46,7 @@ class GitLog(bpy.types.Operator):
         
         if self.isRepo(context, g):
             logRaw = g.log(context.scene.git.file)
-            log = logRaw.stdout.read().decode("utf-8")
+            log = logRaw.decode("utf-8")
             context.scene.git.history.clear()
             
             #print("LOG", log)
@@ -81,18 +71,18 @@ class GitCommit(bpy.types.Operator):
     def execute(self, context):
         g = b.Git(context.scene.git.workdir) 
         s = g.status(context.scene.git.file)
-        status = s.stdout.read().decode("utf-8")
-        print(s.stdout.read())
+        status = s.decode("utf-8")
+        print(status)
         
         if "fatal: Not a git repository" in status: #very hackish
             print("Init and Add")
-            g.init()
-            g.add(context.scene.git.file)
+            print(g.init().decode("utf-8"))
+            print(g.add(context.scene.git.file).decode("utf-8"))
         elif "Untracked" in status:
             print("Add")
-            g.add(context.scene.git.file)
+            print(g.add(context.scene.git.file).decode("utf-8"))
         
-        g.commit(context.scene.git.file, context.scene.git.msg)
+        print(g.commit(context.scene.git.file, context.scene.git.msg).decode("utf-8"))
         bpy.ops.git.log()
         return {'FINISHED'}
     
@@ -104,9 +94,9 @@ class GitUpdate(bpy.types.Operator):
         g = b.Git(context.scene.git.workdir) 
         index = context.scene.git.active_entry
         entry = context.scene.git.history[index]
-        g.update(context.scene.git.file, entry.commit)
+        g.update(context.scene.git.file, context.scene.git.workdir, entry.commit)
         #load file here
-        bpy.ops.wm.open_mainfile(filepath="tmp.blend")
+        bpy.ops.wm.open_mainfile(filepath=bpy.data.filepath)
          
         return {'FINISHED'}
 

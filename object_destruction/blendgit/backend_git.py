@@ -19,7 +19,7 @@ class Git():
     # Getting and Creating Projects 
     #def init(self, quiet=False, bare=False, template ="", separate = "", shared = "")
     def init(self):
-        self.command("init", [self.work])
+        return self.command("init", [self.work])
         
 #    def clone(self, template = "", local = False, shared = False, no_hardlinks = False, 
 #              quiet = False, n = False, bare = False, mirror = False, origin = "", 
@@ -33,7 +33,7 @@ class Git():
 #            edit = False, all = False, update = False, intent_to_add = False, refresh = False,
 #            ignore_errors = False, ignore_missing = False, filepattern)
     def add(self, file):
-        self.command("add", [file])
+        return self.command("add", [file])
         
 #    def status(self, short = False, branch = False, porcelain = False, untracked_files = "", 
 #              ignore_submodules = "", ignored = False, z = False, pathspec) 
@@ -52,13 +52,13 @@ class Git():
 #               allow_empty_message = False, no_verify = False, e = False, author = ""
 #               date = "", cleanup = "", status = False, no_status = False, i = False, o = False)
     def commit(self, file, message):           
-        self.command("commit", ['-m', message, file])
+        return self.command("commit", ['-m', message, file])
     
     def reset(self, file):
-        self.command("reset", ['--hard', file])
+        return self.command("reset", ['--hard', file])
     
     def rm(self, file):
-        self.command("rm", [file])
+        return self.command("rm", [file])
     
 #    def mv(self):
 #        pass
@@ -75,14 +75,14 @@ class Git():
     def log(self, file):
         return self.command("log", [file]) 
     
-    def update(self, file, commit):
+    def update(self, file, path,  commit):
         outRaw = self.command("ls-tree", [commit])
-        out = outRaw.stdout.read().decode("utf-8")
+        out = outRaw.decode("utf-8")
         blobnr = self.blobnr(out, file)
         if blobnr != None:
             blob = self.command("cat-file", ["blob", blobnr])
-            tmp = open("tmp.blend", "wb+")
-            tmp.write(blob.stdout.read())
+            tmp = open(path + file, "wb+")
+            tmp.write(blob)
             tmp.close()
         
     
@@ -151,6 +151,4 @@ class Git():
         p = subprocess.Popen([self.git, cmd] + args,
             stdout = subprocess.PIPE, 
             stderr = subprocess.STDOUT)
-        #out = p.stdout.read().decode("utf-8") # convert bytes to string
-        #print(out)
-        return p
+        return p.stdout.read()

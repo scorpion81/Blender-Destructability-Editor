@@ -164,7 +164,8 @@ class GitPanel(bpy.types.Panel):
         layout.template_list(context.scene.git, "history", context.scene.git, "active_entry" , rows = 5)
         
         if context.scene.git.file != "": 
-            layout.operator("git.update")
+            if len(context.scene.git.history) != 0:
+                layout.operator("git.update")
             
             layout.prop(context.scene.git, "msg", text = "Message")        
             layout.operator("git.commit")

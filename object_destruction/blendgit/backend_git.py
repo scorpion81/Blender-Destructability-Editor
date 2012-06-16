@@ -17,28 +17,16 @@ class Git():
         os.chdir(self.work)
         
     # Getting and Creating Projects 
-    #def init(self, quiet=False, bare=False, template ="", separate = "", shared = "")
     def init(self):
         return self.command("init", [self.work])
         
-#    def clone(self, template = "", local = False, shared = False, no_hardlinks = False, 
-#              quiet = False, n = False, bare = False, mirror = False, origin = "", 
-#              branch = "", upload_pack = "", reference = "", separate_git_dir = "", 
-#              depth = 0, recursive = False, repository)       
-#        pass
+    def clone(self, repo):
+        return self.command("clone", [repo])
 
     # Basic Snapshotting
-        
-#    def add(self, n = False, v = False, force = False, interactive = False, patch = False,
-#            edit = False, all = False, update = False, intent_to_add = False, refresh = False,
-#            ignore_errors = False, ignore_missing = False, filepattern)
+    
     def add(self, file):
         return self.command("add", [file])
-        
-#    def status(self, short = False, branch = False, porcelain = False, untracked_files = "", 
-#              ignore_submodules = "", ignored = False, z = False, pathspec) 
-#        #self.command("status", [])
-#        pass
     
     def status(self, file):
         return self.command("status", [file])
@@ -46,11 +34,6 @@ class Git():
     #def diff(self):
     #    pass    
     
-#    def commit(self, interactive = False, all = False, patch = False, s = False, v = False,
-#               u = "", amend = False, dry_run = False, c = "", C = "", fixup = "",
-#               squash = "", F = "",  message = "", reset_author = False, allow_empty = False,
-#               allow_empty_message = False, no_verify = False, e = False, author = ""
-#               date = "", cleanup = "", status = False, no_status = False, i = False, o = False)
     def commit(self, file, message):           
         return self.command("commit", ['-m', message, file])
     
@@ -60,20 +43,35 @@ class Git():
     def rm(self, file):
         return self.command("rm", [file])
     
-#    def mv(self):
-#        pass
-    
-
-
+    def mv(self, file, dst):
+        return self.command("mv", [file, dst])
+        
+    def revert(self, file, revision):
+        return self.command("revert", [file, revision]) 
+        
+   
     #Branching and Merging 
-#    def branch(self):
-#        pass   
-#    
-#    def checkout(self):
-#        pass
+    def branch(self, branch, mode):
+        if mode == "LIST":
+            return self.command("branch", [])
+        if mode == "ADD":
+            return self.command("branch", [branch])
+        if mode == "DELETE":
+            return self.command("branch", ['-d', branch])   
+    
+    def checkout(self, branch):
+        return self.command("checkout", [branch])
     
     def log(self, file):
         return self.command("log", [file]) 
+    
+    def merge(self, branch, strategy, message):
+        return self.command("merge", ['-X', strategy, '-m', message, branch])
+
+#    def tag(self):
+#        pass
+
+    # Update workdir file with specific version
     
     def update(self, file, path,  commit):
         outRaw = self.command("ls-tree", [commit])
@@ -100,14 +98,7 @@ class Git():
                 return blobnr
         return None
                     
-        
-    
-#    def merge(self):
-#        pass
-#
-#    def tag(self):
-#        pass
-
+  
     # Sharing and Updating Projects
 #    
 #    def fetch(self):

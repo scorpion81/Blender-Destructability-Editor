@@ -88,7 +88,7 @@ class Git():
     
     def blobnr(self, commitdata, file):
         lines = commitdata.split("\n")
-        print("L", lines)
+       # print("L", lines)
         for l in lines:
             tab = l.split("\t")
             name = tab[1]

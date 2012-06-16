@@ -69,6 +69,7 @@ class GitCommit(bpy.types.Operator):
     bl_label = "Commit"
     
     def execute(self, context):
+        
         g = b.Git(context.scene.git.workdir) 
         s = g.status(context.scene.git.file)
         status = s.decode("utf-8")
@@ -84,6 +85,10 @@ class GitCommit(bpy.types.Operator):
         
         print(g.commit(context.scene.git.file, context.scene.git.msg).decode("utf-8"))
         bpy.ops.git.log()
+#        if len(context.scene.git.history) != 0:
+#            context.scene.git.commit = context.scene.git.history[0].commit
+#            print("lastcommit", context.scene.git.commit)
+#        bpy.ops.wm.save_mainfile(check_existing=False)
         return {'FINISHED'}
     
 class GitUpdate(bpy.types.Operator):
@@ -96,7 +101,16 @@ class GitUpdate(bpy.types.Operator):
         entry = context.scene.git.history[index]
         g.update(context.scene.git.file, context.scene.git.workdir, entry.commit)
         #load file here
+        commit = str(entry.commit)
         bpy.ops.wm.open_mainfile(filepath=bpy.data.filepath)
+        
+        #set history pointer
+        print("fetched commit", commit)
+        for i in range(0, len(bpy.context.scene.git.history)):
+            e = bpy.context.scene.git.history[i]
+            if e.commit == commit:
+                bpy.context.scene.git.active_entry = i
+                break
          
         return {'FINISHED'}
 
@@ -126,12 +140,16 @@ class GitPanel(bpy.types.Panel):
     
     def register():
         
-        bpy.types.Scene.git = bpy.props.PointerProperty(type = GitContext, name = "GitContext")
+        if hasattr(bpy.types.Scene, "git") == 0:
+            print("creating GitContext")
+            bpy.types.Scene.git = bpy.props.PointerProperty(type = GitContext, name = "GitContext")
+    #    bpy.types.Scene.commit = bpy.props.StringProperty(name = "commit")
         bpy.app.handlers.load_post.append(GitPanel.file_handler)
         bpy.app.handlers.save_post.append(GitPanel.file_handler)
     
     def unregister():
-        del bpy.types.Scene.git
+        #del bpy.types.Scene.git
+        pass
      
     def draw(self, context):
         

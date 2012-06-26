@@ -1732,7 +1732,7 @@ so only unconnected parts collapse according to their parent relations")
        description = "Select custom ball object here before setup player, this will be shot from the player instead of the default ball")
     voro_exact_shape = props.BoolProperty(name = "voro_exact_shape", description = "Use the vertices of the given object as point cloud")
     voro_particles = props.StringProperty(name = "voro_particles", description = "Use the particles of the given particle system as point cloud")
-    voro_path = props.StringProperty(name="voro_path", default = "test.out",
+    voro_path = props.StringProperty(name="voro_path", default = bpy.app.tempdir + "test.out",
     description = "Set path and filename to intermediate voronoi file here, leave default and it will be created in blender executable dir")
     inner_material = props.StringProperty(name = "inner_material", description = "Material the inner shards will get")
     remesh_depth = props.IntProperty(name="remesh_depth", default = 0, min = 0, max = 10, 

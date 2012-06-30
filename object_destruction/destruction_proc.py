@@ -281,6 +281,9 @@ class Processor():
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = obj
             
+            if len(backup.name.split(".")) == 1:
+                backup.name += ".000"
+            
             largest = self.setLargest(largest, backup)
             
             if obj.destruction.cubify:
@@ -468,6 +471,7 @@ class Processor():
         parent.destruction.cluster_dist = obj.destruction.cluster_dist
         parent.destruction.cluster = obj.destruction.cluster
         parent.destruction.dynamic_mode = obj.destruction.dynamic_mode
+      #  parent.destruction.cell_fracture = obj.destruction.cell_fracture
         
         
         #distribute the object mass to the single pieces, equally for now
@@ -696,7 +700,7 @@ class Processor():
         return child.name.startswith(context.active_object.name)
     
     def applyDataSet(self, context, c, nameEnd, parentName, pos, mass, backup, normals):
-       # print("NAME: ", c.name)
+        #print("NAME: ", c.name)
         
         end = 0
         if not c.name.endswith("backup"):

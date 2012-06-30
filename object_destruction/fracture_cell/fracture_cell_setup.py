@@ -250,8 +250,11 @@ def cell_fracture_objects(scene, obj):
 
         obj_cell = bpy.data.objects.new(name=cell_name, object_data=mesh_dst)
         scene.objects.link(obj_cell)
-        # scene.objects.active = obj_cell
+        #scene.objects.active = obj_cell
         obj_cell.location = center_point
+        
+        #needed for parenting system
+        obj_cell.parent = bpy.context.scene.objects[cell_name].parent
 
         objects.append(obj_cell)
 

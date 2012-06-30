@@ -278,8 +278,27 @@ class Processor():
     def applyCellFracture(self, context, objects):
         
         for obj in objects:
-            self.fracture_cells(context, obj)
-            #TODO Parenting support
+            parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
+            backup = obj
+            
+            largest = self.setLargest(largest, backup)
+            
+            if obj.destruction.cubify:
+                self.cubify(context, obj, bbox, 1)
+            else:
+                self.fracture_cells(context, obj)
+            
+            if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
+                if not obj.destruction.cubify:
+                    context.scene.objects.unlink(backup)
+            else:
+                oldSel = backup.select
+                context.scene.objects.active = backup
+                backup.select = True
+                ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+                backup.select = oldSel
+                
+            self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)
         
                    
     def applyVoronoi(self, context, objects, parts , volume, wall):
@@ -1429,6 +1448,10 @@ class Processor():
            
        
         context.scene.objects.unlink(cutter)
+        
+        if object.destruction.destructionMode == "DESTROY_C":
+            for cube in cubes:
+                self.fracture_cells(context, cube)
         
         if parts > 1: 
             if object.destruction.destructionMode == 'DESTROY_F':

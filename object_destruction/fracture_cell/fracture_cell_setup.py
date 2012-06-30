@@ -180,7 +180,7 @@ def cell_fracture_objects(scene, obj):
                                                      margin_cell=margin)
     
     # some hacks here :S
-    cell_name = obj.name + "_cell"
+    cell_name = obj.name #+ "_cell"
     
     objects = []
     
@@ -259,11 +259,11 @@ def cell_fracture_objects(scene, obj):
 
 
     # move this elsewhere...
-    for obj_cell in objects:
-        game = obj_cell.game
-        game.physics_type = 'RIGID_BODY'
-        game.use_collision_bounds = True
-        game.collision_bounds_type = 'CONVEX_HULL'
+   # for obj_cell in objects:
+#        game = obj_cell.game
+ #       game.physics_type = 'RIGID_BODY'
+  #      game.use_collision_bounds = True
+   #     game.collision_bounds_type = 'CONVEX_HULL'
 
     return objects
 

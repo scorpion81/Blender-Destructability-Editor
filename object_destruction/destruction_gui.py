@@ -44,8 +44,47 @@ class DestructabilityPanel(types.Panel):
             row.prop(context.object.destruction, "destructionMode", text = "Mode")
 
             col = layout.column()
-            if context.object.destruction.destructionMode != 'DESTROY_L':
+            if context.object.destruction.destructionMode != 'DESTROY_L' and \
+               context.object.destruction.destructionMode != 'DESTROY_C':
                 col.prop(context.object.destruction, "partCount", text = "Parts")
+            
+            
+            #gui parts from ideasman42
+            if context.object.destruction.destructionMode == 'DESTROY_C':
+        
+                box = layout.box()
+                col = box.column()
+                col.label("Point Source")
+                #rowsub = col.row()
+                col.prop(context.object.destruction.cell_fracture, "source")
+                col.prop(context.object.destruction.cell_fracture, "source_limit")
+                col.prop(context.object.destruction.cell_fracture, "source_noise")
+                
+                box = layout.box()
+                col = box.column()
+                col.label("Mesh Data")
+                rowsub = col.row(align=True)
+                rowsub.prop(context.object.destruction.cell_fracture, "use_smooth_faces")
+                rowsub.prop(context.object.destruction.cell_fracture, "use_smooth_edges")
+                rowsub.prop(context.object.destruction.cell_fracture, "use_data_match")
+                rowsub = col.row(align=True)
+                rowsub.prop(context.object.destruction.cell_fracture, "margin")
+                # rowsub.prop(self, "use_island_split")  # TODO
+                
+                box = layout.box()
+                col = box.column()    
+                col.label("Object")
+                rowsub = col.row(align=True)
+                rowsub.prop(context.object.destruction.cell_fracture, "use_recenter")
+                
+                box = layout.box()
+                col = box.column()
+                col.label("Recursive Shatter")
+                rowsub = col.row(align=True)
+                rowsub.prop(context.object.destruction.cell_fracture, "recursion")
+                rowsub = col.row()
+                rowsub.prop(context.object.destruction.cell_fracture, "recursion_chance")
+                col.prop(context.object.destruction.cell_fracture, "recursion_chance_select", expand=True)
             
             if context.object.destruction.destructionMode == 'DESTROY_F':
                 col.prop(context.object.destruction, "crack_type", text = "Crack Type")

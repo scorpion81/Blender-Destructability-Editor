@@ -20,6 +20,8 @@ try:
     from bpy.app.handlers import persistent
 except ImportError:
     imported = False
+    
+from object_destruction.fracture_cell import fracture_cell_setup
 
 
 #do the actual non-bge processing here
@@ -38,8 +40,10 @@ class Processor():
                  DestructionContext.destModes[2][0]: 
                      "self.applyVoronoi(context, objects, parts, volume, True)",  
                  DestructionContext.destModes[3][0]: 
-                     "self.applyVoronoi(context, objects, parts, volume, False)", 
-                 DestructionContext.destModes[4][0]:
+                     "self.applyVoronoi(context, objects, parts, volume, False)",
+                 DestructionContext.destModes[4][0]: 
+                     "self.applyCellFracture(context, objects)",  
+                 DestructionContext.destModes[5][0]:
                      "self.applyLooseParts(context, objects)" } 
                      
         #make an object backup if necessary (if undo doesnt handle this)
@@ -270,6 +274,13 @@ class Processor():
             else:
                 largest = str(bEnd)
         return largest
+    
+    def applyCellFracture(self, context, objects):
+        
+        for obj in objects:
+            self.fracture_cells(context, obj)
+            #TODO Parenting support
+        
                    
     def applyVoronoi(self, context, objects, parts , volume, wall):
         
@@ -1523,6 +1534,90 @@ class Processor():
         context.scene.objects.active = obj#context.object 
         
         return ob
+    
+       #from ideasman42    
+    def fracture_cell(self, scene, obj, level):
+        
+        # pull out some args
+        ctx = obj.destruction.cell_fracture
+        use_recenter = ctx.use_recenter
+        use_remove_original = ctx.use_remove_original
+        recursion = ctx.recursion
+        recursion_chance = ctx.recursion_chance
+        recursion_chance_select = ctx.recursion_chance_select
+        
+        objects = fracture_cell_setup.cell_fracture_objects(scene, obj)
+        objects = fracture_cell_setup.cell_fracture_boolean(scene, obj, objects)
+    
+        # todo, split islands.
+    
+        # must apply after boolean.
+        if use_recenter:
+            bpy.ops.object.origin_set({"selected_editable_objects": objects},
+                                      type='ORIGIN_GEOMETRY', center='MEDIAN')
+    
+        if level < recursion:
+    
+            objects_recurse_input = [(i, o) for i, o in enumerate(objects)]
+    
+            if recursion_chance != 1.0:
+                
+                if 0:
+                    random.shuffle(objects_recurse_input)
+                else:
+                    from mathutils import Vector
+                    if recursion_chance_select == 'RANDOM':
+                        pass
+                    elif recursion_chance_select == {'SIZE_MIN', 'SIZE_MAX'}:
+                        objects_recurse_input.sort(key=lambda ob_pair:
+                            (Vector(ob_pair[1].bound_box[0]) -
+                             Vector(ob_pair[1].bound_box[6])).length_squared)
+                        if recursion_chance_select == 'SIZE_MAX':
+                            objects_recurse_input.reverse()
+                    elif recursion_chance_select == {'CURSOR_MIN', 'CURSOR_MAX'}:
+                        print(recursion_chance_select)
+                        c = scene.cursor_location.copy()
+                        objects_recurse_input.sort(key=lambda ob_pair:
+                            (ob_pair[1].matrix_world.translation - c).length_squared)
+                        if recursion_chance_select == 'CURSOR_MAX':
+                            objects_recurse_input.reverse()
+    
+                    objects_recurse_input[int(recursion_chance * len(objects_recurse_input)):] = []
+                    objects_recurse_input.sort()
+    
+            # reverse index values so we can remove from original list.
+            objects_recurse_input.reverse()
+    
+            objects_recursive = []
+            for i, obj_cell in objects_recurse_input:
+                assert(objects[i] is obj_cell)
+                objects_recursive += main_object(scene, obj_cell, level + 1, **kw)
+                if use_remove_original:
+                    scene.objects.unlink(obj_cell)
+                    del objects[i]
+            objects.extend(objects_recursive)
+                    
+    
+        # testing only!
+        obj.hide = True
+        return objects
+    
+    
+    def fracture_cells(self,context, obj):
+        import time
+        t = time.time()
+        scene = context.scene
+        #obj = context.active_object
+        objects = self.fracture_cell(scene, obj, 0)
+    
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj_cell in objects:
+            obj_cell.select = True
+        
+        print("Done! %d objects in %.4f sec" % (len(objects), time.time() - t))
+        return objects
+    
+#end from ideasman42
                         
                     
 #def updateGrid(self, context):
@@ -1646,6 +1741,119 @@ def updateValidGrounds(object):
            
     return None
 
+class CellFractureContext(types.PropertyGroup):
+    
+    #From ideasman42, cell fracture script
+    
+    # -------------------------------------------------------------------------
+    # Source Options
+    source = props.EnumProperty(
+            name="Source",
+            items=(('VERT_OWN', "Own Verts", "Use own vertices"),
+                   ('EDGE_OWN', "Own Edges", "Use own edges"),
+                   ('FACE_OWN', "Own Faces", "Use own faces"),
+                   ('VERT_CHILD', "Child Verts", "Use own vertices"),
+                   ('EDGE_CHILD', "Child Edges", "Use own edges"),
+                   ('FACE_CHILD', "Child Faces", "Use own faces"),
+                   ('PARTICLE', "Particles", ("All particle systems of the "
+                                              "source object")),
+                   ('PENCIL', "Grease Pencil", "This objects grease pencil"),
+                   ),
+            options={'ENUM_FLAG'},
+            default={'PARTICLE', 'VERT_OWN'}  # 'VERT_OWN', 'EDGE_OWN', 'FACE_OWN'
+            )
+
+    source_limit = props.IntProperty(
+            name="Source Limit",
+            description="Limit the number of input points, 0 for unlimited",
+            min=0, max=5000,
+            default=1000,
+            )
+
+    source_noise = props.FloatProperty(
+            name="Noise",
+            description="Randomize point distrobution",
+            min=0.0, max=1.0,
+            default=0.0,
+            )
+
+    # -------------------------------------------------------------------------
+    # Mesh Data Options
+
+    use_smooth_faces = props.BoolProperty(
+            name="Smooth Faces",
+            default=False,
+            )
+
+    use_smooth_edges = props.BoolProperty(
+            name="Smooth Edges",
+            description="Set sharp edges whem disabled",
+            default=True,
+            )
+
+    use_data_match = props.BoolProperty(
+            name="Match Data",
+            description="Match original mesh materials and data layers",
+            default=True,
+            )
+
+    use_island_split = props.BoolProperty(
+            name="Split Islands",
+            description="Split disconnected meshes",
+            default=True,
+            )
+
+    margin = props.FloatProperty(
+            name="Margin",
+            description="Gaps for the fracture (gives more stable physics)",
+            min=0.0, max=1.0,
+            default=0.001,
+            )
+
+    # -------------------------------------------------------------------------
+    # Object Options
+
+    use_recenter = props.BoolProperty(
+            name="Recenter",
+            description="Recalculate the center points after splitting",
+            default=True,
+            )
+
+    use_remove_original = props.BoolProperty(
+            name="Remove Original",
+            description="Removes the parents used to create the shatter",
+            default=True,
+            )
+
+    # -------------------------------------------------------------------------
+    # Recursion
+
+    recursion = props.IntProperty(
+            name="Recursion",
+            description="Break shards resursively",
+            min=0, max=5000,
+            default=0,
+            )
+
+    recursion_chance = props.FloatProperty(
+            name="Random Factor",
+            description="Likelyhood of recursion",
+            min=0.0, max=1.0,
+            default=1.0,
+            )
+
+    recursion_chance_select = props.EnumProperty(
+            name="Recurse Over",
+            items=(('RANDOM', "Random", ""),
+                   ('SIZE_MIN', "Small", "Recursively subdivide smaller objects"),
+                   ('SIZE_MAX', "Big", "Recursively subdivide smaller objects"),
+                   ('CURSOR_MIN', "Cursor Close", "Recursively subdivide objects closer to the cursor"),
+                   ('CURSOR_MAX', "Cursor Far", "Recursively subdivide objects closer to the cursor"),
+                   ),
+            default='SIZE_MIN',
+            )
+
+
 class DestructionContext(types.PropertyGroup):
     
     def getVolumes():
@@ -1661,7 +1869,8 @@ class DestructionContext(types.PropertyGroup):
             # ('DESTROY_K', 'Knife Tool', 'Destroy this object using the knife tool', 2),
              ('DESTROY_V', 'Voronoi Fracture', 'Destroy this object using voronoi decomposition', 2),
              ('DESTROY_VB', 'Voronoi + Boolean', 'Destroy this object using simple voronoi and a boolean  modifier', 3),
-             ('DESTROY_L', 'Loose Parts', 'Destroy this object into its predefined loose parts', 4)] 
+             ('DESTROY_C', 'Blender Cell Fracture', 'Destroy this object using blenders builtin voronoi fracture', 4), 
+             ('DESTROY_L', 'Loose Parts', 'Destroy this object into its predefined loose parts', 5)] 
       
              
     
@@ -1781,6 +1990,9 @@ EACH cube will be further fractured to the given part count")
                         ('LINEAR', 'Linear', 'a'),
                         ('ROUND', 'Round', 'a')),
                 default = 'LINEAR') 
+   
+    cell_fracture = props.PointerProperty(type=CellFractureContext, name = "CellFractureContext")
+   
                 
     
 def initialize():
@@ -1801,5 +2013,9 @@ def initialize():
   
 def uninitialize():
     del Object.destruction
+    
+    
+
+
     
     

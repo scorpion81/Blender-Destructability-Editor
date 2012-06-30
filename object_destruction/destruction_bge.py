@@ -1299,6 +1299,7 @@ def destroyNeighborhood(cell):
         children.extend(destroyCell(c, cells, compound))
     
     if compound != None:
+        #STICKINESS DELAY HERE
         compound.restoreDynamics()
         t = Timer(bpy.context.scene.collapse_delay, destroyFalling, args = [children])
         t.start()
@@ -1327,6 +1328,7 @@ def destroyCell(cell, cells, compound):
                ret.append(o)
                childs.remove(child) 
             else:
+                #STICKINESS DELAY HERE
                 o.restoreDynamics()
                 if delay == 0:
                     o.removeParent()

@@ -27,6 +27,38 @@ class TestSequenceFunctions(unittest.TestCase):
             random.sample(self.seq, 20)
         for element in random.sample(self.seq, 5):
             self.assertTrue(element in self.seq)
+    
+    #        #bge tests
+#        # build up child structure (maybe unnecessary, use bpy properties instead)-> common tests and later refactoring
+#          childs[p] = parent.children
+#          childs[p] = parent.destruction.children
+#          childCount = ExpectedCount
+#        #children dict: children[p] vs. destruction.children, last is better, no extra dictionary necessary
+#        # parent , firstparent, compound buildup
+#        # call collide function manually, test dissolve, swapBackup, activate calls when expected
+#        # only objects in proximity get activated / dissolved
+#        # check for correct hierarchy level (and not further)
+#        # check for only registered objects being swapped
+#        # with flatten hierarchy -> test for one level, all children must be present (in bge!)
+#        #flatten hierarchy -> number of levels must be 1, all parts child of P_0xxxx
+#        # check for hierarchy > 2 -> in bge structure children[p] is different from bpy.destruction.children maybe need both indeed ? 
+#        # without subs: Expected failure in bge (if no real compound present
+#        # dynamic (via bge)
+#        #usage in bge #gone after quitting bge -> test operator, after some time quit bge automatically ? 
+#        #bge
+         #
+         
+         #test swap dynamic, meshes need to be there, children, backups
+#        #check registration of destructables (destructor destroys distinct destroyable up to given level
+#        #problematic: correct destruction in game engine (hierarchy with/without substitution
+#        #omit lower levels of destruction by omitting lower hierarchies, add levels by adding hierarchies 
+#        
+         #bge getFaceDistance/projection
+         #setupClusters
+         #determine leafparents = expectedleafs
+         #all inside "range" must be children (of higher level(s)) 
+         
+         #setup flatten hierarchy, substitution (initial, later)
 
 def run():
     

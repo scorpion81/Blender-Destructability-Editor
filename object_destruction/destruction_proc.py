@@ -1563,10 +1563,9 @@ class Processor():
         return ob
     
        #from ideasman42    
-    def fracture_cell(self, scene, obj, level):
+    def fracture_cell(self, scene, obj, level, ctx):
         
         # pull out some args
-        ctx = obj.destruction.cell_fracture
         use_recenter = ctx.use_recenter
         use_remove_original = ctx.use_remove_original
         recursion = ctx.recursion
@@ -1618,7 +1617,7 @@ class Processor():
             objects_recursive = []
             for i, obj_cell in objects_recurse_input:
                 assert(objects[i] is obj_cell)
-                objects_recursive += main_object(scene, obj_cell, level + 1, **kw)
+                objects_recursive += self.fracture_cell(scene, obj_cell, level + 1, ctx)
                 if use_remove_original:
                     scene.objects.unlink(obj_cell)
                     del objects[i]
@@ -1635,7 +1634,8 @@ class Processor():
         t = time.time()
         scene = context.scene
         #obj = context.active_object
-        objects = self.fracture_cell(scene, obj, 0)
+        ctx = obj.destruction.cell_fracture
+        objects = self.fracture_cell(scene, obj, 0, ctx)
     
         bpy.ops.object.select_all(action='DESELECT')
         for obj_cell in objects:

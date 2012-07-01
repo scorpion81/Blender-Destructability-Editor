@@ -926,7 +926,7 @@ class Processor():
             n = p.normal
             dot = round(n.dot(face.normal), 3)
             prod = round(n.length * face.normal.length, 3)
-            if dot == prod:
+            if dot == prod or n == face.normal:
                 
                 #distance between faces
                 #d = geometry.distance_point_to_plane(face.verts[0].co, mesh.vertices[p.vertices[0]].co, 
@@ -950,7 +950,7 @@ class Processor():
                 p2[2] = p2[2] * backup.scale[2]
                                     
                 d = round((p1 - p2).dot(n), 3)
-                print("Distance", d, n)
+                #print("Distance", d, n)
                 if d == 0:
                     return True                                              
         return False

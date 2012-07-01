@@ -7,7 +7,7 @@ import os
 import random
 from bpy_extras import mesh_utils
 from operator import indexOf
-from mathutils import Vector, Quaternion, Euler, Matrix
+from mathutils import Vector, Quaternion, Euler, Matrix, geometry
 import math
 import bisect
 import sys
@@ -481,12 +481,12 @@ class Processor():
         backupParent = context.active_object
         context.scene.objects.active = obj
         
-        normalList = [p.normal for p in backup.data.polygons]
+        #polyList = [p for p in backup.data.polygons]
          
         if not obj.destruction.flatten_hierarchy:
             parent.layers = self.layer(context.scene.hideLayer)
     
-        [self.applyDataSet(context, c, largest, parentName, pos, mass, backup, normalList) for c in context.scene.objects if 
+        [self.applyDataSet(context, c, largest, parentName, pos, mass, backup) for c in context.scene.objects if 
          self.isRelated(c, context, nameStart, oldPar)] 
          
         if (not obj.destruction.flatten_hierarchy) and context.scene.hideLayer != 1:
@@ -699,7 +699,7 @@ class Processor():
     def valid(self,context, child):
         return child.name.startswith(context.active_object.name)
     
-    def applyDataSet(self, context, c, nameEnd, parentName, pos, mass, backup, normals):
+    def applyDataSet(self, context, c, nameEnd, parentName, pos, mass, backup):
         #print("NAME: ", c.name)
         
         end = 0
@@ -708,9 +708,9 @@ class Processor():
             end = split[1]
         
         if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName, backup) or c.parent == None:
-            self.assign(c, parentName, pos, mass, backup, context, normals)  
+            self.assign(c, parentName, pos, mass, backup, context)  
         
-    def assign(self, c, parentName, pos, mass, backup, context, normals):
+    def assign(self, c, parentName, pos, mass, backup, context):
          
         #correct a parenting "error": the parts are moved pos too far
         #print(backup.parent)
@@ -785,10 +785,11 @@ class Processor():
             c.material_slots[slots].material = material
             
           #  print("Normals", normals)
-            context.scene.objects.active = c
+            polyList = [p for p in backup.data.polygons]
+            context.scene.objects.active = c 
             ops.object.mode_set(mode = 'EDIT')
             bm = bmesh.from_edit_mesh(c.data)
-            facelist = [f for f in bm.faces if not self.testNormal(f.normal, normals)]
+            facelist = [f for f in bm.faces if not self.testNormal(c.data, f, polyList)]
             for f in facelist:
         #        print("Assigning index", slots)
                 f.material_index = slots
@@ -920,15 +921,17 @@ class Processor():
                 c.destruction.groundConnectivity = False
             #    c.destruction.cubify = False
             #    c.destruction.gridDim = (1,1,1)
-        
-        
-    def testNormal(self, normal, normals):
-        for n in normals:
-            dot = round(n.dot(normal), 3)
-            prod = round(n.length * normal.length, 3)
-            if dot == prod or n == normal:
-                #normals point in same direction
-                return True
+            
+    def testNormal(self, mesh, face, polys):
+        for p in polys:
+            n = p.normal
+            dot = round(n.dot(face.normal), 3)
+            prod = round(n.length * face.normal.length, 3)
+            if dot == prod:
+                #d = geometry.distance_point_to_plane(face.calc_center_median(),mesh.vertices[p.vertices[0]].co,
+                #                                     mesh.vertices[p.vertices[1]].co)
+                #if abs(d) > 0.1:
+                return True                                              
         return False
         
            
@@ -1625,7 +1628,7 @@ class Processor():
                     
     
         # testing only!
-        obj.hide = True
+        #obj.hide = True
         return objects
     
     

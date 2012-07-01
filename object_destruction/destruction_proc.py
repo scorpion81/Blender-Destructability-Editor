@@ -784,12 +784,10 @@ class Processor():
             material = data.materials[materialname]
             c.material_slots[slots].material = material
             
-          #  print("Normals", normals)
-            polyList = [p for p in backup.data.polygons]
             context.scene.objects.active = c 
             ops.object.mode_set(mode = 'EDIT')
             bm = bmesh.from_edit_mesh(c.data)
-            facelist = [f for f in bm.faces if not self.testNormal(c.data, f, polyList)]
+            facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
             for f in facelist:
         #        print("Assigning index", slots)
                 f.material_index = slots
@@ -922,16 +920,39 @@ class Processor():
             #    c.destruction.cubify = False
             #    c.destruction.gridDim = (1,1,1)
             
-    def testNormal(self, mesh, face, polys):
-        for p in polys:
+    def testNormal(self, backup, c, face):
+        
+        for p in backup.data.polygons:
             n = p.normal
             dot = round(n.dot(face.normal), 3)
             prod = round(n.length * face.normal.length, 3)
             if dot == prod:
-                #d = geometry.distance_point_to_plane(face.calc_center_median(),mesh.vertices[p.vertices[0]].co,
+                
+                #distance between faces
+                #d = geometry.distance_point_to_plane(face.verts[0].co, mesh.vertices[p.vertices[0]].co, 
                 #                                     mesh.vertices[p.vertices[1]].co)
-                #if abs(d) > 0.1:
-                return True                                              
+                p1 = Vector(face.verts[0].co)
+                p2 = Vector(backup.data.vertices[p.vertices[0]].co)
+                
+                p1 = p1 + c.location
+                p2 = p2 + backup.location
+                 
+                #handle scale and rotation too
+                p1 = p1 * c.rotation_euler.to_matrix()
+                p2 = p2 * backup.rotation_euler.to_matrix()
+                
+                p1[0] = p1[0] * c.scale[0]
+                p1[1] = p1[1] * c.scale[1]
+                p1[2] = p1[2] * c.scale[2]
+                
+                p2[0] = p2[0] * backup.scale[0]
+                p2[1] = p2[1] * backup.scale[1]
+                p2[2] = p2[2] * backup.scale[2]
+                                    
+                d = round((p1 - p2).dot(n), 3)
+                print("Distance", d, n)
+                if d == 0:
+                    return True                                              
         return False
         
            

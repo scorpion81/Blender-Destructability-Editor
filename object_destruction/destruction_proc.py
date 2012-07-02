@@ -2093,6 +2093,10 @@ EACH cube will be further fractured to the given part count")
                 default = 'LINEAR') 
    
     cell_fracture = props.PointerProperty(type=CellFractureContext, name = "CellFractureContext")
+    
+    advanced_fracture = props.BoolProperty(name = "advanced_fracture", description = "Show Advanced Fracture Options")
+    auto_recursion = props.BoolProperty(name = "auto_recursion", description = "Show Automatic Recursion Options")
+    setup_gameengine = props.BoolProperty(name = "setup_gameengine", description = "Show Game Engine Setup Options")
    
                 
     

@@ -23,24 +23,28 @@ class DestructabilityPanel(types.Panel):
     def unregister():
         dp.uninitialize()
     
-    def draw(self, context):        
-        
-        layout = self.layout
-        
+    
+    def isMesh(self, context):
+        return context.object.type == 'MESH'
+    
+    def isParent(self, context):
         meshChild = False
         for o in context.object.children:
             if o.type == 'MESH':
                 meshChild = True
                 break;
-        isParent = context.object.type == 'EMPTY' and meshChild
-        isMesh = context.object.type == 'MESH'
+        return context.object.type == 'EMPTY' and meshChild
+    
+    def draw_basic_fracture(self, context):
         
-        box = layout.box()
-        if isParent:
-            row = box.row()
+        layout = self.layout
+         
+        if self.isParent(context):
+            row = layout.row()
             row.prop(context.object.destruction, "destroyable", text = "Destroyable")
         
-        if isMesh:
+        if self.isMesh(context):
+            box = layout.box()
             row = box.row()
             row.prop(context.object.destruction, "destructionMode", text = "Mode")
 
@@ -116,17 +120,12 @@ class DestructabilityPanel(types.Panel):
                     row = col.row()
                     row.prop(context.object.destruction, "remesh_depth", text="Remesh Depth")
             
-            #use recursion for all methods
-            if context.object.destruction.destructionMode != 'DESTROY_L':     
-                box = layout.box()
-                col = box.column()
-                col.label("Recursive Shatter")
-                rowsub = col.row(align=True)
-                rowsub.prop(context.object.destruction.cell_fracture, "recursion")
-                rowsub = col.row()
-                rowsub.prop(context.object.destruction.cell_fracture, "recursion_chance")
-                col.prop(context.object.destruction.cell_fracture, "recursion_chance_select", expand=True)
             
+        
+    def draw_advanced_fracture(self, context):
+        
+        layout = self.layout
+        if self.isMesh(context):    
             box = layout.box()           
             if context.object.destruction.destructionMode != 'DESTROY_L':        
                 row = box.row()
@@ -138,22 +137,8 @@ class DestructabilityPanel(types.Panel):
                 col = row.column()
                 col.prop(context.object.destruction, "cubifyDim", text = "Intersection Grid")
         
-       # if isMesh or isParent:
-       #    row = layout.row()
-       #    row.prop(context.active_object.destruction, "transmitMode",  text = "Apply To")
-        row = box.row()
-        names = []
-        for o in data.objects:
-            if o.destruction != None:
-                if o.destruction.is_backup_for != None:
-                    names.append(o.destruction.is_backup_for)
-        if context.object.name in names and isParent:
-            box = layout.box()
-            row = box.row()
-            row.operator("object.undestroy")
-  
-        elif isMesh:
             if context.object.destruction.destructionMode != 'DESTROY_L':
+                row = box.row()
                 row.prop_search(context.object.destruction, "inner_material", data, 
                     "materials", icon = 'MATERIAL', text = "Inner Material:")    
         
@@ -162,7 +147,7 @@ class DestructabilityPanel(types.Panel):
             
             if (context.object.destruction.dynamic_mode == "D_PRECALCULATED"):
                 
-                if isMesh or isParent:
+                if self.isMesh(context) or self.isParent(context):
                     row = box.row()
                     row.prop(context.object.destruction, "cluster", text = "Use Clusters")
                     if context.object.destruction.cluster:
@@ -177,15 +162,30 @@ class DestructabilityPanel(types.Panel):
                     row = box.row()
                     row.prop(context.scene, "hideLayer", text = "Hierarchy Layer")
                     
-                box = layout.box() 
-                row = box.row()
-                row.operator("object.destroy")
             else:
                 row = box.row()
                 row.prop(context.scene, "dummyPoolSize", text = "Dummy Object Pool Size")
-            
+
+    
+    def draw_recursion(self, context):
+        
+        layout = self.layout
+        #use recursion for all methods
+        if context.object.destruction.destructionMode != 'DESTROY_L' and self.isMesh(context):     
+            box = layout.box()
+            col = box.column()
+            col.label("Recursive Shatter")
+            rowsub = col.row(align=True)
+            rowsub.prop(context.object.destruction.cell_fracture, "recursion")
+            rowsub = col.row()
+            rowsub.prop(context.object.destruction.cell_fracture, "recursion_chance")
+            col.prop(context.object.destruction.cell_fracture, "recursion_chance_select", expand=True)
+        
+    def draw_gameengine_setup(self, context):
+        
+        layout = self.layout
         layout.separator()
-        box = layout.box()
+        box = layout.box() 
         row = box.row()
         row.label("Game Engine Settings: ")
         row.scale_x = 1.5
@@ -195,10 +195,10 @@ class DestructabilityPanel(types.Panel):
         #if isMesh or isParent:
         #    layout.prop(context.object.destruction, "deform", text = "Enable Deformation")
        
-        if isMesh or isParent:
+        if self.isMesh(context) or self.isParent(context):
             box.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
         
-        if isParent:
+        if self.isParent(context):
             box.prop(context.object.destruction, "groundConnectivity", text = "Calculate Ground Connectivity")
             
             if context.object.destruction.groundConnectivity:
@@ -230,7 +230,7 @@ class DestructabilityPanel(types.Panel):
                 if context.scene.useGravityCollapse:
                     row.prop(context.scene, "collapse_delay", text = "Collapse Delay")
        
-        if isMesh or isParent: #if destroyables were able to be dynamic....
+        if self.isMesh(context) or self.isParent(context): #if destroyables were able to be dynamic....
             box.prop(context.object.destruction, "destructor", text = "Destructor")
             
             if context.object.destruction.destructor:
@@ -312,8 +312,54 @@ class DestructabilityPanel(types.Panel):
 #                
 #            row.operator("bge_test.run", text = txt) 
         
+    
+    def draw_the_button(self, context):
         
+        layout = self.layout
+        box = layout.box() 
+        row = box.row()
+        row.operator("object.destroy")
         
+    def draw_the_undo_button(self, context):
+        
+        layout = self.layout
+        names = []
+        for o in data.objects:
+            if o.destruction != None:
+                if o.destruction.is_backup_for != None:
+                    names.append(o.destruction.is_backup_for)
+        if context.object.name in names:
+            box = layout.box()
+            row = box.row()
+            row.operator("object.undestroy")
+                    
+    
+    def draw(self, context):        
+        
+        layout = self.layout
+        self.draw_basic_fracture(context)
+        
+        if self.isMesh(context):
+            layout.prop(context.object.destruction, "advanced_fracture", text = "Advanced Fracture Options")
+            if context.object.destruction.advanced_fracture:
+                self.draw_advanced_fracture(context)
+        
+            layout.prop(context.object.destruction, "auto_recursion", text = "Automatic Recursion Options")
+            if context.object.destruction.auto_recursion:
+                self.draw_recursion(context)
+                
+        
+        if self.isMesh(context) and context.object.destruction.dynamic_mode == "D_PRECALCULATED":
+            self.draw_the_button(context)
+        
+        if self.isParent(context):
+            self.draw_the_undo_button(context)
+        
+        layout.prop(context.object.destruction, "setup_gameengine", text = "Game Engine Setup Options")
+        if context.object.destruction.setup_gameengine:
+            self.draw_gameengine_setup(context)
+        
+               
 class AddGroundOperator(types.Operator):
     bl_idname = "ground.add"
     bl_label = "add ground"

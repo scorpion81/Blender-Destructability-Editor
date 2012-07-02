@@ -291,3 +291,5 @@ def fracture_basic(context, objects, nshards, crack_type, roughness):
             #print('fracture_basic: lenobs', len(context.scene.objects))
 
         iter += 1
+        
+    return shards

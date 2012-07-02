@@ -35,15 +35,16 @@ class DestructabilityPanel(types.Panel):
         isParent = context.object.type == 'EMPTY' and meshChild
         isMesh = context.object.type == 'MESH'
         
+        box = layout.box()
         if isParent:
-            row = layout.row()
+            row = box.row()
             row.prop(context.object.destruction, "destroyable", text = "Destroyable")
         
         if isMesh:
-            row = layout.row()
+            row = box.row()
             row.prop(context.object.destruction, "destructionMode", text = "Mode")
 
-            col = layout.column()
+            col = box.column()
             if context.object.destruction.destructionMode != 'DESTROY_L' and \
                context.object.destruction.destructionMode != 'DESTROY_C':
                 col.prop(context.object.destruction, "partCount", text = "Parts")
@@ -76,15 +77,6 @@ class DestructabilityPanel(types.Panel):
                 col.label("Object")
                 rowsub = col.row(align=True)
                 rowsub.prop(context.object.destruction.cell_fracture, "use_recenter")
-                
-                box = layout.box()
-                col = box.column()
-                col.label("Recursive Shatter")
-                rowsub = col.row(align=True)
-                rowsub.prop(context.object.destruction.cell_fracture, "recursion")
-                rowsub = col.row()
-                rowsub.prop(context.object.destruction.cell_fracture, "recursion_chance")
-                col.prop(context.object.destruction.cell_fracture, "recursion_chance_select", expand=True)
             
             if context.object.destruction.destructionMode == 'DESTROY_F':
                 col.prop(context.object.destruction, "crack_type", text = "Crack Type")
@@ -123,27 +115,41 @@ class DestructabilityPanel(types.Panel):
                 if context.object.destruction.destructionMode == 'DESTROY_VB':
                     row = col.row()
                     row.prop(context.object.destruction, "remesh_depth", text="Remesh Depth")
+            
+            #use recursion for all methods
+            if context.object.destruction.destructionMode != 'DESTROY_L':     
+                box = layout.box()
+                col = box.column()
+                col.label("Recursive Shatter")
+                rowsub = col.row(align=True)
+                rowsub.prop(context.object.destruction.cell_fracture, "recursion")
+                rowsub = col.row()
+                rowsub.prop(context.object.destruction.cell_fracture, "recursion_chance")
+                col.prop(context.object.destruction.cell_fracture, "recursion_chance_select", expand=True)
+            
+            box = layout.box()           
             if context.object.destruction.destructionMode != 'DESTROY_L':        
-                row = layout.row()
+                row = box.row()
                 row.prop(context.object.destruction, "cubify", text = "Intersect with Grid")
             
             if context.object.destruction.destructionMode != 'DESTROY_L' and \
             context.object.destruction.cubify:
-                row = layout.row()
+                row = box.row()
                 col = row.column()
                 col.prop(context.object.destruction, "cubifyDim", text = "Intersection Grid")
         
        # if isMesh or isParent:
        #    row = layout.row()
        #    row.prop(context.active_object.destruction, "transmitMode",  text = "Apply To")
-        
-        row = layout.row()
+        row = box.row()
         names = []
         for o in data.objects:
             if o.destruction != None:
                 if o.destruction.is_backup_for != None:
                     names.append(o.destruction.is_backup_for)
         if context.object.name in names and isParent:
+            box = layout.box()
+            row = box.row()
             row.operator("object.undestroy")
   
         elif isMesh:
@@ -151,34 +157,36 @@ class DestructabilityPanel(types.Panel):
                 row.prop_search(context.object.destruction, "inner_material", data, 
                     "materials", icon = 'MATERIAL', text = "Inner Material:")    
         
-            row = layout.row()
+            row = box.row()
             row.prop(context.object.destruction, "dynamic_mode", expand = True)
-        
+            
             if (context.object.destruction.dynamic_mode == "D_PRECALCULATED"):
                 
                 if isMesh or isParent:
-                    row = layout.row()
+                    row = box.row()
                     row.prop(context.object.destruction, "cluster", text = "Use Clusters")
                     if context.object.destruction.cluster:
-                        row = layout.row()
+                        row = box.row()
                         col = row.column()
                         col.prop(context.object.destruction, "cluster_dist", text = "Cluster Distance in %")
             
-                row = layout.row()
+                row = box.row()
                 row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
             
                 if not context.object.destruction.flatten_hierarchy:    
-                    row = layout.row()
+                    row = box.row()
                     row.prop(context.scene, "hideLayer", text = "Hierarchy Layer")
-                 
-                row = layout.row()
+                    
+                box = layout.box() 
+                row = box.row()
                 row.operator("object.destroy")
             else:
-                row = layout.row()
+                row = box.row()
                 row.prop(context.scene, "dummyPoolSize", text = "Dummy Object Pool Size")
             
         layout.separator()
-        row = layout.row()
+        box = layout.box()
+        row = box.row()
         row.label("Game Engine Settings: ")
         row.scale_x = 1.5
         row.scale_y = 1.5
@@ -188,66 +196,66 @@ class DestructabilityPanel(types.Panel):
         #    layout.prop(context.object.destruction, "deform", text = "Enable Deformation")
        
         if isMesh or isParent:
-            layout.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
+            box.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
         
         if isParent:
-            layout.prop(context.object.destruction, "groundConnectivity", text = "Calculate Ground Connectivity")
+            box.prop(context.object.destruction, "groundConnectivity", text = "Calculate Ground Connectivity")
             
             if context.object.destruction.groundConnectivity:
-                row = layout.row()
+                row = box.row()
                 row.label(text = "Connected Grounds")
                 row.active = context.object.destruction.groundConnectivity
         
-                row = layout.row()       
+                row = box.row()       
                 row.template_list(context.object.destruction, "grounds", 
                           context.object.destruction, "active_ground", rows = 2)
                 row.operator("ground.remove", icon = 'ZOOMOUT', text = "")
                 row.active = context.object.destruction.groundConnectivity
         
-                row = layout.row()   
+                row = box.row()   
                 row.prop_search(context.object.destruction, "groundSelector", 
                         context.scene, "objects", icon = 'OBJECT_DATA', text = "Ground:")
                         
                 row.operator("ground.add", icon = 'ZOOMIN', text = "")
                 row.active = context.object.destruction.groundConnectivity
             
-                row = layout.row()
+                row = box.row()
                 col = row.column()
                 col.prop(context.object.destruction, "gridDim", text = "Connectivity Grid")
                 #col.active = context.object.destruction.groundConnectivity
                 
-                row = layout.row()
+                row = box.row()
                 row.prop(context.scene, "useGravityCollapse", text = "Use Gravity Collapse")
                 
                 if context.scene.useGravityCollapse:
                     row.prop(context.scene, "collapse_delay", text = "Collapse Delay")
        
         if isMesh or isParent: #if destroyables were able to be dynamic....
-            layout.prop(context.object.destruction, "destructor", text = "Destructor")
+            box.prop(context.object.destruction, "destructor", text = "Destructor")
             
             if context.object.destruction.destructor:
-                row = layout.row()
+                row = box.row()
                 row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
                 row.active = context.object.destruction.destructor
                 
-                row = layout.row()
+                row = box.row()
                 row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
                 row.active = context.object.destruction.destructor
                 
-                row = layout.row()
+                row = box.row()
                 row.prop(context.object.destruction, "radius", text = "Radius")
                 row.active = context.object.destruction.destructor
                 
-                row = layout.row()
+                row = box.row()
                 row.prop(context.object.destruction, "modifier", text = "Speed Modifier")
                 row.active = context.object.destruction.destructor
                 
             
-                row = layout.row()
+                row = box.row()
                 row.label(text = "Destructor Targets")
                 row.active = context.object.destruction.destructor
             
-                row = layout.row()
+                row = box.row()
             
                 row.template_list(context.object.destruction, "destructorTargets", 
                               context.object.destruction, "active_target" , rows = 2) 
@@ -255,7 +263,7 @@ class DestructabilityPanel(types.Panel):
                 row.operator("target.remove", icon = 'ZOOMOUT', text = "") 
                 row.active = context.object.destruction.destructor  
             
-                row = layout.row()
+                row = box.row()
                 
                 row.prop_search(context.object.destruction, "targetSelector", context.scene, 
                            "objects", icon = 'OBJECT_DATA', text = "Destroyable:")
@@ -263,11 +271,11 @@ class DestructabilityPanel(types.Panel):
                 row.operator("target.add", icon = 'ZOOMIN', text = "")
             #row.active = context.object.destruction.destructor 
         
-        row = layout.row()
+        row = box.row()
         row.prop_search(context.object.destruction, "custom_ball", context.scene, 
                     "objects", icon = 'OBJECT_DATA', text = "Custom Ball:")
         
-        row = layout.row()
+        row = box.row()
         col = row.column() 
     
         col.operator("player.setup")
@@ -277,13 +285,13 @@ class DestructabilityPanel(types.Panel):
         col.operator("player.clear")
         col.active = context.scene.player
     
-        row = layout.row()
+        row = box.row()
     
         txt = "To Game Parenting"
    
         row.operator("parenting.convert", text = txt)
         row.active = not context.scene.converted
-        row = layout.row()
+        row = box.row()
         row.operator("game.start")
         
 #        layout.separator()

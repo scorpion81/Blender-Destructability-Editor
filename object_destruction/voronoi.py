@@ -136,6 +136,7 @@ def buildCell(cell, name, walls):
     ops.object.mode_set(mode = 'OBJECT')
     
 #    lock.release()
+    return obj
     
    
     
@@ -158,9 +159,10 @@ def buildCellMesh(cells, name, walls):
 #        
 #     for t in threads:
 #        t.join()       
-       
+    objs = []   
     for cell in cells: 
-        buildCell(cell, name, walls)
+        objs.append(buildCell(cell, name, walls))
+    return objs
         
 
 def corners(obj, impactLoc = Vector((0,0,0))):
@@ -343,70 +345,74 @@ def voronoiCube(context, obj, parts, vol, walls):
     
     
     context.scene.objects.active = obj
-    buildCellMesh(records, obj.name, walls)
+    objs = buildCellMesh(records, obj.name, walls)
     
     print("Mesh Construction Time ", clock() - start)
-    start = clock()
     
-    if not walls:
+    if walls:
+        return objs
+    
+    start = clock()   
+    context.scene.objects.active = obj
+    if obj.destruction.remesh_depth > 0:
+        rem = obj.modifiers.new("Remesh", 'REMESH')
+        rem.mode = 'SHARP'
+        rem.octree_depth = obj.destruction.remesh_depth
+        rem.scale = 0.9
+        rem.sharpness = 1.0
+        rem.remove_disconnected_pieces = False
+        #  rem.threshold = 1.0
+   
+        #context.scene.objects.active = obj
+        ctx = context.copy()
+        ctx["object"] = obj
+        ctx["modifier"] = rem
+        ops.object.modifier_apply(ctx, apply_as='DATA', modifier = rem.name)
+    
+    [deselect(o) for o in context.scene.objects]
+    
+    #try to fix non-manifolds...
+    ops.object.mode_set(mode = 'EDIT')
+    ops.mesh.remove_doubles()
+    ops.mesh.select_all(action = 'DESELECT')
+    ops.mesh.select_non_manifold()
+    #ops.mesh.edge_collapse()
+    bm = bmesh.from_edit_mesh(obj.data)
+    verts = [v for v in bm.verts if len(v.link_edges) < 3 and v.select]
+    for v in verts:
+        print(len(v.link_edges))
+        bm.verts.remove(v)
         
-        context.scene.objects.active = obj
-        if obj.destruction.remesh_depth > 0:
-            rem = obj.modifiers.new("Remesh", 'REMESH')
-            rem.mode = 'SHARP'
-            rem.octree_depth = obj.destruction.remesh_depth
-            rem.scale = 0.9
-            rem.sharpness = 1.0
-            rem.remove_disconnected_pieces = False
-            #  rem.threshold = 1.0
-       
-            #context.scene.objects.active = obj
-            ctx = context.copy()
-            ctx["object"] = obj
-            ctx["modifier"] = rem
-            ops.object.modifier_apply(ctx, apply_as='DATA', modifier = rem.name)
-        
-        [deselect(o) for o in context.scene.objects]
-        
-        #try to fix non-manifolds...
-        ops.object.mode_set(mode = 'EDIT')
-        ops.mesh.remove_doubles()
-        ops.mesh.select_all(action = 'DESELECT')
-        ops.mesh.select_non_manifold()
-        #ops.mesh.edge_collapse()
-        bm = bmesh.from_edit_mesh(obj.data)
-        verts = [v for v in bm.verts if len(v.link_edges) < 3 and v.select]
-        for v in verts:
-            print(len(v.link_edges))
-            bm.verts.remove(v)
-            
-        ops.mesh.select_all(action = 'DESELECT')
-        ops.mesh.select_non_manifold()
-        ops.mesh.edge_collapse()   
-        ops.object.mode_set(mode = 'OBJECT')
-        
-        newnames = []       
-        for o in context.scene.objects:
-            if o.name not in oldnames:
-                context.scene.objects.active = o
-                newnames.extend(booleanIntersect(context, o, obj, oldnames))
-                if len(o.data.vertices) == 0:
-                   context.scene.objects.unlink(o)
-                else:
-                    oldnames.append(o.name)
-                    
-        for n in newnames:
-            if n not in oldnames and n in context.scene.objects:
-                ob = context.scene.objects[n]
-                context.scene.objects.active = ob
-                ob.select = True
-                ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
-                ob.select = False
-                oldnames.append(ob.name)
-                       
-        [select(o) for o in context.scene.objects]
-        print("Boolean Time ", clock() - start)      
-  #  context.scene.objects.unlink(obj) 
+    ops.mesh.select_all(action = 'DESELECT')
+    ops.mesh.select_non_manifold()
+    ops.mesh.edge_collapse()   
+    ops.object.mode_set(mode = 'OBJECT')
+    
+    newnames = []       
+    for o in context.scene.objects:
+        if o.name not in oldnames:
+            context.scene.objects.active = o
+            newnames.extend(booleanIntersect(context, o, obj, oldnames))
+            if len(o.data.vertices) == 0:
+                context.scene.objects.unlink(o)
+            else:
+                oldnames.append(o.name)
+                
+    for n in newnames:
+        if n not in oldnames and n in context.scene.objects:
+            ob = context.scene.objects[n]
+            context.scene.objects.active = ob
+            ob.select = True
+            ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+            ob.select = False
+            oldnames.append(ob.name)
+                   
+    [select(o) for o in context.scene.objects]
+    
+    objs = [o for o in context.scene.objects if o.name in newnames]
+    print("Boolean Time ", clock() - start)      
+  #  context.scene.objects.unlink(obj)
+    return objs
     
 def booleanIntersect(context, o, obj, oldnames):  
             
@@ -428,7 +434,7 @@ def booleanIntersect(context, o, obj, oldnames):
     
     newnames = []
     for ob in context.scene.objects:
-        if ob.name not in oldnames and ob.name != o.name:
+       if ob.name not in oldnames and ob.name != o.name:
            newnames.append(ob.name)
     
     oldSel = o.select  

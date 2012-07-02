@@ -31,35 +31,18 @@ class Processor():
     def processDestruction(self, context, impactLoc):
         
         dd.DataStore.impactLocation = impactLoc   
-        modes = {DestructionContext.destModes[0][0]: 
-                    "self.applyFracture(context, objects, parts, roughness, crack_type)",
-                 DestructionContext.destModes[1][0]: 
-                     "self.applyExplo(context, objects, parts, granularity, thickness, False, False)",
-                # DestructionContext.destModes[2][0]: 
-                #     "self.applyKnife(context, objects, parts, jitter, granularity, cut_type)",
-                 DestructionContext.destModes[2][0]: 
-                     "self.applyVoronoi(context, objects, parts, volume, True)",  
-                 DestructionContext.destModes[3][0]: 
-                     "self.applyVoronoi(context, objects, parts, volume, False)",
-                 DestructionContext.destModes[4][0]: 
-                     "self.applyCellFracture(context, objects)",  
-                 DestructionContext.destModes[5][0]:
-                     "self.applyLooseParts(context, objects)" } 
-                     
-        #make an object backup if necessary (if undo doesnt handle this)
-        #according to mode call correct method
-        mode = context.active_object.destruction.destructionMode
         parts = context.active_object.destruction.partCount
-        granularity = context.active_object.destruction.pieceGranularity
-        thickness = context.active_object.destruction.wallThickness
-        destroyable = context.active_object.destruction.destroyable
-        roughness = context.active_object.destruction.roughness
-        crack_type = context.active_object.destruction.crack_type
-        groundConnectivity = context.active_object.destruction.groundConnectivity
+        #make an object backup if necessary (if undo doesnt handle this)
+#        granularity = context.active_object.destruction.pieceGranularity
+#        thickness = context.active_object.destruction.wallThickness
+#        destroyable = context.active_object.destruction.destroyable
+#        roughness = context.active_object.destruction.roughness
+#        crack_type = context.active_object.destruction.crack_type
+#        groundConnectivity = context.active_object.destruction.groundConnectivity
         cubify = context.active_object.destruction.cubify
-        jitter = context.active_object.destruction.jitter
-        cut_type = context.active_object.destruction.cut_type
-        volume = context.active_object.destruction.voro_volume
+#        jitter = context.active_object.destruction.jitter
+#        cut_type = context.active_object.destruction.cut_type
+#        volume = context.active_object.destruction.voro_volume
         
         objects = []
         #determine HERE, which objects will be decomposed
@@ -78,11 +61,83 @@ class Processor():
             self.copySettings(context, objects)
         
         if (parts > 1) or ((parts == 1) and cubify):
-            print("OBJECTS: ", objects)   
-            eval(modes[mode])
-        
+            print("OBJECTS: ", objects)
+            self.destroy(context, objects, 0)   
+            
         return None
     
+    def destroy(self, context, objects, level):
+    
+        modes = {DestructionContext.destModes[0][0]: 
+                    "self.applyFracture(context, objects)",
+                 DestructionContext.destModes[1][0]: 
+                     "self.applyExplo(context, objects)",
+                 DestructionContext.destModes[2][0]: 
+                     "self.applyVoronoi(context, objects, True)",  
+                 DestructionContext.destModes[3][0]: 
+                     "self.applyVoronoi(context, objects, False)",
+                 DestructionContext.destModes[4][0]: 
+                     "self.applyCellFracture(context, objects)",  
+                 DestructionContext.destModes[5][0]:
+                     "self.applyLooseParts(context, objects)" } 
+        #according to mode call correct method
+        
+        #hack for boolean fracture
+        if context.active_object == None:
+            for o in objects:
+                if o.name in context.scene.objects:
+                    context.scene.objects.active = context.scene.objects[o.name]
+                    
+        mode = context.active_object.destruction.destructionMode
+        ctx = context.active_object.destruction.cell_fracture
+            
+        recursion = ctx.recursion
+        recursion_chance = ctx.recursion_chance
+        recursion_chance_select = ctx.recursion_chance_select
+        use_remove_original = ctx.use_remove_original
+                     
+        if level < recursion:
+            objects_recurse_input = [(i, o) for i, o in enumerate(objects)]
+    
+            if recursion_chance != 1.0:
+                
+                if 0:
+                    random.shuffle(objects_recurse_input)
+                else:
+                    from mathutils import Vector
+                    if recursion_chance_select == 'RANDOM':
+                        pass
+                    elif recursion_chance_select == {'SIZE_MIN', 'SIZE_MAX'}:
+                        objects_recurse_input.sort(key=lambda ob_pair:
+                            (Vector(ob_pair[1].bound_box[0]) -
+                             Vector(ob_pair[1].bound_box[6])).length_squared)
+                        if recursion_chance_select == 'SIZE_MAX':
+                            objects_recurse_input.reverse()
+                    elif recursion_chance_select == {'CURSOR_MIN', 'CURSOR_MAX'}:
+                        print(recursion_chance_select)
+                        c = scene.cursor_location.copy()
+                        objects_recurse_input.sort(key=lambda ob_pair:
+                            (ob_pair[1].matrix_world.translation - c).length_squared)
+                        if recursion_chance_select == 'CURSOR_MAX':
+                            objects_recurse_input.reverse()
+    
+                    objects_recurse_input[int(recursion_chance * len(objects_recurse_input)):] = []
+                    objects_recurse_input.sort()
+    
+            # reverse index values so we can remove from original list.
+            objects_recurse_input.reverse()
+    
+            objects_recursive = []
+            for i, obj in objects_recurse_input:
+                assert(objects[i] is obj)
+                objects_recursive += self.destroy(context, eval(modes[mode]),  level + 1)
+                #if use_remove_original
+                #    context.scene.objects.unlink(obj_cell)
+                #    del objects[i]
+            #objects.extend(objects_recursive)
+            return objects
+        else:
+            return eval(modes[mode])
     
 #    def applyToChildren(self, ob, objects, transMode):
 #        for c in ob.children:
@@ -177,7 +232,7 @@ class Processor():
         if thickness > 0:
             solidify.thickness = thickness    
     
-    def explo(self, context, obj, parts, granularity, thickness, massive, pairwise):
+    def explo(self, context, obj, partCount, granularity, thickness):
                    
         context.scene.objects.active = obj # context.object
         currentParts = [context.active_object.name]
@@ -188,14 +243,16 @@ class Processor():
             ops.object.mode_set()
 
             #explosion modifier specific    
-        self.previewExplo(context, parts, thickness)
-        self.separateExplo(context, thickness)
+        self.previewExplo(context, partCount, thickness)
+        parts = self.separateExplo(context, thickness)
         
         for o in context.scene.objects:
             o.select = True
         ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
         for o in context.scene.objects:
-            o.select = False 
+            o.select = False
+             
+        return parts
             
     
     def looseParts(self, context, parent, depth):
@@ -277,6 +334,7 @@ class Processor():
     
     def applyCellFracture(self, context, objects):
         
+        parts = []
         for obj in objects:
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = obj
@@ -287,9 +345,9 @@ class Processor():
             largest = self.setLargest(largest, backup)
             
             if obj.destruction.cubify:
-                self.cubify(context, obj, bbox, 1)
+                parts.extend(self.cubify(context, obj, bbox, 1))
             else:
-                self.fracture_cells(context, obj)
+                parts.extend(self.fracture_cells(context, obj))
             
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                 if not obj.destruction.cubify:
@@ -302,12 +360,16 @@ class Processor():
                 backup.select = oldSel
                 
             self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)
-        
+        return parts
                    
-    def applyVoronoi(self, context, objects, parts , volume, wall):
+    def applyVoronoi(self, context, objects, wall):
         
+        partCount = context.active_object.destruction.partCount
+        volume = context.active_object.destruction.voro_volume
+        
+        parts = []
         for obj in objects:
-            print("applyVoronoi", obj,  parts, volume, wall)
+            print("applyVoronoi", obj,  partCount, volume, wall)
             obj.destruction.wall = wall
             
             #prepare parenting
@@ -327,9 +389,9 @@ class Processor():
             largest = self.setLargest(largest, backup)
            
             if obj.destruction.cubify:
-                self.cubify(context, obj, bbox, parts)
+                parts.extend(self.cubify(context, obj, bbox, partCount))
             else:
-                voronoi.voronoiCube(context, obj, parts, volume, wall)
+                parts.extend(voronoi.voronoiCube(context, obj, partCount, volume, wall))
             
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                 context.scene.objects.unlink(backup)
@@ -342,30 +404,35 @@ class Processor():
                     
             #do the parenting
             self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)     
-    
+        return parts
         
-    def applyExplo(self, context, objects, parts, granularity, thickness, massive, pairwise):
+    def applyExplo(self, context, objects):
         #create objects from explo by applying it(or by loose parts)
         #check modifier sequence before applying it 
         #(if all are there; for now no other modifiers allowed in between)
         
+        partCount = context.active_object.destruction.partCount
+        granularity = context.active_object.destruction.pieceGranularity 
+        thickness = context.active_object.destruction.wallThickness
+        
+        parts = []
         for obj in objects:
-            print("applyExplo", obj,  parts, granularity, thickness)
+            print("applyExplo", obj,  partCount, granularity, thickness)
             
             #prepare parenting
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = self.createBackup(context, obj)
             
             largest = self.setLargest(largest, backup)
-            
+           
             if obj.destruction.cubify:
-                self.cubify(context, obj, bbox, parts)
+              parts.extend(self.cubify(context, obj, bbox, partCount))
             else:
-                self.explo(context, obj, parts, granularity, thickness, massive, pairwise)
+              parts.extend(self.explo(context, obj, partCount, granularity, thickness))
                     
-            #do the parenting
+            #do the parenting, could use the found parts instead, TODO
             self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj) 
-       
+        return parts
     
     def separateExplo(self, context, thickness): 
         
@@ -403,6 +470,14 @@ class Processor():
         ops.mesh.separate(type = 'LOOSE')
         ops.object.mode_set()
         print("separated") 
+        
+        #find new parts and return them, needed for recursion
+        if context.active_object != None:
+            oldPar = context.active_object.parent
+            nameStart = context.active_object.name.split(".")[0] 
+            parts = [c for c in context.scene.objects if self.isRelated(c, context, nameStart, oldPar)]
+            return parts
+        return [] # error case 
         
     def layer(self, n):
         ret = []
@@ -628,6 +703,7 @@ class Processor():
     def prepareParenting(self, context, obj):
         
         context.scene.objects.active = obj
+           
         context.active_object.destruction.pos = obj.location.to_tuple()
         bbox = obj.bound_box.data.dimensions.to_tuple()
         
@@ -864,8 +940,13 @@ class Processor():
         return False
    
         
-    def applyFracture(self, context, objects, parts, roughness, crack_type):
+    def applyFracture(self, context, objects):
         
+        partCount = context.active_object.destruction.partCount
+        roughness = context.active_object.destruction.roughness
+        crack_type = context.active_object.destruction.crack_type
+        
+        parts = []
         for obj in objects:
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = self.createBackup(context, obj) 
@@ -874,9 +955,9 @@ class Processor():
             largest = self.setLargest(largest, backup)
             
             if obj.destruction.cubify:
-                self.cubify(context, obj, bbox, parts)
+                parts.extend(self.cubify(context, obj, bbox, partCount))
             else:
-                fo.fracture_basic(context, [obj], parts, crack_type, roughness)
+                parts.extend(self.boolFrac(context, obj, partCount, crack_type, roughness))
             
             parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)
             
@@ -884,8 +965,20 @@ class Processor():
                 c.destruction.groundConnectivity = False
                 #c.destruction.cubify = False
                 #c.destruction.gridDim = (1,1,1)
-                         
-        return None
+                                
+        return parts
+    
+    def boolFrac(self, context, obj, partCount, crack_type, roughness):
+        
+        fo.fracture_basic(context, [obj], partCount, crack_type, roughness)
+        #find new parts and return them, needed for recursion
+        if context.active_object != None:
+            print("parts......")
+            oldPar = context.active_object.parent
+            nameStart = context.active_object.name.split(".")[0] 
+            parts = [c for c in context.scene.objects if self.isRelated(c, context, nameStart, oldPar)]
+            return parts
+        return [] # error case 
     
     def edgeCount(self, vertex, mesh):
         occurrence = 0
@@ -1477,26 +1570,27 @@ class Processor():
        
         context.scene.objects.unlink(cutter)
         
+        shards = []
         if object.destruction.destructionMode == "DESTROY_C":
             for cube in cubes:
-                self.fracture_cells(context, cube)
-        
+                shards.extend(self.fracture_cells(context, cube))
+                
         if parts > 1: 
             if object.destruction.destructionMode == 'DESTROY_F':
                 crack_type = object.destruction.crack_type
                 roughness = object.destruction.roughness
                 context.scene.objects.unlink(object) 
-                
-                fo.fracture_basic(context, cubes, parts, crack_type, roughness)
-                
-            elif object.destruction.destructionMode == 'DESTROY_K':
-                jitter = object.destruction.jitter
-                granularity = object.destruction.pieceGranularity
-                cut_type = object.destruction.cut_type 
-                context.scene.objects.unlink(object) 
-                 
                 for cube in cubes:
-                    self.knife(context, cube, parts, jitter, granularity, cut_type)
+                    shards.extend(self.boolFrac(context, cubes, parts, crack_type, roughness))
+                
+#            elif object.destruction.destructionMode == 'DESTROY_K':
+#                jitter = object.destruction.jitter
+#                granularity = object.destruction.pieceGranularity
+#                cut_type = object.destruction.cut_type 
+#                context.scene.objects.unlink(object) 
+#                 
+#                for cube in cubes:
+#                shards.extend(self.knife(context, cube, parts, jitter, granularity, cut_type)
             
             elif object.destruction.destructionMode == 'DESTROY_V' or \
                  object.destruction.destructionMode == 'DESTROY_VB':
@@ -1506,7 +1600,7 @@ class Processor():
                  
                  for cube in cubes:
                      #ops.object.transform_apply(scale=True, location=True)
-                     voronoi.voronoiCube(context, cube, parts, volume, wall)
+                     shards.extend(voronoi.voronoiCube(context, cube, parts, volume, wall))
             
             else:
                 granularity = object.destruction.pieceGranularity
@@ -1528,10 +1622,12 @@ class Processor():
                 context.scene.objects.unlink(object)
                 
                 for cube in cubes:
-                    self.explo(context, cube, parts, granularity, thickness, massive, pairwise)
+                    shards.extend(self.explo(context, cube, parts, granularity, thickness))
                 
         else:
-             context.scene.objects.unlink(object)   
+             context.scene.objects.unlink(object)
+              
+        return shards 
               
     def cubifyCell(self, cell, cutter, context, obj):
       #  context.active_object.select = True #maybe link it before...
@@ -1585,16 +1681,12 @@ class Processor():
         context.scene.objects.active = obj#context.object 
         
         return ob
-    
+        
        #from ideasman42    
-    def fracture_cell(self, scene, obj, level, ctx):
+    def fracture_cell(self, scene, obj, ctx):
         
         # pull out some args
         use_recenter = ctx.use_recenter
-        use_remove_original = ctx.use_remove_original
-        recursion = ctx.recursion
-        recursion_chance = ctx.recursion_chance
-        recursion_chance_select = ctx.recursion_chance_select
         
         objects = fracture_cell_setup.cell_fracture_objects(scene, obj)
         objects = fracture_cell_setup.cell_fracture_boolean(scene, obj, objects)
@@ -1604,49 +1696,7 @@ class Processor():
         # must apply after boolean.
         if use_recenter:
             bpy.ops.object.origin_set({"selected_editable_objects": objects},
-                                      type='ORIGIN_GEOMETRY', center='MEDIAN')
-    
-        if level < recursion:
-    
-            objects_recurse_input = [(i, o) for i, o in enumerate(objects)]
-    
-            if recursion_chance != 1.0:
-                
-                if 0:
-                    random.shuffle(objects_recurse_input)
-                else:
-                    from mathutils import Vector
-                    if recursion_chance_select == 'RANDOM':
-                        pass
-                    elif recursion_chance_select == {'SIZE_MIN', 'SIZE_MAX'}:
-                        objects_recurse_input.sort(key=lambda ob_pair:
-                            (Vector(ob_pair[1].bound_box[0]) -
-                             Vector(ob_pair[1].bound_box[6])).length_squared)
-                        if recursion_chance_select == 'SIZE_MAX':
-                            objects_recurse_input.reverse()
-                    elif recursion_chance_select == {'CURSOR_MIN', 'CURSOR_MAX'}:
-                        print(recursion_chance_select)
-                        c = scene.cursor_location.copy()
-                        objects_recurse_input.sort(key=lambda ob_pair:
-                            (ob_pair[1].matrix_world.translation - c).length_squared)
-                        if recursion_chance_select == 'CURSOR_MAX':
-                            objects_recurse_input.reverse()
-    
-                    objects_recurse_input[int(recursion_chance * len(objects_recurse_input)):] = []
-                    objects_recurse_input.sort()
-    
-            # reverse index values so we can remove from original list.
-            objects_recurse_input.reverse()
-    
-            objects_recursive = []
-            for i, obj_cell in objects_recurse_input:
-                assert(objects[i] is obj_cell)
-                objects_recursive += self.fracture_cell(scene, obj_cell, level + 1, ctx)
-                if use_remove_original:
-                    scene.objects.unlink(obj_cell)
-                    del objects[i]
-            objects.extend(objects_recursive)
-                    
+                                      type='ORIGIN_GEOMETRY', center='MEDIAN')              
     
         # testing only!
         #obj.hide = True
@@ -1659,7 +1709,7 @@ class Processor():
         scene = context.scene
         #obj = context.active_object
         ctx = obj.destruction.cell_fracture
-        objects = self.fracture_cell(scene, obj, 0, ctx)
+        objects = self.fracture_cell(scene, obj, ctx)
     
         bpy.ops.object.select_all(action='DESELECT')
         for obj_cell in objects:

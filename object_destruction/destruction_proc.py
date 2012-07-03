@@ -101,13 +101,12 @@ class Processor():
     
             if recursion_chance != 1.0:
                 
-                if 0:
+                if recursion_chance_select == 'RANDOM':
                     random.shuffle(objects_recurse_input)
                 else:
                     from mathutils import Vector
-                    if recursion_chance_select == 'RANDOM':
-                        pass
-                    elif recursion_chance_select == {'SIZE_MIN', 'SIZE_MAX'}:
+                    
+                    if recursion_chance_select == {'SIZE_MIN', 'SIZE_MAX'}:
                         objects_recurse_input.sort(key=lambda ob_pair:
                             (Vector(ob_pair[1].bound_box[0]) -
                              Vector(ob_pair[1].bound_box[6])).length_squared)
@@ -358,7 +357,7 @@ class Processor():
                 backup.select = True
                 ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
                 backup.select = oldSel
-                
+            
             self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)
         return parts
                    
@@ -505,6 +504,7 @@ class Processor():
         context.active_object.name = parentName   
         
         print("PARENT: ", parent)
+        
         context.active_object.parent = parent
         context.active_object.destruction.gridBBox = bbox
         backup.destruction.is_backup_for = context.active_object.name
@@ -809,18 +809,30 @@ class Processor():
           
         if c != backup and (c.name != b or b == None):
             #print("Setting parent", pos)
-            c.location -= pos                         
-            c.parent = data.objects[parentName]
-            c.destruction.flatten_hierarchy = c.parent.destruction.flatten_hierarchy
-            c.layers = c.parent.layers
-            c.destruction.deform = c.parent.destruction.deform
-            c.destruction.partCount = c.parent.destruction.partCount
-            c.destruction.wallThickness = c.parent.destruction.wallThickness
-            c.destruction.pieceGranularity = c.parent.destruction.pieceGranularity
-            c.destruction.destructionMode = c.parent.destruction.destructionMode
+            c.location -= pos
+            #if groups are wanted DO NOT parent here
+            myparent = data.objects[parentName]
+            if backup.destruction.destructionMode == 'DESTROY_C':
+                if not backup.destruction.cell_fracture.group_name:
+                    c.parent = myparent
+                else:
+                    #delete unnecessary empty
+                    if myparent.name in context.scene.objects:
+                        context.scene.objects.unlink(myparent)
+                        del myparent
+            else:
+                c.parent = myparent
+                    
+            c.destruction.flatten_hierarchy = backup.destruction.flatten_hierarchy
+            c.layers = backup.layers
+            c.destruction.deform = backup.destruction.deform
+            c.destruction.partCount = backup.destruction.partCount
+            c.destruction.wallThickness = backup.destruction.wallThickness
+            c.destruction.pieceGranularity = backup.destruction.pieceGranularity
+            c.destruction.destructionMode = backup.destruction.destructionMode
             c.destruction.boolean_original = backup.destruction.boolean_original
-            c.destruction.dynamic_mode = c.parent.destruction.dynamic_mode
-            c.destruction.cubify = c.parent.destruction.cubify
+            c.destruction.dynamic_mode = backup.destruction.dynamic_mode
+            c.destruction.cubify = backup.destruction.cubify
             c.destruction.backup = backup.name
         
         if c == backup and b == None:
@@ -1687,6 +1699,7 @@ class Processor():
         
         # pull out some args
         use_recenter = ctx.use_recenter
+        group_name = ctx.group_name
         
         objects = fracture_cell_setup.cell_fracture_objects(scene, obj)
         objects = fracture_cell_setup.cell_fracture_boolean(scene, obj, objects)
@@ -1696,7 +1709,18 @@ class Processor():
         # must apply after boolean.
         if use_recenter:
             bpy.ops.object.origin_set({"selected_editable_objects": objects},
-                                      type='ORIGIN_GEOMETRY', center='MEDIAN')              
+                                      type='ORIGIN_GEOMETRY', center='MEDIAN') 
+        
+        #--------------
+        # Scene Options
+    
+        # group
+        if group_name:
+            group = bpy.data.groups.get(group_name)
+            if group is None:
+                group = bpy.data.groups.new(group_name)
+            for obj_cell in objects:
+                group.objects.link(obj_cell)             
     
         # testing only!
         #obj.hide = True
@@ -1853,9 +1877,9 @@ class CellFractureContext(types.PropertyGroup):
             items=(('VERT_OWN', "Own Verts", "Use own vertices"),
                    ('EDGE_OWN', "Own Edges", "Use own edges"),
                    ('FACE_OWN', "Own Faces", "Use own faces"),
-                   ('VERT_CHILD', "Child Verts", "Use own vertices"),
-                   ('EDGE_CHILD', "Child Edges", "Use own edges"),
-                   ('FACE_CHILD', "Child Faces", "Use own faces"),
+                   ('VERT_CHILD', "Child Verts", "Use child vertices"),
+                   ('EDGE_CHILD', "Child Edges", "Use child edges"),
+                   ('FACE_CHILD', "Child Faces", "Use child faces"),
                    ('PARTICLE', "Particles", ("All particle systems of the "
                                               "source object")),
                    ('PENCIL', "Grease Pencil", "This objects grease pencil"),
@@ -1873,7 +1897,7 @@ class CellFractureContext(types.PropertyGroup):
 
     source_noise = props.FloatProperty(
             name="Noise",
-            description="Randomize point distrobution",
+            description="Randomize point distribution",
             min=0.0, max=1.0,
             default=0.0,
             )
@@ -1888,7 +1912,7 @@ class CellFractureContext(types.PropertyGroup):
 
     use_smooth_edges = props.BoolProperty(
             name="Smooth Edges",
-            description="Set sharp edges whem disabled",
+            description="Set sharp edges when disabled",
             default=True,
             )
 
@@ -1925,13 +1949,31 @@ class CellFractureContext(types.PropertyGroup):
             description="Removes the parents used to create the shatter",
             default=True,
             )
+            
+        # -------------------------------------------------------------------------
+    # Scene Options
+    #
+
+    group_name = props.StringProperty(
+            name="Group",
+            description="Create objects into a group "
+                        "(use existing or create new)",
+            )
+
+    # -------------------------------------------------------------------------
+    # Debug
+    use_debug_points = props.BoolProperty(
+            name="Debug Points",
+            description="Create mesh data showing the points used for fracture",
+            default=False,
+            )
 
     # -------------------------------------------------------------------------
     # Recursion
 
     recursion = props.IntProperty(
             name="Recursion",
-            description="Break shards resursively",
+            description="Break shards recursively",
             min=0, max=5000,
             default=0,
             )

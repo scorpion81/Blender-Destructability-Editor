@@ -118,17 +118,18 @@ def cell_fracture_objects(scene, obj):
     from . import fracture_cell_calc
     
     ctx = obj.destruction.cell_fracture
-    source= ctx.source
-    source_limit= ctx.source_limit
-    source_noise=ctx.source_noise
-    clean=True
+    source = ctx.source
+    source_limit = ctx.source_limit
+    source_noise = ctx.source_noise
+    clean = True
     
     # operator options
-    use_smooth_faces=ctx.use_smooth_faces
-    use_smooth_edges=ctx.use_smooth_edges
-    use_data_match=ctx.use_data_match
-    use_island_split=True
-    margin=ctx.margin
+    use_smooth_faces = ctx.use_smooth_faces
+    use_smooth_edges = ctx.use_smooth_edges
+    use_data_match = ctx.use_data_match
+    use_island_split = True
+    margin = ctx.margin
+    use_debug_points = ctx.use_debug_points
 
     # -------------------------------------------------------------------------
     # GET POINTS
@@ -163,14 +164,25 @@ def cell_fracture_objects(scene, obj):
         from mathutils import Vector
         matrix = obj.matrix_world.copy()
         bb_world = [matrix * Vector(v) for v in obj.bound_box]
-        scalar = (bb_world[0] - bb_world[6]).length / 2.0
+        scalar = source_noise * ((bb_world[0] - bb_world[6]).length / 2.0)
 
-        from mathutils.noise import noise_vector
+        from mathutils.noise import random_unit_vector
         
-        points[:] = [p + (noise_vector(p) * scalar) for p in points]
+        points[:] = [p + (random_unit_vector() * (scalar * random())) for p in points]
     
     # end remove doubles
     # ------------------
+
+    if use_debug_points:
+        bm = bmesh.new()
+        for p in points:
+            bm.verts.new(p)
+        mesh_tmp = bpy.data.meshes.new(name="DebugPoints")
+        bm.to_mesh(mesh_tmp)
+        bm.free()
+        obj_tmp = bpy.data.objects.new(name=mesh_tmp.name, object_data=mesh_tmp)
+        scene.objects.link(obj_tmp)
+        del obj_tmp, mesh_tmp
 
     mesh = obj.data
     matrix = obj.matrix_world.copy()

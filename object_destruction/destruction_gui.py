@@ -81,6 +81,18 @@ class DestructabilityPanel(types.Panel):
                 col.label("Object")
                 rowsub = col.row(align=True)
                 rowsub.prop(context.object.destruction.cell_fracture, "use_recenter")
+                
+                box = layout.box()
+                col = box.column()
+                col.label("Scene")
+                rowsub = col.row(align=True)
+                rowsub.prop(context.object.destruction.cell_fracture, "group_name")
+        
+                box = layout.box()
+                col = box.column()
+                col.label("Debug")
+                rowsub = col.row(align=True)
+                rowsub.prop(context.object.destruction.cell_fracture, "use_debug_points")
             
             if context.object.destruction.destructionMode == 'DESTROY_F':
                 col.prop(context.object.destruction, "crack_type", text = "Crack Type")

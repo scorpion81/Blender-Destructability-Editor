@@ -874,7 +874,10 @@ class Processor():
             
         context.scene.objects.active = c 
         ops.object.mode_set(mode = 'EDIT')
+        ops.mesh.select_all(action = 'SELECT')
+        ops.mesh.mark_seam()
         ops.mesh.select_all(action = 'DESELECT')
+        
         bm = bmesh.from_edit_mesh(c.data)
         facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
         for f in facelist:
@@ -883,7 +886,9 @@ class Processor():
                 f.material_index = slots
             f.select = True
             #unwrap inner faces again, so the textures dont look distorted (hopefully)
-        ops.uv.unwrap()
+       # ops.mesh.mark_seam()    
+        ops.uv.smart_project(angle_limit = 66.0)
+        #ops.uv.unwrap()
         ops.object.mode_set(mode = 'OBJECT')
         
         #update stale data

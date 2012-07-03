@@ -156,6 +156,9 @@ class DestructabilityPanel(types.Panel):
             
             row = box.row()
             row.prop(context.object.destruction, "re_unwrap", text = "Smart Project Shard UVs")
+            if context.object.destruction.re_unwrap:
+                row = box.row()
+                row.prop(context.object.destruction, "smart_angle", text = "Angle limit")
             
             row = box.row()
             row.prop(context.object.destruction, "dynamic_mode", expand = True)

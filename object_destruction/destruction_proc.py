@@ -834,6 +834,8 @@ class Processor():
             c.destruction.dynamic_mode = backup.destruction.dynamic_mode
             c.destruction.cubify = backup.destruction.cubify
             c.destruction.backup = backup.name
+            c.destruction.re_unwrap = backup.destruction.re_unwrap
+            c.destruction.smart_angle = backup.destruction.smart_angle
         
         if c == backup and b == None:
             c.location -= pos
@@ -888,7 +890,7 @@ class Processor():
                     f.material_index = slots
                 f.select = True
             #unwrap inner faces again, so the textures dont look distorted (hopefully)  
-            ops.uv.smart_project(angle_limit = 66.0)
+            ops.uv.smart_project(angle_limit = c.destruction.smart_angle)
             ops.object.mode_set(mode = 'OBJECT')
         
         #update stale data
@@ -2148,7 +2150,8 @@ EACH cube will be further fractured to the given part count")
     advanced_fracture = props.BoolProperty(name = "advanced_fracture", description = "Show Advanced Fracture Options")
     auto_recursion = props.BoolProperty(name = "auto_recursion", description = "Show Automatic Recursion Options")
     setup_gameengine = props.BoolProperty(name = "setup_gameengine", description = "Show Game Engine Setup Options")
-    re_unwrap = props.BoolProperty(name = "re_unwrap", description = "Unwrap shards with smart projection to reduce uv distortion")
+    re_unwrap = props.BoolProperty(name = "re_unwrap", description = "Unwrap shards with Smart Projection to reduce uv distortion")
+    smart_angle = props.FloatProperty(name = "smart_angle", default = 66.0, min = 1.0, max = 89.0, description = "Angle limit for Smart Projection")
    
                 
     

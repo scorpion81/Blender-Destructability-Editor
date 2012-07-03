@@ -162,6 +162,7 @@ def cell_fracture_objects(scene, obj):
     if source_noise > 0.0:
         # boundbox approx of overall scale
         from mathutils import Vector
+        from random import random
         matrix = obj.matrix_world.copy()
         bb_world = [matrix * Vector(v) for v in obj.bound_box]
         scalar = source_noise * ((bb_world[0] - bb_world[6]).length / 2.0)

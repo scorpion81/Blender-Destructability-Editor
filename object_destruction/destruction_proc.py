@@ -867,20 +867,24 @@ class Processor():
             slots = len(c.material_slots)
             ctx = context.copy()
             ctx["object"] = c
-            bpy.ops.object.material_slot_add(ctx)
+            ops.object.material_slot_add(ctx)
         
             material = data.materials[materialname]
             c.material_slots[slots].material = material
             
-            context.scene.objects.active = c 
-            ops.object.mode_set(mode = 'EDIT')
-            bm = bmesh.from_edit_mesh(c.data)
-            facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
-            for f in facelist:
+        context.scene.objects.active = c 
+        ops.object.mode_set(mode = 'EDIT')
+        ops.mesh.select_all(action = 'DESELECT')
+        bm = bmesh.from_edit_mesh(c.data)
+        facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
+        for f in facelist:
         #        print("Assigning index", slots)
+            if materialname != None and materialname != "":
                 f.material_index = slots
-                
-            ops.object.mode_set(mode = 'OBJECT')
+            f.select = True
+            #unwrap inner faces again, so the textures dont look distorted (hopefully)
+        ops.uv.unwrap()
+        ops.object.mode_set(mode = 'OBJECT')
         
         #update stale data
        # context.scene.objects.active = c

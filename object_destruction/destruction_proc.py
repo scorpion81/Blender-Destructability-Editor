@@ -873,23 +873,23 @@ class Processor():
             c.material_slots[slots].material = material
             
         context.scene.objects.active = c 
-        ops.object.mode_set(mode = 'EDIT')
-        ops.mesh.select_all(action = 'SELECT')
-        ops.mesh.mark_seam()
-        ops.mesh.select_all(action = 'DESELECT')
         
-        bm = bmesh.from_edit_mesh(c.data)
-        facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
-        for f in facelist:
+        if materialname != None and materialname != "" or c.destruction.re_unwrap:
+            ops.object.mode_set(mode = 'EDIT')
+            ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.mark_seam()
+            ops.mesh.select_all(action = 'DESELECT')
+        
+            bm = bmesh.from_edit_mesh(c.data)
+            facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
+            for f in facelist:
         #        print("Assigning index", slots)
-            if materialname != None and materialname != "":
-                f.material_index = slots
-            f.select = True
-            #unwrap inner faces again, so the textures dont look distorted (hopefully)
-       # ops.mesh.mark_seam()    
-        ops.uv.smart_project(angle_limit = 66.0)
-        #ops.uv.unwrap()
-        ops.object.mode_set(mode = 'OBJECT')
+                if materialname != None and materialname != "":
+                    f.material_index = slots
+                f.select = True
+            #unwrap inner faces again, so the textures dont look distorted (hopefully)  
+            ops.uv.smart_project(angle_limit = 66.0)
+            ops.object.mode_set(mode = 'OBJECT')
         
         #update stale data
        # context.scene.objects.active = c
@@ -2148,6 +2148,7 @@ EACH cube will be further fractured to the given part count")
     advanced_fracture = props.BoolProperty(name = "advanced_fracture", description = "Show Advanced Fracture Options")
     auto_recursion = props.BoolProperty(name = "auto_recursion", description = "Show Automatic Recursion Options")
     setup_gameengine = props.BoolProperty(name = "setup_gameengine", description = "Show Game Engine Setup Options")
+    re_unwrap = props.BoolProperty(name = "re_unwrap", description = "Unwrap shards with smart projection to reduce uv distortion")
    
                 
     

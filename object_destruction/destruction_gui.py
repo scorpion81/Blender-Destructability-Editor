@@ -153,7 +153,10 @@ class DestructabilityPanel(types.Panel):
                 row = box.row()
                 row.prop_search(context.object.destruction, "inner_material", data, 
                     "materials", icon = 'MATERIAL', text = "Inner Material:")    
-        
+            
+            row = box.row()
+            row.prop(context.object.destruction, "re_unwrap", text = "Smart Project Shard UVs")
+            
             row = box.row()
             row.prop(context.object.destruction, "dynamic_mode", expand = True)
             

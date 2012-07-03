@@ -1,9 +1,9 @@
 bl_info = {
     "name": "Destructability Editor",
     "author": "scorpion81",
-    "version": (1, 0),
-    "blender": (2, 6, 2),
-    "api": 44682,
+    "version": (1, 1),
+    "blender": (2, 6, 3),
+    "api": 48468,
     "location": "Object > Destructability",
     "description": "Define how game engine shall handle destruction of objects",
     "warning": "",

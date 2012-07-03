@@ -1,7 +1,7 @@
 import subprocess
 import os
 import shutil
-
+import platform
 
 #find/set path to git
 #error feedback -> process show stdout
@@ -12,7 +12,17 @@ import shutil
 #git command class
 class Git():
     def __init__(self, work):
-        self.git = '/usr/bin/git'
+        
+        if platform.architecture()[1] == "WindowsPE":
+            #assume default git path for windows here, since we dont have winreg access via integrated python
+            if platform.architecture()[0] == "64bit":
+                self.git = "C://Program Files (x86)//Git//bin//git.exe"
+                
+            elif platform.architecture()[0] == "32bit":
+                self.git = "C://Program Files//Git//bin//git.exe"
+        else: #Linux, Mac
+            self.git = "/usr/bin/git"
+            
         self.work = work
         os.chdir(self.work)
         

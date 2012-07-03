@@ -1713,7 +1713,7 @@ class Processor():
         # must apply after boolean.
         if use_recenter:
             bpy.ops.object.origin_set({"selected_editable_objects": objects},
-                                      type='ORIGIN_GEOMETRY', center='MEDIAN') 
+                                      type='ORIGIN_GEOMETRY', center='BOUNDS') 
         
         #--------------
         # Scene Options

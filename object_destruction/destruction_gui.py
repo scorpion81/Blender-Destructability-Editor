@@ -51,7 +51,8 @@ class DestructabilityPanel(types.Panel):
             col = box.column()
             if context.object.destruction.destructionMode != 'DESTROY_L' and \
                context.object.destruction.destructionMode != 'DESTROY_C':
-                col.prop(context.object.destruction, "partCount", text = "Parts")
+                if not context.object.destruction.voro_exact_shape:
+                    col.prop(context.object.destruction, "partCount", text = "Parts")
             
             
             #gui parts from ideasman42
@@ -120,7 +121,8 @@ class DestructabilityPanel(types.Panel):
                 row = col.row()
                 row.prop_search(context.object.destruction, "voro_volume", 
                         context.scene, "objects", icon = 'OBJECT_DATA', text = "Volume:")
-                row.prop(context.object.destruction, "voro_exact_shape", text = "Use Exact Shape")
+                if context.object.destruction.voro_particles == "":
+                    row.prop(context.object.destruction, "voro_exact_shape", text = "Use Exact Shape")
                 if context.object.destruction.voro_volume != "":
                     vol = context.object.destruction.voro_volume 
                     row = col.row()            
@@ -154,11 +156,13 @@ class DestructabilityPanel(types.Panel):
                 row.prop_search(context.object.destruction, "inner_material", data, 
                     "materials", icon = 'MATERIAL', text = "Inner Material:")    
             
-            row = box.row()
-            row.prop(context.object.destruction, "re_unwrap", text = "Smart Project Shard UVs")
-            if context.object.destruction.re_unwrap:
+            if context.object.destruction.destructionMode != 'DESTROY_L' and \
+            context.object.destruction.destructionMode != 'DESTROY_V':
                 row = box.row()
-                row.prop(context.object.destruction, "smart_angle", text = "Angle limit")
+                row.prop(context.object.destruction, "re_unwrap", text = "Smart Project Shard UVs")
+                if context.object.destruction.re_unwrap:
+                    row = box.row()
+                    row.prop(context.object.destruction, "smart_angle", text = "Angle limit")
             
             row = box.row()
             row.prop(context.object.destruction, "dynamic_mode", expand = True)

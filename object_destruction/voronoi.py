@@ -292,7 +292,7 @@ def voronoiCube(context, obj, parts, vol, walls):
     
     values = []
     
-    if vol != None and vol != "" and context.object.destruction.voro_exact_shape:
+    if vol != None and vol != "" and context.object.destruction.voro_exact_shape and partsystem == None:
         volobj = context.scene.objects[vol]
         context.scene.objects.active = volobj
         

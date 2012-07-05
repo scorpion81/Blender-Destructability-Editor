@@ -270,6 +270,10 @@ def cell_fracture_objects(scene, obj):
         obj_cell.parent = bpy.context.scene.objects[cell_name].parent
 
         objects.append(obj_cell)
+        
+        if obj.destruction.use_debug_redraw:
+            scene.update()
+            obj.destruction._redraw_yasiamevil()
 
     scene.update()
 

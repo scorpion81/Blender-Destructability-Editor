@@ -183,6 +183,9 @@ class DestructabilityPanel(types.Panel):
                 if not context.object.destruction.flatten_hierarchy:    
                     row = box.row()
                     row.prop(context.scene, "hideLayer", text = "Hierarchy Layer")
+                
+                row = box.row()
+                row.prop(context.object.destruction, "use_debug_redraw")
                     
             else:
                 row = box.row()

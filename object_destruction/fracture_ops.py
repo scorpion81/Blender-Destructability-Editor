@@ -240,6 +240,10 @@ def splitobject(context, ob, crack_type, roughness):
 
     for op in operations:
         fault, newshards = boolop(ob, cutter, op)
+        
+        if ob.destruction.use_debug_redraw:
+            scene.update()
+            ob.destruction._redraw_yasiamevil()
 
         shards.extend(newshards)
         if fault > 0:

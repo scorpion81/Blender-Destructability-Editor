@@ -162,6 +162,11 @@ def buildCellMesh(cells, name, walls):
     objs = []   
     for cell in cells: 
         objs.append(buildCell(cell, name, walls))
+        
+        ob = bpy.context.scene.objects[name] 
+        if ob.destruction.use_debug_redraw:
+            bpy.context.scene.update()
+            ob.destruction._redraw_yasiamevil()
     return objs
         
 
@@ -393,6 +398,11 @@ def voronoiCube(context, obj, parts, vol, walls):
         if o.name not in oldnames:
             context.scene.objects.active = o
             newnames.extend(booleanIntersect(context, o, obj, oldnames))
+            
+            if obj.destruction.use_debug_redraw:
+                context.scene.update()
+                obj.destruction._redraw_yasiamevil()
+            
             if len(o.data.vertices) == 0:
                 context.scene.objects.unlink(o)
             else:

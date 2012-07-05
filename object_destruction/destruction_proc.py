@@ -428,6 +428,10 @@ class Processor():
               parts.extend(self.cubify(context, obj, bbox, partCount))
             else:
               parts.extend(self.explo(context, obj, partCount, granularity, thickness))
+              
+            if obj.destruction.use_debug_redraw:
+                context.scene.update()
+                obj.destruction._redraw_yasiamevil()
                     
             #do the parenting, could use the found parts instead, TODO
             self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj) 
@@ -836,6 +840,7 @@ class Processor():
             c.destruction.backup = backup.name
             c.destruction.re_unwrap = backup.destruction.re_unwrap
             c.destruction.smart_angle = backup.destruction.smart_angle
+            c.destruction.use_debug_redraw = backup.destruction.use_debug_redraw
         
         if c == backup and b == None:
             c.location -= pos
@@ -2009,6 +2014,16 @@ class CellFractureContext(types.PropertyGroup):
 
 
 class DestructionContext(types.PropertyGroup):
+    
+    
+    use_debug_redraw = props.BoolProperty(
+            name="Show Progress Realtime",
+            description="Redraw as fracture is done",
+            default=True
+            )
+    
+    def _redraw_yasiamevil(self):
+       bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
     
     def getVolumes():
         ret = []

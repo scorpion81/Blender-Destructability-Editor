@@ -393,6 +393,7 @@ class AddGroundOperator(types.Operator):
     bl_idname = "ground.add"
     bl_label = "add ground"
     bl_description = "Add the selected ground to ground list"
+    bl_options = {'UNDO'}
     
     def execute(self, context):
         found = False
@@ -422,6 +423,7 @@ class RemoveGroundOperator(types.Operator):
     bl_idname = "ground.remove"
     bl_label = "remove ground"
     bl_description = "Remove the selected ground from ground list"
+    bl_options = {'UNDO'}
     
     def execute(self, context):
         
@@ -444,6 +446,7 @@ class AddTargetOperator(types.Operator):
     bl_idname = "target.add"
     bl_label = "add target"
     bl_description = "Add the selected target to target list"
+    bl_options = {'UNDO'}
     
     def execute(self, context):
         found = False
@@ -474,6 +477,7 @@ class RemoveTargetOperator(types.Operator):
     bl_idname = "target.remove"
     bl_label = "remove target"
     bl_description = "Remove the selected target from target list"
+    bl_options = {'UNDO'}
     
     def execute(self, context):
         
@@ -491,6 +495,7 @@ class SetupPlayer(types.Operator):
     bl_idname = "player.setup"
     bl_label = "Setup Player"
     bl_description = "Create Player, default Ground and default Ball (or custom ball) object"
+    bl_options = {'UNDO'}
     
     def execute(self, context):
         
@@ -771,6 +776,7 @@ class ClearPlayer(types.Operator):
     bl_idname = "player.clear"
     bl_label = "Clear Player"
     bl_description = "Delete Player, default Ground and default Ball objects"
+    bl_options = {'UNDO'}
     
     def execute(self, context):
         
@@ -845,6 +851,7 @@ class ConvertParenting(types.Operator):
     bl_idname = "parenting.convert"
     bl_label = "Convert Parenting"
     bl_description = "Dissolve actual parenting, it will be stored and rebuilt in the game engine"
+    bl_options = {'UNDO'}
     
     def execute(self, context):
         
@@ -1119,6 +1126,7 @@ class DestroyObject(types.Operator):
     bl_idname = "object.destroy"
     bl_label = "Destroy Object"
     bl_description = "Start fracturing process"
+    bl_options = {'UNDO'}
     
     impactLoc = bpy.props.FloatVectorProperty(default = (0, 0, 0))
     
@@ -1166,46 +1174,72 @@ class UndestroyObject(types.Operator):
     bl_idname = "object.undestroy"
     bl_label = "Undestroy Object"
     bl_description = "Manually undo object destruction, alternatively use regular undo"
+    bl_options = {'UNDO'}
     
     
     def execute(self, context):
         
         undo = context.user_preferences.edit.use_global_undo
         context.user_preferences.edit.use_global_undo = False
-           
-        volobj = None
-        for o in data.objects:
-            if o.destruction != None:
-                if o.destruction.is_backup_for == context.active_object.name:
-                    backup = o
-                    vol = o.destruction.voro_volume 
-                    if vol != "":
-                        volobj = context.scene.objects[vol]
-                        #print("VOL", volobj.name) 
         
-        for o in data.objects:
-            if o.destruction != None:
-                if o.destruction.is_backup_for == context.active_object.name:
-                    backup = o    
-                    if context.scene.hideLayer == 1 and o != volobj:
-                       # print("LINK", o.name) 
-                        context.scene.objects.link(o)
-                    o.select = True
-                    ops.object.origin_set(type='ORIGIN_GEOMETRY')
-                    o.select = False      
-                    o.destruction.is_backup_for == None
-                    o.use_fake_user = False
+        for o in context.selected_objects:
+            if o.name.startswith("P_"):
+                backup = data.objects[o.destruction.backup]
+                self.selectShards(o, backup)
+                ops.object.delete()
+                
+                if context.scene.hideLayer == 1:
+                    context.scene.objects.link(backup)
+                    backup.use_fake_user = False
         
-        for o in data.objects:
-            o.select = False
+                backup.location = Vector((0,0,0))
+                backup.select = True
+                ops.object.origin_set(type='ORIGIN_GEOMETRY')
+                backup.select = False
+                backup.destruction.is_backup_for = ""
             
-        context.active_object.select = True
-        self.selectShards(context.active_object, backup)
-        ops.object.delete()
-        
-        backup.destruction.is_backup_for = ""
         context.user_preferences.edit.use_global_undo = undo     
         return {'FINISHED'}
+            
+           
+#        volobj = None
+#        for o in data.objects:
+#            if o.destruction != None:
+#                if o.destruction.is_backup_for == context.active_object.name:
+#                    backup = o
+#                    vol = o.destruction.voro_volume 
+#                    if vol != "":
+#                        volobj = context.scene.objects[vol]
+#                        #print("VOL", volobj.name) 
+#        
+#        for o in data.objects:
+#            if o.destruction != None:
+#                if o.destruction.is_backup_for == context.active_object.name:
+#                    backup = o    
+#                    if context.scene.hideLayer == 1 and o != volobj:
+#                       # print("LINK", o.name) 
+#                        context.scene.objects.link(o)
+#                    #o.select = True
+#                   # ops.object.origin_set(type='ORIGIN_GEOMETRY')
+#                    #o.select = False      
+#                    o.destruction.is_backup_for = ""
+#                    o.use_fake_user = False
+#        
+#        for o in data.objects:
+#            o.select = False
+#            
+#        context.active_object.select = True
+#        self.selectShards(context.active_object, backup)
+#        ops.object.delete()
+#        
+#        backup.location = Vector((0,0,0))
+#        backup.select = True
+#        ops.object.origin_set(type='ORIGIN_GEOMETRY')
+#        backup.select = False
+#        
+#        backup.destruction.is_backup_for = ""
+#        context.user_preferences.edit.use_global_undo = undo     
+#        return {'FINISHED'}
     
     def selectShards(self, object, backup):
                 
@@ -1229,12 +1263,13 @@ class UndestroyObject(types.Operator):
                         index += 1
                         
                     bpy.context.scene.backups.remove(index)
-            self.selectShards(c, backup)
+            #self.selectShards(c, backup)
 
 class GameStart(types.Operator):
     bl_idname = "game.start"
     bl_label = "Start Game Engine"
     bl_description = "Start game engine with recording enabled by default"
+    bl_options = {'UNDO'}
     
     def execute(self, context):
         

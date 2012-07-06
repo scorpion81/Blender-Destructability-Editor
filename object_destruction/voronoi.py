@@ -452,9 +452,8 @@ def voronoiCube(context, obj, parts, vol, walls):
             context.scene.objects.active = ob
             ob.select = True
             ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
-            
-            ob.location -= diff
-            
+            if o.parent == None:
+                ob.location -= diff
             ob.select = False
             oldnames.append(ob.name)
                    
@@ -491,7 +490,8 @@ def booleanIntersect(context, o, obj, oldnames, diff):
     oldSel = o.select  
     o.select = True
     ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
-    o.location -= diff
+    if o.parent == None:
+        o.location -= diff
     o.select = oldSel
     
     return newnames    

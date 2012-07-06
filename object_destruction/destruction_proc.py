@@ -13,6 +13,9 @@ import bisect
 import sys
 import bmesh
 
+import bgl
+import blf
+
 #since a modification of fracture_ops is necessary, redistribute it
 from . import fracture_ops as fo
 imported = True
@@ -890,12 +893,14 @@ class Processor():
             bm = bmesh.from_edit_mesh(c.data)
             facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
             for f in facelist:
-        #        print("Assigning index", slots)
                 if materialname != None and materialname != "":
+                   # print("Assigning index", slots)
                     f.material_index = slots
                 f.select = True
-            #unwrap inner faces again, so the textures dont look distorted (hopefully)  
-            ops.uv.smart_project(angle_limit = c.destruction.smart_angle)
+                
+            if c.destruction.re_unwrap:
+                #unwrap inner faces again, so the textures dont look distorted (hopefully)  
+                ops.uv.smart_project(angle_limit = c.destruction.smart_angle)
             ops.object.mode_set(mode = 'OBJECT')
         
         #update stale data
@@ -1071,7 +1076,7 @@ class Processor():
                 p2[2] = p2[2] * backup.scale[2]
                                     
                 d = round((p1 - p2).dot(n), 3)
-                #print("Distance", d, n)
+                print("Distance", d, n)
                 if d == 0:
                     return True                                              
         return False
@@ -2024,6 +2029,32 @@ class DestructionContext(types.PropertyGroup):
     
     def _redraw_yasiamevil(self):
        bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
+       
+    
+    def fracture_progress(self, prog):
+        
+        #width = bpy.context.area.width
+        #height = bpy.context.area.height
+        #bpy.context.area.tag_redraw()
+        
+        width = 600
+        height = 600
+        
+        # OpenGL setup
+        bgl.glMatrixMode(bgl.GL_PROJECTION)
+        bgl.glLoadIdentity()
+        bgl.gluOrtho2D(0, width, 0, height)
+        bgl.glMatrixMode(bgl.GL_MODELVIEW)
+        bgl.glLoadIdentity()
+
+        # BLF drawing routine
+       # path = bpy.context.user_preferences.filepaths.font_directory
+        #font_id = blf.load(path + "droidsans.ttf")
+        font_id = 0 # use default font   
+        blf.position(font_id, (width * 0.2), (height * 0.3), 0)
+        blf.size(font_id, 50, 72)
+        blf.draw(font_id, prog)
+       
     
     def getVolumes():
         ret = []
@@ -2167,8 +2198,7 @@ EACH cube will be further fractured to the given part count")
     setup_gameengine = props.BoolProperty(name = "setup_gameengine", description = "Show Game Engine Setup Options")
     re_unwrap = props.BoolProperty(name = "re_unwrap", description = "Unwrap shards with Smart Projection to reduce uv distortion")
     smart_angle = props.FloatProperty(name = "smart_angle", default = 66.0, min = 1.0, max = 89.0, description = "Angle limit for Smart Projection")
-   
-                
+    
     
 def initialize():
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")
@@ -2184,6 +2214,9 @@ def initialize():
     Scene.dummyPoolSize = props.IntProperty(name = "dummyPoolSize", min = 10, max = 1000, default = 100,
                                             description = "How many dummy objects to pre-allocate for dynamic destruction (cant add them dynamically in BGE)")
     Scene.runBGETests = props.BoolProperty(name = "runBGETests")
+    
+    #Scene.fracture_progress = props.StringProperty(name = "fracture_progress", description = "Fracture Progress")
+    
     dd.DataStore.proc = Processor()  
   
 def uninitialize():

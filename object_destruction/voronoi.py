@@ -120,8 +120,8 @@ def buildCell(cell, name, walls):
     obj.parent = bpy.context.scene.objects[name].parent
    
     obj.data = None
- #  nmesh.update(calc_edges=True) 
- #   nmesh.validate()    
+    #nmesh.update(calc_edges=True) 
+    #nmesh.validate()    
     obj.data = nmesh
     obj.select = True
     ops.object.origin_set(type='ORIGIN_GEOMETRY')
@@ -132,7 +132,7 @@ def buildCell(cell, name, walls):
     ops.mesh.normals_make_consistent(inside=False)
     
     if walls:
-        ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))
+        ops.mesh.dissolve_limited(angle_limit = 0.001)#= math.radians(2.5))
     ops.object.mode_set(mode = 'OBJECT')
     
 #    lock.release()
@@ -167,6 +167,17 @@ def buildCellMesh(cells, name, walls):
         if ob.destruction.use_debug_redraw:
             bpy.context.scene.update()
             ob.destruction._redraw_yasiamevil()
+        
+    #    prog = round(float(cells.index(cell)+1) / float(len(cells)), 2)
+        
+     #   if walls:
+     #       prog = prog * 100
+    #    else:
+    #        prog = prog * 50   #because there comes the boolean step too 
+    #    
+       # ob.destruction.fracture_progress(str(prog))
+        
+        
     return objs
         
 
@@ -226,7 +237,28 @@ def voronoiCube(context, obj, parts, vol, walls):
       
     context.scene.objects.active = obj    
     obj.select = True
+    mesh_center = Vector((0, 0, 0))
+    diff = Vector((0, 0, 0))
     if not walls:
+        
+        #memorize old mesh center
+        area = None
+        for a in context.screen.areas:
+            if a.type == 'VIEW_3D':
+                area = a
+        ctx = context.copy()
+        ctx["area"] = area
+        
+        ops.object.mode_set(mode = 'EDIT')
+        ctx["edit_object"] = obj
+        ops.mesh.select_all(action = 'SELECT')
+        ops.view3d.snap_cursor_to_selected(ctx)
+        mesh_center = context.scene.cursor_location.copy()
+        ops.mesh.select_all(action = 'DESELECT')
+        ops.object.mode_set(mode = 'OBJECT')
+        diff = obj.location.copy() - mesh_center
+        print(mesh_center, obj.location, diff)
+        
         ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
     else:
         ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
@@ -393,11 +425,13 @@ def voronoiCube(context, obj, parts, vol, walls):
     ops.mesh.edge_collapse()   
     ops.object.mode_set(mode = 'OBJECT')
     
-    newnames = []       
+    newnames = []
+    i = 0       
     for o in context.scene.objects:
         if o.name not in oldnames:
+            i += 1   
             context.scene.objects.active = o
-            newnames.extend(booleanIntersect(context, o, obj, oldnames))
+            newnames.extend(booleanIntersect(context, o, obj, oldnames, diff))
             
             if obj.destruction.use_debug_redraw:
                 context.scene.update()
@@ -408,12 +442,19 @@ def voronoiCube(context, obj, parts, vol, walls):
             else:
                 oldnames.append(o.name)
                 
+            #prog = round(float(i) / float(len(objs)), 2)
+            #prog = 50 + prog * 50
+           # obj.destruction.fracture_progress(str(prog))
+                
     for n in newnames:
         if n not in oldnames and n in context.scene.objects:
             ob = context.scene.objects[n]
             context.scene.objects.active = ob
             ob.select = True
             ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+            
+            ob.location -= diff
+            
             ob.select = False
             oldnames.append(ob.name)
                    
@@ -424,7 +465,7 @@ def voronoiCube(context, obj, parts, vol, walls):
   #  context.scene.objects.unlink(obj)
     return objs
     
-def booleanIntersect(context, o, obj, oldnames):  
+def booleanIntersect(context, o, obj, oldnames, diff):  
             
     bool = o.modifiers.new("Boolean", 'BOOLEAN')
     #use the original boolean object always, otherwise boolean op errors occur...
@@ -438,7 +479,7 @@ def booleanIntersect(context, o, obj, oldnames):
     ops.object.modifier_apply(ctx, apply_as='DATA', modifier = bool.name)
     
     ops.object.mode_set(mode = 'EDIT')
-    ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))
+    ops.mesh.dissolve_limited(angle_limit = 0.001)#math.radians(2.5))
     ops.mesh.separate(type = 'LOOSE')
     ops.object.mode_set(mode = 'OBJECT')
     
@@ -450,6 +491,7 @@ def booleanIntersect(context, o, obj, oldnames):
     oldSel = o.select  
     o.select = True
     ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+    o.location -= diff
     o.select = oldSel
     
     return newnames    

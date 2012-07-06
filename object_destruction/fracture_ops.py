@@ -296,4 +296,7 @@ def fracture_basic(context, objects, nshards, crack_type, roughness):
 
         iter += 1
         
+        prog = str(round(float(i) / float(maxshards), 2) * 100)
+        ob.destruction.fracture_progress(prog)
+        
     return shards

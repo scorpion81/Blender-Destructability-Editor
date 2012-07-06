@@ -51,7 +51,7 @@ class DestructabilityPanel(types.Panel):
             col = box.column()
             if context.object.destruction.destructionMode != 'DESTROY_L' and \
                context.object.destruction.destructionMode != 'DESTROY_C':
-                if not context.object.destruction.voro_exact_shape:
+                if not context.object.destruction.voro_exact_shape and context.object.destruction.voro_particles == "":
                     col.prop(context.object.destruction, "partCount", text = "Parts")
             
             
@@ -383,6 +383,10 @@ class DestructabilityPanel(types.Panel):
         layout.prop(context.object.destruction, "setup_gameengine", text = "Game Engine Setup Options")
         if context.object.destruction.setup_gameengine:
             self.draw_gameengine_setup(context)
+        
+       # row = layout.row()
+        #row.label("Progress")
+        #row.label(context.scene.fracture_progress) 
         
                
 class AddGroundOperator(types.Operator):
@@ -1118,10 +1122,15 @@ class DestroyObject(types.Operator):
     
     impactLoc = bpy.props.FloatVectorProperty(default = (0, 0, 0))
     
-    def execute(self, context):
+    def modal(self, context, event):
         
         undo = context.user_preferences.edit.use_global_undo
         context.user_preferences.edit.use_global_undo = False
+        
+        if event.type == 'ESC':
+            context.user_preferences.edit.use_global_undo = undo     
+            return {'CANCELLED'}
+        
         #set a heavy mass as workaround, until mass update works correctly...
         context.active_object.game.mass = 1000
         
@@ -1144,17 +1153,26 @@ class DestroyObject(types.Operator):
         print("Decomposition Time:" , clock() - start)    
         context.user_preferences.edit.use_global_undo = undo     
         return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        if context.active_object:
+            context.window_manager.modal_handler_add(self)
+            return {'RUNNING_MODAL'}
+        else:
+            self.report({'WARNING'}, "No active object, could not finish")
+            return {'CANCELLED'}
 
 class UndestroyObject(types.Operator):
     bl_idname = "object.undestroy"
     bl_label = "Undestroy Object"
     bl_description = "Manually undo object destruction, alternatively use regular undo"
     
+    
     def execute(self, context):
         
         undo = context.user_preferences.edit.use_global_undo
         context.user_preferences.edit.use_global_undo = False
-        
+           
         volobj = None
         for o in data.objects:
             if o.destruction != None:
@@ -1185,6 +1203,7 @@ class UndestroyObject(types.Operator):
         self.selectShards(context.active_object, backup)
         ops.object.delete()
         
+        backup.destruction.is_backup_for = ""
         context.user_preferences.edit.use_global_undo = undo     
         return {'FINISHED'}
     

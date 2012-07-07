@@ -126,7 +126,11 @@ def buildCell(cell, name, walls, diff):
     obj.data = nmesh
     obj.select = True
     ops.object.origin_set(type='ORIGIN_GEOMETRY')
-    ops.object.material_slot_copy()
+    #ops.object.material_slot_copy()
+    
+    mesh_src = orig.data
+    for mat in mesh_src.materials:
+        obj.data.materials.append(mat)
     obj.select = False
     
     ops.object.mode_set(mode = 'EDIT')

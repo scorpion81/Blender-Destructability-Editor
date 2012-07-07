@@ -130,14 +130,17 @@ def buildCell(cell, name, walls, diff):
     obj.select = False
     
     ops.object.mode_set(mode = 'EDIT')
+    ops.mesh.select_all(action = 'SELECT')
+    ops.mesh.remove_doubles()
     ops.mesh.normals_make_consistent(inside=False)
     
     if walls:
         ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))
-    #ops.mesh.remove_doubles()
+        
     ops.object.mode_set(mode = 'OBJECT')
     
     if not walls:
+       #fixNonManifolds(obj)
        booleanIntersect(bpy.context, obj, orig, diff)
        
 #    lock.release()
@@ -212,6 +215,25 @@ def select(obj):
     if obj in selected.keys():
         obj.select = selected[obj]    
 
+def fixNonManifolds(obj):
+    
+    bpy.context.scene.objects.active = obj
+    ops.object.mode_set(mode = 'EDIT')
+    ops.mesh.remove_doubles(mergedist = 0.00001)
+    ops.mesh.select_all(action = 'DESELECT')
+    ops.mesh.select_non_manifold()
+    #ops.mesh.edge_collapse()
+    bm = bmesh.from_edit_mesh(obj.data)
+    verts = [v for v in bm.verts if len(v.link_edges) < 3 and v.select]
+    for v in verts:
+        print(len(v.link_edges))
+        bm.verts.remove(v)
+        
+    ops.mesh.select_all(action = 'DESELECT')
+    ops.mesh.select_non_manifold()
+    ops.mesh.edge_collapse()   
+    ops.object.mode_set(mode = 'OBJECT')
+    
 def voronoiCube(context, obj, parts, vol, walls):
     
     #applyscale before
@@ -406,22 +428,8 @@ def voronoiCube(context, obj, parts, vol, walls):
         #[deselect(o) for o in context.scene.objects]
         
         #try to fix non-manifolds...
-        ops.object.mode_set(mode = 'EDIT')
-        ops.mesh.remove_doubles(mergedist = 0.00001)
-        ops.mesh.select_all(action = 'DESELECT')
-        ops.mesh.select_non_manifold()
-        #ops.mesh.edge_collapse()
-        bm = bmesh.from_edit_mesh(obj.data)
-        verts = [v for v in bm.verts if len(v.link_edges) < 3 and v.select]
-        for v in verts:
-            print(len(v.link_edges))
-            bm.verts.remove(v)
-            
-        ops.mesh.select_all(action = 'DESELECT')
-        ops.mesh.select_non_manifold()
-        ops.mesh.edge_collapse()   
-        ops.object.mode_set(mode = 'OBJECT')
-    
+        fixNonManifolds(obj)
+        
     
     context.scene.objects.active = obj
     objs = buildCellMesh(records, obj.name, walls, diff)

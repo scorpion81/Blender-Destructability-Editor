@@ -875,12 +875,22 @@ class Processor():
        # print("Mat", materialname)
         if materialname != None and materialname != "":
             slots = len(c.material_slots)
-            ctx = context.copy()
-            ctx["object"] = c
-            ops.object.material_slot_add(ctx)
-        
-            material = data.materials[materialname]
-            c.material_slots[slots].material = material
+            found = False
+            i = 0
+            for slot in c.material_slots:
+                if slot.material.name == materialname:
+                    found = True
+                    slots = i
+                    break
+                i += 1
+                
+                
+            if not found:
+                ctx = context.copy()
+                ctx["object"] = c
+                ops.object.material_slot_add(ctx)
+                material = data.materials[materialname]
+                c.material_slots[slots].material = material
             
         context.scene.objects.active = c 
         

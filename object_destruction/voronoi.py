@@ -134,13 +134,12 @@ def buildCell(cell, name, walls, diff):
     
     if walls:
         ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))
-    ops.mesh.remove_doubles()
+    #ops.mesh.remove_doubles()
     ops.object.mode_set(mode = 'OBJECT')
     
     if not walls:
-        booleanIntersect(bpy.context, obj, orig, diff)
-    
-    
+       booleanIntersect(bpy.context, obj, orig, diff)
+       
 #    lock.release()
     return obj
     

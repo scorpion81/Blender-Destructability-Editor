@@ -79,7 +79,7 @@ def parseFile(name):
          records.append({"v": verts, "f": faces})
      return records    
 
-def buildCell(cell, name, walls):
+def buildCell(cell, name, walls, diff):
  # for each face
     #global start
     
@@ -117,7 +117,8 @@ def buildCell(cell, name, walls):
     ops.mesh.primitive_cube_add()
     obj = bpy.context.active_object
     obj.name = name
-    obj.parent = bpy.context.scene.objects[name].parent
+    orig = bpy.context.scene.objects[name]
+    obj.parent = orig.parent
    
     obj.data = None
     #nmesh.update(calc_edges=True) 
@@ -132,8 +133,13 @@ def buildCell(cell, name, walls):
     ops.mesh.normals_make_consistent(inside=False)
     
     if walls:
-        ops.mesh.dissolve_limited(angle_limit = 0.001)#= math.radians(2.5))
+        ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))
+    ops.mesh.remove_doubles()
     ops.object.mode_set(mode = 'OBJECT')
+    
+    if not walls:
+        booleanIntersect(bpy.context, obj, orig, diff)
+    
     
 #    lock.release()
     return obj
@@ -144,7 +150,7 @@ def buildCell(cell, name, walls):
    # start = clock()
     
          
-def buildCellMesh(cells, name, walls):      
+def buildCellMesh(cells, name, walls, diff):      
     
 
 #     lock = threading.Lock()     
@@ -161,7 +167,7 @@ def buildCellMesh(cells, name, walls):
 #        t.join()       
     objs = []   
     for cell in cells: 
-        objs.append(buildCell(cell, name, walls))
+        objs.append(buildCell(cell, name, walls, diff))
         
         ob = bpy.context.scene.objects[name] 
         if ob.destruction.use_debug_redraw:
@@ -295,7 +301,7 @@ def voronoiCube(context, obj, parts, vol, walls):
         particles = len(partsystem.particles)
     
     #enlarge container a bit, so parts near the border wont be cut off
-    theta = 0.25
+    theta = 0.5
     if walls:
         theta = 10
     con = voronoi.domain(xmin-theta,xmax+theta,ymin-theta,ymax+theta,zmin-theta,zmax+theta,nx,ny,nz,False, False, False, particles)
@@ -371,7 +377,7 @@ def voronoiCube(context, obj, parts, vol, walls):
     
     del con
     
-    oldnames = [o.name for o in context.scene.objects]
+    #oldnames = [o.name for o in context.scene.objects]
    
     print("Library Time ", clock() - start)
     start = clock()
@@ -380,91 +386,53 @@ def voronoiCube(context, obj, parts, vol, walls):
     print("Parsing Time ", clock() - start)
     start = clock()
     
+    #do a remesh here if desired and try to fix non-manifolds
+    if not walls:
+        context.scene.objects.active = obj
+        if obj.destruction.remesh_depth > 0:
+            rem = obj.modifiers.new("Remesh", 'REMESH')
+            rem.mode = 'SHARP'
+            rem.octree_depth = obj.destruction.remesh_depth
+            rem.scale = 0.9
+            rem.sharpness = 1.0
+            rem.remove_disconnected_pieces = False
+            #  rem.threshold = 1.0
+       
+            #context.scene.objects.active = obj
+            ctx = context.copy()
+            ctx["object"] = obj
+            ctx["modifier"] = rem
+            ops.object.modifier_apply(ctx, apply_as='DATA', modifier = rem.name)
+        
+        #[deselect(o) for o in context.scene.objects]
+        
+        #try to fix non-manifolds...
+        ops.object.mode_set(mode = 'EDIT')
+        ops.mesh.remove_doubles(mergedist = 0.00001)
+        ops.mesh.select_all(action = 'DESELECT')
+        ops.mesh.select_non_manifold()
+        #ops.mesh.edge_collapse()
+        bm = bmesh.from_edit_mesh(obj.data)
+        verts = [v for v in bm.verts if len(v.link_edges) < 3 and v.select]
+        for v in verts:
+            print(len(v.link_edges))
+            bm.verts.remove(v)
+            
+        ops.mesh.select_all(action = 'DESELECT')
+        ops.mesh.select_non_manifold()
+        ops.mesh.edge_collapse()   
+        ops.object.mode_set(mode = 'OBJECT')
+    
     
     context.scene.objects.active = obj
-    objs = buildCellMesh(records, obj.name, walls)
+    objs = buildCellMesh(records, obj.name, walls, diff)
     
     print("Mesh Construction Time ", clock() - start)
     
-    if walls:
-        return objs
-    
-    start = clock()   
-    context.scene.objects.active = obj
-    if obj.destruction.remesh_depth > 0:
-        rem = obj.modifiers.new("Remesh", 'REMESH')
-        rem.mode = 'SHARP'
-        rem.octree_depth = obj.destruction.remesh_depth
-        rem.scale = 0.9
-        rem.sharpness = 1.0
-        rem.remove_disconnected_pieces = False
-        #  rem.threshold = 1.0
-   
-        #context.scene.objects.active = obj
-        ctx = context.copy()
-        ctx["object"] = obj
-        ctx["modifier"] = rem
-        ops.object.modifier_apply(ctx, apply_as='DATA', modifier = rem.name)
-    
-    [deselect(o) for o in context.scene.objects]
-    
-    #try to fix non-manifolds...
-    ops.object.mode_set(mode = 'EDIT')
-    ops.mesh.remove_doubles()
-    ops.mesh.select_all(action = 'DESELECT')
-    ops.mesh.select_non_manifold()
-    #ops.mesh.edge_collapse()
-    bm = bmesh.from_edit_mesh(obj.data)
-    verts = [v for v in bm.verts if len(v.link_edges) < 3 and v.select]
-    for v in verts:
-        print(len(v.link_edges))
-        bm.verts.remove(v)
-        
-    ops.mesh.select_all(action = 'DESELECT')
-    ops.mesh.select_non_manifold()
-    ops.mesh.edge_collapse()   
-    ops.object.mode_set(mode = 'OBJECT')
-    
-    newnames = []
-    i = 0       
-    for o in context.scene.objects:
-        if o.name not in oldnames:
-            i += 1   
-            context.scene.objects.active = o
-            newnames.extend(booleanIntersect(context, o, obj, oldnames, diff))
-            
-            if obj.destruction.use_debug_redraw:
-                context.scene.update()
-                obj.destruction._redraw_yasiamevil()
-            
-            if len(o.data.vertices) == 0:
-                context.scene.objects.unlink(o)
-            else:
-                oldnames.append(o.name)
-                
-            #prog = round(float(i) / float(len(objs)), 2)
-            #prog = 50 + prog * 50
-           # obj.destruction.fracture_progress(str(prog))
-                
-    for n in newnames:
-        if n not in oldnames and n in context.scene.objects:
-            ob = context.scene.objects[n]
-            context.scene.objects.active = ob
-            ob.select = True
-            ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
-            if o.parent == None:
-                ob.location -= diff
-            ob.select = False
-            oldnames.append(ob.name)
-                   
-    [select(o) for o in context.scene.objects]
-    
-    objs = [o for o in context.scene.objects if o.name in newnames]
-    print("Boolean Time ", clock() - start)      
-  #  context.scene.objects.unlink(obj)
     return objs
     
-def booleanIntersect(context, o, obj, oldnames, diff):  
+    
+def booleanIntersect(context, o, obj, diff):  
             
     bool = o.modifiers.new("Boolean", 'BOOLEAN')
     #use the original boolean object always, otherwise boolean op errors occur...
@@ -478,14 +446,13 @@ def booleanIntersect(context, o, obj, oldnames, diff):
     ops.object.modifier_apply(ctx, apply_as='DATA', modifier = bool.name)
     
     ops.object.mode_set(mode = 'EDIT')
-    ops.mesh.dissolve_limited(angle_limit = 0.001)#math.radians(2.5))
-    ops.mesh.separate(type = 'LOOSE')
+    ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))
     ops.object.mode_set(mode = 'OBJECT')
     
-    newnames = []
-    for ob in context.scene.objects:
-       if ob.name not in oldnames and ob.name != o.name:
-           newnames.append(ob.name)
+   # newnames = []
+    #for ob in context.scene.objects:
+    #   if ob.name not in oldnames and ob.name != o.name:
+    #       newnames.append(ob.name)
     
     oldSel = o.select  
     o.select = True
@@ -494,5 +461,12 @@ def booleanIntersect(context, o, obj, oldnames, diff):
         o.location -= diff
     o.select = oldSel
     
-    return newnames    
+    ops.object.mode_set(mode = 'EDIT')    
+    ops.mesh.separate(type = 'LOOSE')
+    ops.object.mode_set(mode = 'OBJECT')
+    
+    if len(o.data.vertices) == 0:
+        context.scene.objects.unlink(o)
+        
+    #return newnames    
    

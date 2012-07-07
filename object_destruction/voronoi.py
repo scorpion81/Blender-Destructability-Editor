@@ -140,7 +140,7 @@ def buildCell(cell, name, walls, diff):
     ops.object.mode_set(mode = 'OBJECT')
     
     if not walls:
-       #fixNonManifolds(obj)
+       fixNonManifolds(obj)
        booleanIntersect(bpy.context, obj, orig, diff)
        
 #    lock.release()

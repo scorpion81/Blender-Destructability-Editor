@@ -389,23 +389,25 @@ class Processor():
                 obj.destruction.boolean_original = obj.name
             
             largest = self.setLargest(largest, backup)
+            
+            oldSel = backup.select
+            context.scene.objects.active = backup
+            backup.select = True
+            ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+            backup.select = oldSel
            
             if obj.destruction.cubify:
                 parts.extend(self.cubify(context, obj, bbox, partCount))
             else:
                 parts.extend(voronoi.voronoiCube(context, obj, partCount, volume, wall))
             
+            
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                 context.scene.objects.unlink(backup)
-            else:
-                oldSel = backup.select
-                context.scene.objects.active = backup
-                backup.select = True
-                ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
-                backup.select = oldSel
                     
             #do the parenting
-            self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)     
+            self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)  
+        
         return parts
         
     def applyExplo(self, context, objects):
@@ -520,12 +522,12 @@ class Processor():
         pos = Vector((0.0, 0.0, 0.0))
         if parent == None:
             for o in data.objects:
-                if o.destruction != None:
-                    if o.destruction.is_backup_for == "P_0_" + nameStart + "." + largest:# + ".000":
-                        pos = o.location
-                        if o.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
-                            pos += Vector(o.destruction.tempLoc) #needed for voronoi
-                            #o.destruction.tempLoc = Vector((0, 0, 0))
+               if o.destruction != None:
+                   if o.destruction.is_backup_for == "P_0_" + nameStart + "." + largest:# + ".000":
+                       pos = o.location
+                       if o.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
+                           pos += Vector(o.destruction.origLoc) #needed for voronoi
+                           o.destruction.origLoc = Vector((0, 0, 0))
             print("EMPTY Pos: ", pos)
             context.active_object.location = pos
         #else:
@@ -794,7 +796,52 @@ class Processor():
             self.assign(c, parentName, pos, mass, backup, context)  
         
     def assign(self, c, parentName, pos, mass, backup, context):
-         
+        
+        #assign materials
+        materialname = backup.destruction.inner_material
+       # print("Mat", materialname)
+        if materialname != None and materialname != "":
+            slots = len(c.material_slots)
+            found = False
+            i = 0
+            for slot in c.material_slots:
+                if slot.material.name == materialname:
+                    found = True
+                    slots = i
+                    break
+                i += 1
+                
+                
+            if not found:
+                ctx = context.copy()
+                ctx["object"] = c
+                ops.object.material_slot_add(ctx)
+                material = data.materials[materialname]
+                c.material_slots[slots].material = material
+              
+        context.scene.objects.active = c 
+        
+        if materialname != None and materialname != "" or c.destruction.re_unwrap:
+            ops.object.mode_set(mode = 'EDIT')
+            ops.mesh.select_all(action = 'SELECT')
+            ops.mesh.mark_seam()
+            ops.mesh.select_all(action = 'DESELECT')
+        
+            bm = bmesh.from_edit_mesh(c.data)
+            facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
+            for f in facelist:
+                if materialname != None and materialname != "":
+                   # print("Assigning index", slots)
+                    f.material_index = slots
+                f.select = True
+                
+            if c.destruction.re_unwrap:
+                #unwrap inner faces again, so the textures dont look distorted (hopefully)  
+                ops.uv.smart_project(angle_limit = c.destruction.smart_angle)
+            ops.object.mode_set(mode = 'OBJECT')
+        
+        
+        
         #correct a parenting "error": the parts are moved pos too far
         #print(backup.parent)
         b = None
@@ -819,6 +866,10 @@ class Processor():
             c.location -= pos
             #if groups are wanted DO NOT parent here
             myparent = data.objects[parentName]
+            
+            #if backup.destruction.destructionMode == 'DESTROY_V' or backup.destruction.destructionMode == 'DESTROY_VB':
+            #    myparent.location = Vector(backup.destruction.origLoc)
+            
             if backup.destruction.destructionMode == 'DESTROY_C':
                 if not backup.destruction.cell_fracture.group_name:
                     c.parent = myparent
@@ -871,47 +922,7 @@ class Processor():
             c.game.use_collision_bounds = True
             c.game.collision_margin = 0.0 
         
-        materialname = backup.destruction.inner_material
-       # print("Mat", materialname)
-        if materialname != None and materialname != "":
-            slots = len(c.material_slots)
-            found = False
-            i = 0
-            for slot in c.material_slots:
-                if slot.material.name == materialname:
-                    found = True
-                    slots = i
-                    break
-                i += 1
-                
-                
-            if not found:
-                ctx = context.copy()
-                ctx["object"] = c
-                ops.object.material_slot_add(ctx)
-                material = data.materials[materialname]
-                c.material_slots[slots].material = material
-            
-        context.scene.objects.active = c 
         
-        if materialname != None and materialname != "" or c.destruction.re_unwrap:
-            ops.object.mode_set(mode = 'EDIT')
-            ops.mesh.select_all(action = 'SELECT')
-            ops.mesh.mark_seam()
-            ops.mesh.select_all(action = 'DESELECT')
-        
-            bm = bmesh.from_edit_mesh(c.data)
-            facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
-            for f in facelist:
-                if materialname != None and materialname != "":
-                   # print("Assigning index", slots)
-                    f.material_index = slots
-                f.select = True
-                
-            if c.destruction.re_unwrap:
-                #unwrap inner faces again, so the textures dont look distorted (hopefully)  
-                ops.uv.smart_project(angle_limit = c.destruction.smart_angle)
-            ops.object.mode_set(mode = 'OBJECT')
         
         #update stale data
        # context.scene.objects.active = c
@@ -1071,7 +1082,9 @@ class Processor():
                 p2 = Vector(backup.data.vertices[p.vertices[0]].co)
                 
                 p1 = p1 + c.location
-                p2 = p2 + backup.location
+                
+                if backup.destruction.destructionMode != 'DESTROY_VB':
+                    p2 = p2 + backup.location
                  
                 #handle scale and rotation too
                 p1 = p1 * c.rotation_euler.to_matrix()
@@ -1086,8 +1099,18 @@ class Processor():
                 p2[2] = p2[2] * backup.scale[2]
                                     
                 d = round((p1 - p2).dot(n), 3)
-                print("Distance", d, n)
-                if d == 0:
+                
+                if backup.destruction.destructionMode != 'DESTROY_VB':
+                    bx = abs(round(backup.location[0], 3))
+                    by = abs(round(backup.location[1], 3))
+                    bz = abs(round(backup.location[2], 3))
+                else:
+                    bx = abs(round(backup.destruction.tempLoc[0], 3))
+                    by = abs(round(backup.destruction.tempLoc[1], 3))
+                    bz = abs(round(backup.destruction.tempLoc[2], 3))
+                
+                print("Distance", d, bx, by, bz)
+                if abs(d) in (bx, by, bz):
                     return True                                              
         return False
         
@@ -2147,6 +2170,7 @@ so only unconnected parts collapse according to their parent relations")
     is_backup_for = props.StringProperty(name = "is_backup_for")
     wall = props.BoolProperty(name = "wall", default = True)
     tempLoc = props.FloatVectorProperty(name = "tempLoc", default = (0, 0, 0))
+    origLoc = props.FloatVectorProperty(name = "origLoc", default = (0, 0, 0))
     custom_ball = props.StringProperty(name="custom_ball" , 
        description = "Select custom ball object here before setup player, this will be shot from the player instead of the default ball")
     voro_exact_shape = props.BoolProperty(name = "voro_exact_shape", description = "Use the vertices of the given object as point cloud")

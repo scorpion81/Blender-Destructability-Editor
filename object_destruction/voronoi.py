@@ -244,7 +244,7 @@ def voronoiCube(context, obj, parts, vol, walls):
    # global start
     start = clock()
     loc = Vector(obj.location)
-    obj.destruction.tempLoc = loc
+    obj.destruction.origLoc = loc
     
     if vol != None and vol != "":
         print("USING VOL")
@@ -272,7 +272,7 @@ def voronoiCube(context, obj, parts, vol, walls):
     diff = Vector((0, 0, 0))
     if not walls:
         
-        #memorize old mesh center
+        #memorize old origin and mesh_center(bounds)
         area = None
         for a in context.screen.areas:
             if a.type == 'VIEW_3D':
@@ -280,16 +280,23 @@ def voronoiCube(context, obj, parts, vol, walls):
         ctx = context.copy()
         ctx["area"] = area
         
-        ops.object.mode_set(mode = 'EDIT')
-        ctx["edit_object"] = obj
-        ops.mesh.select_all(action = 'SELECT')
+        #ops.object.mode_set(mode = 'EDIT')
+        #ctx["edit_object"] = obj
+        #ops.mesh.select_all(action = 'SELECT')
+        ops.view3d.snap_cursor_to_selected(ctx)
+        old_orig = context.scene.cursor_location.copy()
+        ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
         ops.view3d.snap_cursor_to_selected(ctx)
         mesh_center = context.scene.cursor_location.copy()
-        ops.mesh.select_all(action = 'DESELECT')
-        ops.object.mode_set(mode = 'OBJECT')
-        diff = obj.location.copy() - mesh_center
-        print(mesh_center, obj.location, diff)
+        #ops.mesh.select_all(action = 'DESELECT')
+        #   ops.object.mode_set(mode = 'OBJECT')
+        diff = old_orig - mesh_center
+        print(mesh_center, old_orig, diff)
         
+        obj.destruction.tempLoc = diff
+        
+        context.scene.cursor_location = old_orig
+        ops.object.origin_set(type='ORIGIN_CURSOR')
         ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
     else:
         ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
@@ -464,6 +471,7 @@ def booleanIntersect(context, o, obj, diff):
     #for ob in context.scene.objects:
     #   if ob.name not in oldnames and ob.name != o.name:
     #       newnames.append(ob.name)
+    obj.select = False
     
     oldSel = o.select  
     o.select = True

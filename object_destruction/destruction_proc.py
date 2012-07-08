@@ -137,8 +137,10 @@ class Processor():
                 #    context.scene.objects.unlink(obj_cell)
                 #    del objects[i]
             #objects.extend(objects_recursive)
+            #q.put(objects)
             return objects
         else:
+            #q.put(ret)
             return eval(modes[mode])
     
 #    def applyToChildren(self, ob, objects, transMode):
@@ -2064,29 +2066,29 @@ class DestructionContext(types.PropertyGroup):
        bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
        
     
-    def fracture_progress(self, prog):
-        
-        #width = bpy.context.area.width
-        #height = bpy.context.area.height
-        #bpy.context.area.tag_redraw()
-        
-        width = 600
-        height = 600
-        
-        # OpenGL setup
-        bgl.glMatrixMode(bgl.GL_PROJECTION)
-        bgl.glLoadIdentity()
-        bgl.gluOrtho2D(0, width, 0, height)
-        bgl.glMatrixMode(bgl.GL_MODELVIEW)
-        bgl.glLoadIdentity()
-
-        # BLF drawing routine
-       # path = bpy.context.user_preferences.filepaths.font_directory
-        #font_id = blf.load(path + "droidsans.ttf")
-        font_id = 0 # use default font   
-        blf.position(font_id, (width * 0.2), (height * 0.3), 0)
-        blf.size(font_id, 50, 72)
-        blf.draw(font_id, prog)
+#    def fracture_progress(self, prog):
+#        
+#        #width = bpy.context.area.width
+#        #height = bpy.context.area.height
+#        #bpy.context.area.tag_redraw()
+#        
+#        width = 600
+#        height = 600
+#        
+#        # OpenGL setup
+#        bgl.glMatrixMode(bgl.GL_PROJECTION)
+#        bgl.glLoadIdentity()
+#        bgl.gluOrtho2D(0, width, 0, height)
+#        bgl.glMatrixMode(bgl.GL_MODELVIEW)
+#        bgl.glLoadIdentity()
+#
+#        # BLF drawing routine
+#       # path = bpy.context.user_preferences.filepaths.font_directory
+#        #font_id = blf.load(path + "droidsans.ttf")
+#        font_id = 0 # use default font   
+#        blf.position(font_id, (width * 0.2), (height * 0.3), 0)
+#        blf.size(font_id, 50, 72)
+#        blf.draw(font_id, prog)
        
     
     def getVolumes():

@@ -7,6 +7,7 @@ import os
 import bpy
 from mathutils import Vector
 from time import clock
+#import multiprocessing
 
 #from object_destruction.unittest import destruction_bpy_test as test
 
@@ -1129,6 +1130,8 @@ class DestroyObject(types.Operator):
     bl_options = {'UNDO'}
     
     impactLoc = bpy.props.FloatVectorProperty(default = (0, 0, 0))
+    proc = None
+    lock = None
     
     def modal(self, context, event):
         
@@ -1136,7 +1139,13 @@ class DestroyObject(types.Operator):
         context.user_preferences.edit.use_global_undo = False
         
         if event.type == 'ESC':
-            context.user_preferences.edit.use_global_undo = undo     
+            context.user_preferences.edit.use_global_undo = undo 
+            if proc != None:
+                proc.terminate()
+                proc = None 
+            
+            if lock != None:
+                lock.release()   
             return {'CANCELLED'}
         
         #set a heavy mass as workaround, until mass update works correctly...
@@ -1155,11 +1164,22 @@ class DestroyObject(types.Operator):
             if context.active_object.parent == None or context.active_object.parent.type != "EMPTY":
                 self.report({'ERROR_INVALID_INPUT'},"Object must be parented to an empty before")
                 return {'CANCELLED'}
-                  
-        start = clock()                   
+        
+        #doesnt work with blender data.
+        #lock = multiprocessing.Lock()
+        #lock.acquire()           
+        start = clock()   
+        #q = multiprocessing.Queue() 
+        #proc = multiprocessing.Process(target=dd.DataStore.proc.processDestruction, args=(context, Vector(self.impactLoc), q))       
+        #proc.start()
+        #print(q.get())
+        #proc.join()
+                      
         dd.DataStore.proc.processDestruction(context, Vector((self.impactLoc)))
-        print("Decomposition Time:" , clock() - start)    
-        context.user_preferences.edit.use_global_undo = undo     
+        print("Decomposition Time:" , clock() - start) 
+        context.user_preferences.edit.use_global_undo = undo
+        
+       # lock.release()     
         return {'FINISHED'}
     
     def invoke(self, context, event):

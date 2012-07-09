@@ -970,7 +970,7 @@ def dissolve(obj, depth, maxdepth, owner):
         par = ground
        
     
-    #print("Owner:", owner, isRegistered(par, owner), isDestroyable(par), parent, par)
+   # print("Owner:", owner, isRegistered(par, owner), isDestroyable(par), parent, par)
      
     if isDestroyable(par) and (isRegistered(par, owner) or isGround(par)):
         
@@ -995,7 +995,7 @@ def dissolve(obj, depth, maxdepth, owner):
             #print(depth, objDepth+1, bDepth+1)
             first = findFirstParent(par.name)
             if bpy.context.scene.hideLayer != 1 and isBackup(obj) and ((depth == bDepth+1) \
-           # or (depth == bDepth and owner.name == "Ball") \
+           # or ((depth == bDepth) and (owner.name == "Ball")) \
             and not isGroundConnectivity(first)):
                 print(depth, bDepth, isGroundConnectivity(first))
                 if bpy.context.scene.objects[obj.name].game.use_collision_compound:

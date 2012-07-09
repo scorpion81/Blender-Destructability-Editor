@@ -303,7 +303,7 @@ class Processor():
                 c.name += ".000" #rely on blender unique naming here!
             if context.scene.hideLayer != 1 and not c.name.endswith(".000"):
                 c.layers = self.layer(context.scene.hideLayer)
-        self.setCompound(parent, context.scene.hideLayer == 1)
+        self.setCompound(parent, context.scene.hideLayer == 1 and not parent.destruction.flatten_hierarchy)
         context.active_object.destruction.is_backup_for = parent.name
         parent.destruction.backup = context.active_object.name
         
@@ -599,7 +599,8 @@ class Processor():
             backup.use_fake_user = True
           
         #deactivate old compound settings always (not only if flatten hierarchy)
-        if parent.parent != None and context.scene.hideLayer == 1:
+        if parent.parent != None and context.scene.hideLayer == 1 and \
+        parent.destruction.flatten_hierarchy:
             self.delCompound(parent.parent)
         
         

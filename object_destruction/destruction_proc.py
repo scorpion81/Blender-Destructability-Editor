@@ -897,6 +897,7 @@ class Processor():
             c.destruction.re_unwrap = backup.destruction.re_unwrap
             c.destruction.smart_angle = backup.destruction.smart_angle
             c.destruction.use_debug_redraw = backup.destruction.use_debug_redraw
+            c.destruction.glue_threshold = backup.destruction.glue_threshold
         
         if c == backup and b == None:
             c.location -= pos
@@ -2234,7 +2235,8 @@ EACH cube will be further fractured to the given part count")
     setup_gameengine = props.BoolProperty(name = "setup_gameengine", description = "Show Game Engine Setup Options")
     re_unwrap = props.BoolProperty(name = "re_unwrap", description = "Unwrap shards with Smart Projection to reduce uv distortion")
     smart_angle = props.FloatProperty(name = "smart_angle", default = 66.0, min = 1.0, max = 89.0, description = "Angle limit for Smart Projection")
-    
+    glue_threshold = props.FloatProperty(name = "glue_threshold", default = 0.0, min = 0.0, 
+    description = "Determines how high the speed between destructor and shard must be to activate the shard on hit, 0 for immediate break")
     
 def initialize():
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")

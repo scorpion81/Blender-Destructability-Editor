@@ -447,7 +447,16 @@ def calculateGrids():
            # ground = groundObjs[0]
         
     print("Grids: ", dd.DataStore.grids) 
-    
+
+def modSpeed(owner, speed):
+    ownerBpy = bpy.data.objects[owner.name]
+    radius = ownerBpy.destruction.radius
+    modifier = ownerBpy.destruction.modifier
+
+    #1 + 0.025*speed        
+    mSpeed = radius + modifier *speed
+    return mSpeed    
+        
 
 def distSpeed(owner, obj, maxDepth, lastSpeed):
     speed = 0
@@ -464,18 +473,13 @@ def distSpeed(owner, obj, maxDepth, lastSpeed):
     
  #   print(owner, obj, dist, speed)
     #destruction radius constant or speed dependent, user specifyable
-    ownerBpy = bpy.data.objects[owner.name]
-    radius = ownerBpy.destruction.radius
-    modifier = ownerBpy.destruction.modifier
-
-    #1 + 0.025*speed        
-    modSpeed = radius + modifier *speed
+    mSpeed = modSpeed(owner, speed)
   #  if owner.name == "Ball": # and bpy.context.scene.hideLayer == 1:
 #       modSpeed = math.sqrt(speed / 2)
     
     #the faster the smaller the parts but
-    if modSpeed > 0:
-        depth = math.ceil(maxDepth * 1.0 / modSpeed)
+    if mSpeed > 0:
+        depth = math.ceil(maxDepth * 1.0 / mSpeed)
     else:
         depth = 1
     #not greater than maxDepth
@@ -483,7 +487,7 @@ def distSpeed(owner, obj, maxDepth, lastSpeed):
         depth = maxDepth
    # print("DEPTH", depth) 
     #return dist < modSpeed
-    return dist, modSpeed, depth
+    return dist, mSpeed, depth
     
 def collide():
     
@@ -555,7 +559,7 @@ def collide():
             for o in scene.objects:
                 try:
                     dist, speed, depth = distSpeed(owner, o, maxHierarchyDepth, lastSpeed)
-                    if dist < speed:
+                    if dist < speed and bpy.data.objects[o.name].destruction.glue_threshold < speed:
 #                        if "isShard" in o.getPropertyNames():
 #                            pos = Vector((o["posx"], o["posy"], o["posz"]))
 #                            o.worldPosition = pos
@@ -579,9 +583,11 @@ def collide():
             if fp.name in dd.DataStore.grids.keys():
                 grid = dd.DataStore.grids[fp.name] 
                 for cell in grid.cells.values():
-                    modSpeed = math.sqrt(owner.worldLinearVelocity.length / 2)
+                    #modSpeed = math.sqrt(owner.worldLinearVelocity.length / 2)
+                    speed = (owner.worldLinearVelocity).length # groundConn means obj has 0 speed
+                    mSpeed = modSpeed(owner, speed)
                     celldist = (owner.worldPosition - Vector(cell.center)).length
-                    if celldist < modSpeed:
+                    if celldist < mSpeed:
                         cellsToCheck.append(cell)
                           
                 
@@ -619,7 +625,9 @@ def collide():
                 strength = owner["strength"]
                 depth = maxHierarchyDepth #blow all apart
             
-            if dist < speed or dist < strength:  
+            glue = bpy.data.objects[obj.name].destruction.glue_threshold 
+            
+            if (dist < speed and glue < speed) or (dist < strength and glue < strength):  
                 dissolve(obj, depth, maxHierarchyDepth, owner)
             #if isDeformable(obj):
             #    obj.cutSoftbodyLink(owner.worldPosition, dist)

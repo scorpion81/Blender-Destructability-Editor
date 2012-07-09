@@ -7,7 +7,10 @@ import os
 import bpy
 from mathutils import Vector
 from time import clock
-#import multiprocessing
+
+#import threading
+#from xmlrpc.server import SimpleXMLRPCRequestHandler, SimpleXMLRPCServer
+#from xmlrpc.client import ServerProxy
 
 #from object_destruction.unittest import destruction_bpy_test as test
 
@@ -191,6 +194,9 @@ class DestructabilityPanel(types.Panel):
             else:
                 row = box.row()
                 row.prop(context.scene, "dummyPoolSize", text = "Dummy Object Pool Size")
+            
+            row = box.row()
+            row.prop(context.object.destruction, "glue_threshold", text = "Glue Threshold")
 
     
     def draw_recursion(self, context):
@@ -1123,6 +1129,47 @@ class ConvertParenting(types.Operator):
 #                ops.logic.sensor_remove(sensor = "Collision", object = o.name)
 
 
+#class MyServer(SimpleXMLRPCServer):
+#    running = False
+#    server = None
+#    
+#    class MyHandler(SimpleXMLRPCRequestHandler):
+#        rpc_paths = ('/RPC2', )
+#   
+#       
+#    def start():
+#        if MyServer.server == None:
+#            MyServer.server = MyServer(("localhost", 8999), 
+#                                requestHandler=MyServer.MyHandler, 
+#                                allow_none=True)
+#        
+#            MyServer.server.register_function(MyServer.execute)
+#            MyServer.server.register_function(MyServer.stop)
+#            MyServer.server.register_instance(bpy)
+#            MyServer.running = True
+#        
+#            while MyServer.running:
+#                print("Running")
+#                MyServer.server.handle_request()
+#                
+#            del MyServer.server
+#     
+#    def execute(cmd):
+#        exec(cmd)
+#    
+#    def stop():
+#        if MyServer.server != None:
+#            MyServer.running = False
+#    
+#    def proxy(cmd):
+#        p = ServerProxy('http://localhost:8999')
+#        p.execute(cmd)
+#        p.stop() 
+            
+        
+     
+
+
 class DestroyObject(types.Operator):
     bl_idname = "object.destroy"
     bl_label = "Destroy Object"
@@ -1137,15 +1184,17 @@ class DestroyObject(types.Operator):
         
         undo = context.user_preferences.edit.use_global_undo
         context.user_preferences.edit.use_global_undo = False
+       # s = None
+       # c = None
         
+        print(event.type)
         if event.type == 'ESC':
             context.user_preferences.edit.use_global_undo = undo 
-            if proc != None:
-                proc.terminate()
-                proc = None 
             
-            if lock != None:
-                lock.release()   
+            #if c != None:# and s != None:
+                #MyServer.stop()
+             #   c.join()
+                #s.join()
             return {'CANCELLED'}
         
         #set a heavy mass as workaround, until mass update works correctly...
@@ -1164,16 +1213,19 @@ class DestroyObject(types.Operator):
             if context.active_object.parent == None or context.active_object.parent.type != "EMPTY":
                 self.report({'ERROR_INVALID_INPUT'},"Object must be parented to an empty before")
                 return {'CANCELLED'}
-        
-        #doesnt work with blender data.
-        #lock = multiprocessing.Lock()
-        #lock.acquire()           
+                
         start = clock()   
-        #q = multiprocessing.Queue() 
-        #proc = multiprocessing.Process(target=dd.DataStore.proc.processDestruction, args=(context, Vector(self.impactLoc), q))       
-        #proc.start()
-        #print(q.get())
-        #proc.join()
+        #s = threading.Thread(target=MyServer.start)
+        #func = dd.DataStore.proc.processDestruction
+        #args = (context, Vector(self.impactLoc))
+        #c = threading.Thread(target=func, args=args)
+               
+        #s.start()
+        #c.start()
+        #v = Vector(self.impactLoc)
+        
+       # c.join()
+        #s.join()
                       
         dd.DataStore.proc.processDestruction(context, Vector((self.impactLoc)))
         print("Decomposition Time:" , clock() - start) 

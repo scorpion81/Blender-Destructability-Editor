@@ -884,7 +884,7 @@ class Processor():
                 c.parent = myparent
                     
             c.destruction.flatten_hierarchy = backup.destruction.flatten_hierarchy
-            c.layers = backup.layers
+            c.layers = self.layer(context.scene.hideLayer)
             c.destruction.deform = backup.destruction.deform
             c.destruction.partCount = backup.destruction.partCount
             c.destruction.wallThickness = backup.destruction.wallThickness

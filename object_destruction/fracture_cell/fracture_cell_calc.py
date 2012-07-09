@@ -21,9 +21,12 @@
 # Script copyright (C) Blender Foundation 2012
 
 
-def points_as_bmesh_cells(verts, points,
-                          margin_bounds=0.01,
+def points_as_bmesh_cells(verts,
+                          points,
+                          points_scale=None,
+                          margin_bounds=0.05,
                           margin_cell=0.0):
+    from math import sqrt
     import mathutils
     from mathutils import Vector
 
@@ -32,6 +35,11 @@ def points_as_bmesh_cells(verts, points,
     points_sorted_current = [p for p in points]
     plane_indices = []
     vertices = []
+
+    if points_scale is not None:
+        points_scale = tuple(points_scale)
+    if points_scale == (1.0, 1.0, 1.0):
+        points_scale = None
 
     # there are many ways we could get planes - convex hull for eg
     # but it ends up fastest if we just use bounding box
@@ -64,6 +72,20 @@ def points_as_bmesh_cells(verts, points,
         for j in range(1, len(points)):
             normal = points_sorted_current[j] - point_cell_current
             nlength = normal.length
+
+            if points_scale is not None:
+                normal_alt = normal.copy()
+                normal_alt.x *= points_scale[0]
+                normal_alt.y *= points_scale[1]
+                normal_alt.z *= points_scale[2]
+
+                # rotate plane to new distance
+                # should always be positive!! - but abs incase
+                scalar = normal_alt.normalized().dot(normal.normalized())
+                # assert(scalar >= 0.0)
+                nlength *= scalar
+                normal = normal_alt
+
             if nlength > distance_max:
                 break
 
@@ -79,11 +101,14 @@ def points_as_bmesh_cells(verts, points,
             if len(plane_indices) != len(planes):
                 planes[:] = [planes[k] for k in plane_indices]
 
-            distance_max = vertices[0].length
-            for k in range(1, len(vertices)):
-                distance = vertices[k].length
+            # for comparisons use length_squared and delay
+            # converting to a real length until the end.
+            distance_max = 10000000000.0  # a big value!
+            for v in vertices:
+                distance = v.length_squared
                 if distance_max < distance:
                     distance_max = distance
+            distance_max = sqrt(distance_max)  # make real length
             distance_max *= 2.0
 
         if len(vertices) == 0:

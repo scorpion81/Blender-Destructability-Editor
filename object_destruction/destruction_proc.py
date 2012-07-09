@@ -1758,6 +1758,7 @@ class Processor():
         # pull out some args
         use_recenter = ctx.use_recenter
         group_name = ctx.group_name
+        #use_island_split = ctx.use_island_split
         
         objects = fracture_cell_setup.cell_fracture_objects(scene, obj)
         objects = fracture_cell_setup.cell_fracture_boolean(scene, obj, objects)
@@ -1959,6 +1960,14 @@ class CellFractureContext(types.PropertyGroup):
             min=0.0, max=1.0,
             default=0.0,
             )
+    
+    cell_scale = FloatVectorProperty(
+            name="Scale",
+            description="Scale Cell Shape",
+            size=3,
+            min=0.0, max=1.0,
+            default=(1.0, 1.0, 1.0),
+            )
 
     # -------------------------------------------------------------------------
     # Mesh Data Options
@@ -1992,6 +2001,14 @@ class CellFractureContext(types.PropertyGroup):
             min=0.0, max=1.0,
             default=0.001,
             )
+    
+    use_interior_vgroup = props.BoolProperty(
+            name="Interior VGroup",
+            description="Create a vertex group for interior verts",
+            default=False,
+            )
+
+   
 
     # -------------------------------------------------------------------------
     # Object Options
@@ -2025,7 +2042,12 @@ class CellFractureContext(types.PropertyGroup):
             description="Create mesh data showing the points used for fracture",
             default=False,
             )
-
+    
+    use_debug_bool = props.BoolProperty(
+            name="Debug Boolean",
+            description="Skip applying the boolean modifier",
+            default=False,
+            )
     # -------------------------------------------------------------------------
     # Recursion
 

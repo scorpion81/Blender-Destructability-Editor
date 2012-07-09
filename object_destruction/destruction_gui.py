@@ -69,6 +69,8 @@ class DestructabilityPanel(types.Panel):
                 col.prop(context.object.destruction.cell_fracture, "source")
                 col.prop(context.object.destruction.cell_fracture, "source_limit")
                 col.prop(context.object.destruction.cell_fracture, "source_noise")
+                rowsub = col.row(align = True)
+                rowsub.prop(context.object.destruction.cell_fracture, "cell_scale")                
                 
                 box = layout.box()
                 col = box.column()
@@ -77,9 +79,10 @@ class DestructabilityPanel(types.Panel):
                 rowsub.prop(context.object.destruction.cell_fracture, "use_smooth_faces")
                 rowsub.prop(context.object.destruction.cell_fracture, "use_smooth_edges")
                 rowsub.prop(context.object.destruction.cell_fracture, "use_data_match")
+                rowsub.prop(context.object.destruction.cell_fracture, "use_interior_vgroup")
                 rowsub = col.row(align=True)
                 rowsub.prop(context.object.destruction.cell_fracture, "margin")
-                # rowsub.prop(self, "use_island_split")  # TODO
+                rowsub.prop(context.object.destruction.cell_fracture, "use_island_split")
                 
                 box = layout.box()
                 col = box.column()    
@@ -98,7 +101,8 @@ class DestructabilityPanel(types.Panel):
                 col.label("Debug")
                 rowsub = col.row(align=True)
                 rowsub.prop(context.object.destruction.cell_fracture, "use_debug_points")
-            
+                rowsub.prop(context.object.destruction.cell_fracture, "use_debug_bool")
+                    
             if context.object.destruction.destructionMode == 'DESTROY_F':
                 col.prop(context.object.destruction, "crack_type", text = "Crack Type")
                 if context.object.destruction.crack_type == 'FLAT_ROUGH' or \

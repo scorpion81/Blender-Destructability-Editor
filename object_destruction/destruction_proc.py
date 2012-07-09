@@ -1939,12 +1939,14 @@ class CellFractureContext(types.PropertyGroup):
                    ('VERT_CHILD', "Child Verts", "Use child vertices"),
                    ('EDGE_CHILD', "Child Edges", "Use child edges"),
                    ('FACE_CHILD', "Child Faces", "Use child faces"),
-                   ('PARTICLE', "Particles", ("All particle systems of the "
-                                              "source object")),
+                   ('PARTICLE_OWN', "Own Particles", ("All particle systems of the "
+                                                      "source object")),
+                   ('PARTICLE_CHILD', "Child Particles", ("All particle systems of the "
+                                                          "child objects")),
                    ('PENCIL', "Grease Pencil", "This objects grease pencil"),
                    ),
             options={'ENUM_FLAG'},
-            default={'PARTICLE', 'VERT_OWN'}  # 'VERT_OWN', 'EDGE_OWN', 'FACE_OWN'
+            default={'PARTICLE_OWN', 'VERT_OWN'}  # 'VERT_OWN', 'EDGE_OWN', 'FACE_OWN'
             )
 
     source_limit = props.IntProperty(
@@ -1961,7 +1963,7 @@ class CellFractureContext(types.PropertyGroup):
             default=0.0,
             )
     
-    cell_scale = FloatVectorProperty(
+    cell_scale = props.FloatVectorProperty(
             name="Scale",
             description="Scale Cell Shape",
             size=3,

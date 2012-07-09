@@ -27,7 +27,7 @@ def _points_from_object(obj, source):
 
     _source_all = {
         'VERT_OWN', 'EDGE_OWN', 'FACE_OWN',
-        'VERT_CHILD', 'EDGE_CHILD', 'FACE_CHILD'}
+        'VERT_CHILD', 'EDGE_CHILD', 'FACE_CHILD',
         'PARTICLE_OWN', 'PARTICLE_CHILD',
         'PENCIL',
         }
@@ -154,6 +154,7 @@ def cell_fracture_objects(scene, obj):
     use_island_split = True
     margin = ctx.margin
     use_debug_points = ctx.use_debug_points
+    cell_scale = ctx.cell_scale
 
     # -------------------------------------------------------------------------
     # GET POINTS
@@ -335,7 +336,7 @@ def cell_fracture_boolean(scene, obj, objects):
     clean = True
     use_island_split = ctx.use_island_split
     use_interior_vgroup = ctx.use_interior_vgroup
-    use_debug_redraw = ctx.use_debug_redraw
+    use_debug_redraw = obj.destruction.use_debug_redraw
     
     objects_boolean = []
 

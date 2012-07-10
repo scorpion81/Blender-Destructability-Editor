@@ -824,7 +824,7 @@ class Processor():
                 
                 
             if not found:
-                ctx = context.copy()
+                ctx = bpy.context.copy()
                 ctx["object"] = c
                 ops.object.material_slot_add(ctx)
                 material = data.materials[materialname]

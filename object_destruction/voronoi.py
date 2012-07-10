@@ -1,7 +1,7 @@
 import platform
 from time import clock
 #from concurrent.futures import ThreadPoolExecutor, wait
-import threading
+#import threading
 import math
 
 if platform.architecture()[0] == "64bit":
@@ -79,7 +79,7 @@ def parseFile(name):
          records.append({"v": verts, "f": faces})
      return records    
 
-def buildCell(cell, name, walls, diff):
+def buildCell(cell, name, walls, diff, mat_index):
  # for each face
     #global start
     
@@ -145,6 +145,13 @@ def buildCell(cell, name, walls, diff):
     
     if not walls:
        fixNonManifolds(obj)
+       
+       #simply assign inner material to all faces
+       if mat_index != 0:
+           for p in obj.data.polygons:
+                p.material_index = mat_index
+       
+       #let boolean handle the material assignment !      
        booleanIntersect(bpy.context, obj, orig, diff)
        
 #    lock.release()
@@ -156,7 +163,7 @@ def buildCell(cell, name, walls, diff):
    # start = clock()
     
          
-def buildCellMesh(cells, name, walls, diff):      
+def buildCellMesh(cells, name, walls, diff, mat_index):      
     
 
 #     lock = threading.Lock()     
@@ -173,7 +180,7 @@ def buildCellMesh(cells, name, walls, diff):
 #        t.join()       
     objs = []   
     for cell in cells: 
-        objs.append(buildCell(cell, name, walls, diff))
+        objs.append(buildCell(cell, name, walls, diff, mat_index))
         
         ob = bpy.context.scene.objects[name] 
         if ob.destruction.use_debug_redraw:
@@ -238,7 +245,7 @@ def fixNonManifolds(obj):
     ops.mesh.edge_collapse()   
     ops.object.mode_set(mode = 'OBJECT')
     
-def voronoiCube(context, obj, parts, vol, walls):
+def voronoiCube(context, obj, parts, vol, walls, mat_index):
     
     #applyscale before
    # global start
@@ -420,6 +427,7 @@ def voronoiCube(context, obj, parts, vol, walls):
     
     #do a remesh here if desired and try to fix non-manifolds
     if not walls:
+         
         context.scene.objects.active = obj
         if obj.destruction.remesh_depth > 0:
             rem = obj.modifiers.new("Remesh", 'REMESH')
@@ -443,7 +451,7 @@ def voronoiCube(context, obj, parts, vol, walls):
         
     
     context.scene.objects.active = obj
-    objs = buildCellMesh(records, obj.name, walls, diff)
+    objs = buildCellMesh(records, obj.name, walls, diff, mat_index)
     
     print("Mesh Construction Time ", clock() - start)
     

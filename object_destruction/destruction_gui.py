@@ -395,6 +395,8 @@ class DestructabilityPanel(types.Panel):
         if context.object.destruction.setup_gameengine:
             self.draw_gameengine_setup(context)
         
+        layout.operator("active.to_selected")
+        
        # row = layout.row()
         #row.label("Progress")
         #row.label(context.scene.fracture_progress) 
@@ -1399,7 +1401,25 @@ class GameStart(types.Operator):
         #        bpy.ops.object.undestroy() 
         
         return {'FINISHED'}
+
+class ActiveToSelected(types.Operator):
+    bl_idname = "active.to_selected"
+    bl_label = "Copy From Active To Selected"
+    bl_description = "Copy Properties from Active to Selected Objects"
+    bl_options = {'UNDO'}
     
+    def execute(self, context):
+        active = context.active_object
+        selected = context.selected_objects
+        
+        if active and selected:
+            for prop in active.destruction.items():
+                for s in selected:
+                    s.destruction[prop[0]] = prop[1]
+                 
+            return {'FINISHED'}
+        
+        return {'CANCELLED'}
 
 #class RunUnitTest(types.Operator):
 #    bl_idname = "test.run"

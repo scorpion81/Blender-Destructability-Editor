@@ -139,7 +139,7 @@ def buildCell(cell, name, walls, diff, mat_index):
     ops.mesh.normals_make_consistent(inside=False)
     
     if walls:
-        ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))
+        ops.mesh.dissolve_limited(angle_limit = 0.0001)#math.radians(2.5))
         
     ops.object.mode_set(mode = 'OBJECT')
     
@@ -472,7 +472,8 @@ def booleanIntersect(context, o, obj, diff):
     ops.object.modifier_apply(ctx, apply_as='DATA', modifier = bool.name)
     
     ops.object.mode_set(mode = 'EDIT')
-    ops.mesh.dissolve_limited(angle_limit = math.radians(2.5))
+    ops.mesh.select_all(action = 'SELECT')
+    ops.mesh.dissolve_limited(angle_limit = 0.001)#math.radians(2.5))
     ops.object.mode_set(mode = 'OBJECT')
     
    # newnames = []

@@ -834,7 +834,6 @@ class Processor():
         
     def assign(self, c, parentName, pos, mass, backup, context):
         
-        context.scene.objects.active = c 
         slots = 0
         if backup.destruction.destructionMode != 'DESTROY_VB' and \
         backup.destruction.destructionMode != 'DESTROY_C':
@@ -842,26 +841,26 @@ class Processor():
             materialname = backup.destruction.inner_material
             slots = self.getMatIndex(materialname, backup)
                   
-            #context.scene.objects.active = c 
+        
+        context.scene.objects.active = c 
             
-        if slots != 0 or c.destruction.re_unwrap:
+        if slots != 0 or backup.destruction.re_unwrap:
             ops.object.mode_set(mode = 'EDIT')
             ops.mesh.select_all(action = 'SELECT')
-            ops.mesh.mark_seam()
+           # print("Seam", ops.mesh.mark_seam())
             ops.mesh.select_all(action = 'DESELECT')
             
-            if slots != 0:
-                bm = bmesh.from_edit_mesh(c.data)
-                facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
-                for f in facelist:
-                    if slots != 0:
-                       # print("Assigning index", slots)
-                        f.material_index = slots
-                    f.select = True
+            bm = bmesh.from_edit_mesh(c.data)
+            facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
+            for f in facelist:
+                if slots != 0:
+                  # print("Assigning index", slots)
+                    f.material_index = slots
+                f.select = True
                 
-            if c.destruction.re_unwrap:
+            if backup.destruction.re_unwrap:
                 #unwrap inner faces again, so the textures dont look distorted (hopefully)  
-                ops.uv.smart_project(angle_limit = c.destruction.smart_angle)
+                ops.uv.smart_project(angle_limit = backup.destruction.smart_angle)
             ops.object.mode_set(mode = 'OBJECT')
         
         #correct a parenting "error": the parts are moved pos too far
@@ -1132,7 +1131,7 @@ class Processor():
                     by = abs(round(backup.destruction.tempLoc[1], 3))
                     bz = abs(round(backup.destruction.tempLoc[2], 3))
                 
-                print("Distance", d, bx, by, bz)
+                #print("Distance", d, bx, by, bz)
                 if abs(d) in (bx, by, bz):
                     return True                                              
         return False

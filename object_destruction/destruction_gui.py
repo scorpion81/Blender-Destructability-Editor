@@ -1415,7 +1415,9 @@ class ActiveToSelected(types.Operator):
         if active and selected:
             for prop in active.destruction.items():
                 for s in selected:
-                    s.destruction[prop[0]] = prop[1]
+                    if prop[0] not in ('wasCompound', 'backup', 'children', 'ascendants', 'converted', 'is_backup_for', 'destroyable'):
+                        print("Copying:", prop[0])
+                        s.destruction[prop[0]] = prop[1]
                  
             return {'FINISHED'}
         

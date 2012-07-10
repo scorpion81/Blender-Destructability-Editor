@@ -2242,7 +2242,7 @@ so only unconnected parts collapse according to their parent relations")
         default=0.5)
    # End from        
 
-    grid = None
+   # grid = None
     jitter = props.FloatProperty(name = "jitter", default = 0.0, min = 0.0, max = 100.0) 
     
     cubify = props.BoolProperty(name = "cubify", description = "Split the given object to cubes before fracturing it, \

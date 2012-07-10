@@ -810,7 +810,8 @@ class Processor():
     
     def getMatIndex(self, materialname, c):
        # print("Mat", materialname)
-        if materialname != None and materialname != "":
+        if materialname != None and materialname != "" and \
+        materialname in bpy.data.materials:
             slots = len(c.material_slots)
             found = False
             i = 0

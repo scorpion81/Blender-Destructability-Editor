@@ -79,7 +79,7 @@ def parseFile(name):
          records.append({"v": verts, "f": faces})
      return records    
 
-def buildCell(cell, name, walls, diff, mat_index, re_unwrap, smart_angle):
+def buildCell(cell, name, walls, diff, mat_index, re_unwrap, smart_angle, dissolve_angle):
  # for each face
     #global start
     
@@ -139,7 +139,7 @@ def buildCell(cell, name, walls, diff, mat_index, re_unwrap, smart_angle):
     ops.mesh.normals_make_consistent(inside=False)
     
     #if walls:
-    ops.mesh.dissolve_limited(angle_limit = 0.0001)#math.radians(2.5))
+    ops.mesh.dissolve_limited(angle_limit = dissolve_angle)
         
     ops.object.mode_set(mode = 'OBJECT')
     
@@ -160,7 +160,7 @@ def buildCell(cell, name, walls, diff, mat_index, re_unwrap, smart_angle):
            ops.object.mode_set(mode = 'OBJECT')
                
        #let boolean handle the material assignment !      
-       booleanIntersect(bpy.context, obj, orig, diff)
+       booleanIntersect(bpy.context, obj, orig, diff, dissolve_angle)
        
 #    lock.release()
     return obj
@@ -171,7 +171,7 @@ def buildCell(cell, name, walls, diff, mat_index, re_unwrap, smart_angle):
    # start = clock()
     
          
-def buildCellMesh(cells, name, walls, diff, mat_index, re_unwrap, smart_angle):      
+def buildCellMesh(cells, name, walls, diff, mat_index, re_unwrap, smart_angle, dissolve_angle):      
     
 
 #     lock = threading.Lock()     
@@ -188,7 +188,7 @@ def buildCellMesh(cells, name, walls, diff, mat_index, re_unwrap, smart_angle):
 #        t.join()       
     objs = []   
     for cell in cells: 
-        objs.append(buildCell(cell, name, walls, diff, mat_index, re_unwrap, smart_angle))
+        objs.append(buildCell(cell, name, walls, diff, mat_index, re_unwrap, smart_angle, dissolve_angle))
         
         ob = bpy.context.scene.objects[name] 
         if ob.destruction.use_debug_redraw:
@@ -253,7 +253,11 @@ def fixNonManifolds(obj):
     ops.mesh.edge_collapse()   
     ops.object.mode_set(mode = 'OBJECT')
     
-def voronoiCube(context, obj, parts, vol, walls, mat_index, re_unwrap, smart_angle):
+def voronoiCube(context, obj, parts, vol, walls, mat_index):
+    
+    re_unwrap = obj.destruction.re_unwrap
+    smart_angle = obj.destruction.smart_angle
+    dissolve_angle = obj.destruction.dissolve_angle
     
     #applyscale before
    # global start
@@ -459,14 +463,14 @@ def voronoiCube(context, obj, parts, vol, walls, mat_index, re_unwrap, smart_ang
         
     
     context.scene.objects.active = obj
-    objs = buildCellMesh(records, obj.name, walls, diff, mat_index, re_unwrap, smart_angle)
+    objs = buildCellMesh(records, obj.name, walls, diff, mat_index, re_unwrap, smart_angle, dissolve_angle)
     
     print("Mesh Construction Time ", clock() - start)
     
     return objs
     
     
-def booleanIntersect(context, o, obj, diff):  
+def booleanIntersect(context, o, obj, diff, dissolve_angle):  
             
     bool = o.modifiers.new("Boolean", 'BOOLEAN')
     #use the original boolean object always, otherwise boolean op errors occur...
@@ -481,7 +485,7 @@ def booleanIntersect(context, o, obj, diff):
     
     ops.object.mode_set(mode = 'EDIT')
     ops.mesh.select_all(action = 'SELECT')
-    ops.mesh.dissolve_limited(angle_limit = 0.001)#math.radians(2.5))
+    ops.mesh.dissolve_limited(angle_limit = dissolve_angle)
     ops.object.mode_set(mode = 'OBJECT')
     
    # newnames = []

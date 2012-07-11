@@ -141,7 +141,8 @@ class DestructabilityPanel(types.Panel):
                 if context.object.destruction.destructionMode == 'DESTROY_VB':
                     row = col.row()
                     row.prop(context.object.destruction, "remesh_depth", text="Remesh Depth")
-            
+                row = col.row()
+                row.prop(context.object.destruction, "dissolve_angle", text="Limited Dissolve Angle")
             
         
     def draw_advanced_fracture(self, context):

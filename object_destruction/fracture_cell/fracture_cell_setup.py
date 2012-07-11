@@ -137,7 +137,7 @@ def _points_from_object(obj, source):
     return points
 
 
-def cell_fracture_objects(scene, obj, material_index, re_unwrap, smart_angle):
+def cell_fracture_objects(scene, obj, material_index):
     
     from . import fracture_cell_calc
     
@@ -155,6 +155,9 @@ def cell_fracture_objects(scene, obj, material_index, re_unwrap, smart_angle):
     margin = ctx.margin
     use_debug_points = ctx.use_debug_points
     cell_scale = ctx.cell_scale
+    
+    re_unwrap = obj.destruction.re_unwrap
+    smart_angle = obj.destruction.smart_angle
 
     # -------------------------------------------------------------------------
     # GET POINTS

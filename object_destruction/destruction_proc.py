@@ -1880,6 +1880,15 @@ def updateTransmitMode(self, context):
 def updateDestroyable(self, context):
     return None 
 
+def updateCam(self, context):
+    p = bpy.data.objects["Player"]
+    if p:
+        if context.scene.use_player_cam:
+            p.game.controllers[0].link(p.game.sensors[0], p.game.actuators[0])
+        else:
+            p.game.controllers[0].unlink(p.game.sensors[0], p.game.actuators[0])
+    return None
+
 #disable decorator when persistence is not available
 def unchanged(func):
     return func
@@ -2299,6 +2308,9 @@ def initialize():
     Scene.dummyPoolSize = props.IntProperty(name = "dummyPoolSize", min = 10, max = 1000, default = 100,
                                             description = "How many dummy objects to pre-allocate for dynamic destruction (cant add them dynamically in BGE)")
     Scene.runBGETests = props.BoolProperty(name = "runBGETests")
+    
+    Scene.use_player_cam = props.BoolProperty(name = "use_player_cam", default = True, update = updateCam, 
+                                              description = "Use Player Camera in Game Engine")
     
     #Scene.fracture_progress = props.StringProperty(name = "fracture_progress", description = "Fracture Progress")
     

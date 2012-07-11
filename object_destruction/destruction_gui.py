@@ -312,6 +312,9 @@ class DestructabilityPanel(types.Panel):
                     "objects", icon = 'OBJECT_DATA', text = "Custom Ball:")
         
         row = box.row()
+        row.prop(context.scene, "use_player_cam", text = "Use Player Camera")
+        
+        row = box.row()
         col = row.column() 
     
         col.operator("player.setup")
@@ -620,10 +623,10 @@ class SetupPlayer(types.Operator):
         context.active_object.game.actuators[0].mode = 'CAMERA'
         context.active_object.game.actuators[0].camera = data.objects["Eye"]
         
-        
-        context.active_object.game.controllers[0].link(
-            context.active_object.game.sensors[0],
-            context.active_object.game.actuators[0])
+        if context.scene.use_player_cam:
+            context.active_object.game.controllers[0].link(
+                context.active_object.game.sensors[0],
+                context.active_object.game.actuators[0])
         
         context.active_object.game.controllers[1].link(
             context.active_object.game.sensors[1])

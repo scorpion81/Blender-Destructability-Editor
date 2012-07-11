@@ -212,7 +212,7 @@ def corners(obj, impactLoc = Vector((0,0,0))):
     
     bbox = obj.bound_box.data 
     dims = bbox.dimensions
-    loc = bbox.location
+    loc = bbox.location.copy()
     loc += impactLoc
     print("corners impact:", impactLoc)
     

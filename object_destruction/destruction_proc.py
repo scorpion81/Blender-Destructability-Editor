@@ -350,11 +350,13 @@ class Processor():
             
             materialname = backup.destruction.inner_material
             mat_index = self.getMatIndex(materialname, backup)
+            re_unwrap = backup.destruction.re_unwrap
+            smart_angle = backup.destruction.smart_angle
             
             if obj.destruction.cubify:
-                parts.extend(self.cubify(context, obj, bbox, 1, mat_index))
+                parts.extend(self.cubify(context, obj, bbox, 1, mat_index, re_unwrap, smart_angle))
             else:
-                parts.extend(self.fracture_cells(context, obj, mat_index))
+                parts.extend(self.fracture_cells(context, obj, mat_index, re_unwrap, smart_angle))
             
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                 if not obj.destruction.cubify:
@@ -408,10 +410,13 @@ class Processor():
                 #regular voronoi, handle mat assignment afterwards (because no bool involved)
                 mat_index = 0
             
+            re_unwrap = backup.destruction.re_unwrap
+            smart_angle = backup.destruction.smart_angle
+            
             if obj.destruction.cubify:
-                parts.extend(self.cubify(context, obj, bbox, partCount, mat_index))
+                parts.extend(self.cubify(context, obj, bbox, partCount, mat_index, re_unwrap, smart_angle))
             else:    
-                parts.extend(voronoi.voronoiCube(context, obj, partCount, volume, wall, mat_index))
+                parts.extend(voronoi.voronoiCube(context, obj, partCount, volume, wall, mat_index, re_unwrap, smart_angle))
             
             
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
@@ -442,7 +447,7 @@ class Processor():
             largest = self.setLargest(largest, backup)
            
             if obj.destruction.cubify:
-              parts.extend(self.cubify(context, obj, bbox, partCount, 0))
+              parts.extend(self.cubify(context, obj, bbox, partCount, 0, False, 0))
             else:
               parts.extend(self.explo(context, obj, partCount, granularity, thickness))
               
@@ -836,33 +841,31 @@ class Processor():
     def assign(self, c, parentName, pos, mass, backup, context):
         
         slots = 0
+        context.scene.objects.active = c 
         if backup.destruction.destructionMode != 'DESTROY_VB' and \
         backup.destruction.destructionMode != 'DESTROY_C':
             #assign materials
             materialname = backup.destruction.inner_material
-            slots = self.getMatIndex(materialname, backup)
-                  
-        
-        context.scene.objects.active = c 
-            
-        if slots != 0 or backup.destruction.re_unwrap:
-            ops.object.mode_set(mode = 'EDIT')
-            ops.mesh.select_all(action = 'SELECT')
-           # print("Seam", ops.mesh.mark_seam())
-            ops.mesh.select_all(action = 'DESELECT')
-            
-            bm = bmesh.from_edit_mesh(c.data)
-            facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
-            for f in facelist:
-                if slots != 0:
-                  # print("Assigning index", slots)
-                    f.material_index = slots
-                f.select = True
+            slots = self.getMatIndex(materialname, backup)    
                 
-            if backup.destruction.re_unwrap:
-                #unwrap inner faces again, so the textures dont look distorted (hopefully)  
-                ops.uv.smart_project(angle_limit = backup.destruction.smart_angle)
-            ops.object.mode_set(mode = 'OBJECT')
+            if slots != 0 or backup.destruction.re_unwrap:
+                ops.object.mode_set(mode = 'EDIT')
+                ops.mesh.select_all(action = 'SELECT')
+               # print("Seam", ops.mesh.mark_seam())
+                ops.mesh.select_all(action = 'DESELECT')
+                
+                bm = bmesh.from_edit_mesh(c.data)
+                facelist = [f for f in bm.faces if not self.testNormal(backup, c, f)]
+                for f in facelist:
+                    if slots != 0:
+                      # print("Assigning index", slots)
+                        f.material_index = slots
+                    f.select = True
+                    
+                if backup.destruction.re_unwrap:
+                    #unwrap inner faces again, so the textures dont look distorted (hopefully)  
+                    ops.uv.smart_project(angle_limit = backup.destruction.smart_angle)
+                ops.object.mode_set(mode = 'OBJECT')
         
         #correct a parenting "error": the parts are moved pos too far
         #print(backup.parent)
@@ -1032,7 +1035,7 @@ class Processor():
             largest = self.setLargest(largest, backup)
             
             if obj.destruction.cubify:
-                parts.extend(self.cubify(context, obj, bbox, partCount, 0))
+                parts.extend(self.cubify(context, obj, bbox, partCount, 0, False, 0))
             else:
                 parts.extend(self.boolFrac(context, obj, partCount, crack_type, roughness))
             
@@ -1631,7 +1634,7 @@ class Processor():
             return "0" + str(nr)
         return str(nr)
         
-    def cubify(self, context, object, bbox, parts, mat_index):
+    def cubify(self, context, object, bbox, parts, mat_index, re_unwrap, smart_angle):
         #create a cube with dim of cell size, (rotate/position it accordingly)
         #intersect with pos of cells[0], go through all cells, set cube to pos, intersect again
         #repeat always with original object
@@ -1662,7 +1665,7 @@ class Processor():
         shards = []
         if object.destruction.destructionMode == "DESTROY_C":
             for cube in cubes:
-                shards.extend(self.fracture_cells(context, cube))
+                shards.extend(self.fracture_cells(context, cube, re_unwrap, smart_angle))
                 
         if parts > 1: 
             if object.destruction.destructionMode == 'DESTROY_F':
@@ -1689,7 +1692,7 @@ class Processor():
                    
                  for cube in cubes:
                      #ops.object.transform_apply(scale=True, location=True)
-                     shards.extend(voronoi.voronoiCube(context, cube, parts, volume, wall, mat_index))
+                     shards.extend(voronoi.voronoiCube(context, cube, parts, volume, wall, mat_index, re_unwrap, smart_angle))
             
             else:
                 granularity = object.destruction.pieceGranularity
@@ -1772,14 +1775,14 @@ class Processor():
         return ob
         
        #from ideasman42    
-    def fracture_cell(self, scene, obj, ctx, mat_index):
+    def fracture_cell(self, scene, obj, ctx, mat_index, re_unwrap, smart_angle):
         
         # pull out some args
         use_recenter = ctx.use_recenter
         group_name = ctx.group_name
         #use_island_split = ctx.use_island_split
         
-        objects = fracture_cell_setup.cell_fracture_objects(scene, obj, mat_index)
+        objects = fracture_cell_setup.cell_fracture_objects(scene, obj, mat_index, re_unwrap, smart_angle)
         objects = fracture_cell_setup.cell_fracture_boolean(scene, obj, objects)
     
         # todo, split islands.
@@ -1805,13 +1808,13 @@ class Processor():
         return objects
     
     
-    def fracture_cells(self,context, obj, mat_index):
+    def fracture_cells(self,context, obj, mat_index, re_unwrap, smart_angle):
         import time
         t = time.time()
         scene = context.scene
         #obj = context.active_object
         ctx = obj.destruction.cell_fracture
-        objects = self.fracture_cell(scene, obj, ctx, mat_index)
+        objects = self.fracture_cell(scene, obj, ctx, mat_index, re_unwrap, smart_angle)
     
         bpy.ops.object.select_all(action='DESELECT')
         for obj_cell in objects:

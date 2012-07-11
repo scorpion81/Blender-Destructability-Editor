@@ -137,7 +137,7 @@ def _points_from_object(obj, source):
     return points
 
 
-def cell_fracture_objects(scene, obj, material_index):
+def cell_fracture_objects(scene, obj, material_index, re_unwrap, smart_angle):
     
     from . import fracture_cell_calc
     
@@ -280,6 +280,7 @@ def cell_fracture_objects(scene, obj, material_index):
         if material_index != 0:
             for bm_face in bm.faces:
                 bm_face.material_index = material_index
+        
 
 
         # ---------------------------------------------------------------------
@@ -315,6 +316,15 @@ def cell_fracture_objects(scene, obj, material_index):
         obj_cell.parent = bpy.context.scene.objects[cell_name].parent
 
         objects.append(obj_cell)
+        
+        if re_unwrap:
+           scene.objects.active = obj_cell
+           bpy.ops.object.mode_set(mode = 'EDIT')
+           bpy.ops.mesh.select_all(action = 'SELECT')
+           bpy.ops.mesh.dissolve_limited(angle_limit = 0.001)
+           bpy.ops.mesh.mark_seam()
+           bpy.ops.uv.smart_project(angle_limit = smart_angle)
+           bpy.ops.object.mode_set(mode = 'OBJECT')
         
         if obj.destruction.use_debug_redraw:
             scene.update()

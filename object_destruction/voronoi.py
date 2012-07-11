@@ -79,7 +79,7 @@ def parseFile(name):
          records.append({"v": verts, "f": faces})
      return records    
 
-def buildCell(cell, name, walls, diff, mat_index):
+def buildCell(cell, name, walls, diff, mat_index, re_unwrap, smart_angle):
  # for each face
     #global start
     
@@ -138,8 +138,8 @@ def buildCell(cell, name, walls, diff, mat_index):
     ops.mesh.remove_doubles()
     ops.mesh.normals_make_consistent(inside=False)
     
-    if walls:
-        ops.mesh.dissolve_limited(angle_limit = 0.0001)#math.radians(2.5))
+    #if walls:
+    ops.mesh.dissolve_limited(angle_limit = 0.0001)#math.radians(2.5))
         
     ops.object.mode_set(mode = 'OBJECT')
     
@@ -151,6 +151,14 @@ def buildCell(cell, name, walls, diff, mat_index):
            for p in obj.data.polygons:
                 p.material_index = mat_index
        
+       if re_unwrap:
+           bpy.context.scene.objects.active = obj
+           ops.object.mode_set(mode = 'EDIT')
+           ops.mesh.select_all(action = 'SELECT')
+           ops.mesh.mark_seam()
+           ops.uv.smart_project(angle_limit = smart_angle)
+           ops.object.mode_set(mode = 'OBJECT')
+               
        #let boolean handle the material assignment !      
        booleanIntersect(bpy.context, obj, orig, diff)
        
@@ -163,7 +171,7 @@ def buildCell(cell, name, walls, diff, mat_index):
    # start = clock()
     
          
-def buildCellMesh(cells, name, walls, diff, mat_index):      
+def buildCellMesh(cells, name, walls, diff, mat_index, re_unwrap, smart_angle):      
     
 
 #     lock = threading.Lock()     
@@ -180,7 +188,7 @@ def buildCellMesh(cells, name, walls, diff, mat_index):
 #        t.join()       
     objs = []   
     for cell in cells: 
-        objs.append(buildCell(cell, name, walls, diff, mat_index))
+        objs.append(buildCell(cell, name, walls, diff, mat_index, re_unwrap, smart_angle))
         
         ob = bpy.context.scene.objects[name] 
         if ob.destruction.use_debug_redraw:
@@ -245,7 +253,7 @@ def fixNonManifolds(obj):
     ops.mesh.edge_collapse()   
     ops.object.mode_set(mode = 'OBJECT')
     
-def voronoiCube(context, obj, parts, vol, walls, mat_index):
+def voronoiCube(context, obj, parts, vol, walls, mat_index, re_unwrap, smart_angle):
     
     #applyscale before
    # global start
@@ -451,7 +459,7 @@ def voronoiCube(context, obj, parts, vol, walls, mat_index):
         
     
     context.scene.objects.active = obj
-    objs = buildCellMesh(records, obj.name, walls, diff, mat_index)
+    objs = buildCellMesh(records, obj.name, walls, diff, mat_index, re_unwrap, smart_angle)
     
     print("Mesh Construction Time ", clock() - start)
     

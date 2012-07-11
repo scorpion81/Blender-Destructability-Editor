@@ -148,7 +148,13 @@ class DestructabilityPanel(types.Panel):
         
         layout = self.layout
         if self.isMesh(context):    
-            box = layout.box()           
+            box = layout.box()   
+            
+            row = box.row(align=True)
+            row.prop(context.object.destruction.cell_fracture, "mass_mode")
+            row = box.row(align=True)
+            row.prop(context.object.destruction.cell_fracture, "mass")
+                    
             if context.object.destruction.destructionMode != 'DESTROY_L':        
                 row = box.row()
                 row.prop(context.object.destruction, "cubify", text = "Intersect with Grid")
@@ -230,8 +236,10 @@ class DestructabilityPanel(types.Panel):
         #does not work correctly
         #if isMesh or isParent:
         #    layout.prop(context.object.destruction, "deform", text = "Enable Deformation")
+        
+        
        
-        if self.isMesh(context) or self.isParent(context):
+        if self.isMesh(context) or self.isParent(context):       
             box.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
         
         if self.isParent(context):
@@ -1207,7 +1215,7 @@ class DestroyObject(types.Operator):
             return {'CANCELLED'}
         
         #set a heavy mass as workaround, until mass update works correctly...
-        context.active_object.game.mass = 1000
+        #context.active_object.game.mass = 1000
         
         if context.active_object.destruction.destructionMode == 'DESTROY_V' or \
         context.active_object.destruction.destructionMode == 'DESTROY_VB':

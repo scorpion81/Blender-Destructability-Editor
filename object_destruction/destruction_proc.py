@@ -576,8 +576,8 @@ class Processor():
         
         
         #distribute the object mass to the single pieces, equally for now
-        print("Mass: ", backup.game.mass)
-        mass = backup.game.mass / backup.destruction.partCount
+        #mass = backup.game.mass / backup.destruction.partCount
+        
         oldBackupParent = backup.parent
         backupParent = context.active_object
         context.scene.objects.active = obj
@@ -587,7 +587,7 @@ class Processor():
         if not obj.destruction.flatten_hierarchy:
             parent.layers = self.layer(context.scene.hideLayer)
     
-        [self.applyDataSet(context, c, largest, parentName, pos, mass, backup) for c in context.scene.objects if 
+        [self.applyDataSet(context, c, largest, parentName, pos, backup) for c in context.scene.objects if 
          self.isRelated(c, context, nameStart, oldPar)] 
          
         if (not obj.destruction.flatten_hierarchy) and context.scene.hideLayer != 1:
@@ -802,7 +802,7 @@ class Processor():
     def valid(self,context, child):
         return child.name.startswith(context.active_object.name)
     
-    def applyDataSet(self, context, c, nameEnd, parentName, pos, mass, backup):
+    def applyDataSet(self, context, c, nameEnd, parentName, pos, backup):
         #print("NAME: ", c.name)
         
         end = 0
@@ -811,7 +811,7 @@ class Processor():
             end = split[1]
         
         if (int(end) > int(nameEnd)) or self.isBeingSplit(c, parentName, backup) or c.parent == None:
-            self.assign(c, parentName, pos, mass, backup, context)
+            self.assign(c, parentName, pos, backup, context)
     
     def getMatIndex(self, materialname, c):
        # print("Mat", materialname)
@@ -837,8 +837,50 @@ class Processor():
             return slots
         
         return 0
+    
+    def calcMass(self, obj, backup):
+    
+        if backup.destruction.cell_fracture.mass_mode == 'UNIFORM':
+            obj.game.mass = obj.destruction.cell_fracture.mass
+        elif backup.destruction.cell_fracture.mass_mode == 'VOLUME':
+            from mathutils import Vector
+            def _get_volume(obj_cell):
+                def _getObjectBBMinMax():
+                    min_co = Vector((1000000.0, 1000000.0, 1000000.0))
+                    max_co = -min_co
+                    matrix = obj_cell.matrix_world
+                    for i in range(0, 8):
+                        bb_vec = obj_cell.matrix_world * Vector(obj_cell.bound_box[i])
+                        min_co[0] = min(bb_vec[0], min_co[0])
+                        min_co[1] = min(bb_vec[1], min_co[1])
+                        min_co[2] = min(bb_vec[2], min_co[2])
+                        max_co[0] = max(bb_vec[0], max_co[0])
+                        max_co[1] = max(bb_vec[1], max_co[1])
+                        max_co[2] = max(bb_vec[2], max_co[2])
+                    return (min_co, max_co)
+
+                def _getObjectVolume():
+                    min_co, max_co = _getObjectBBMinMax()
+                    x = max_co[0] - min_co[0]
+                    y = max_co[1] - min_co[1]
+                    z = max_co[2] - min_co[2]
+                    volume = x * y * z
+                    return volume
+
+                return _getObjectVolume()
         
-    def assign(self, c, parentName, pos, mass, backup, context):
+   
+            obj_volume_tot = _get_volume(backup)
+            obj_volume = _get_volume(obj)
+            mass_fac = obj.destruction.cell_fracture.mass / obj_volume_tot
+            obj.game.mass = obj_volume * mass_fac
+            
+    def assign(self, c, parentName, pos, backup, context):
+        
+        c.destruction.cell_fracture.mass_mode = backup.destruction.cell_fracture.mass_mode
+        c.destruction.cell_fracture.mass = backup.destruction.cell_fracture.mass
+        #calculate mass
+        self.calcMass(c, backup)
         
         slots = 0
         context.scene.objects.active = c 
@@ -956,7 +998,7 @@ class Processor():
     #    ops.object.mode_set(mode = 'OBJECT')
         c.game.radius = 0.01
         c.select = True
-        c.game.mass = mass 
+        #c.game.mass = mass 
         c.destruction.transmitMode = 'T_SELECTED'
         c.destruction.destroyable = False
         
@@ -1800,8 +1842,10 @@ class Processor():
             group = bpy.data.groups.get(group_name)
             if group is None:
                 group = bpy.data.groups.new(group_name)
+            group_objects = group.objects[:]    
             for obj_cell in objects:
-                group.objects.link(obj_cell)             
+                if obj_cell not in group_objects:
+                    group.objects.link(obj_cell)             
     
         # testing only!
         #obj.hide = True
@@ -2040,7 +2084,24 @@ class CellFractureContext(types.PropertyGroup):
             description="Create a vertex group for interior verts",
             default=False,
             )
-
+    
+    # -------------------------------------------------------------------------
+    # Physics Options
+    
+    mass_mode = props.EnumProperty(
+            name="Mass Mode",
+            items=(('VOLUME', "Volume", "All objects get the same volume"),
+                   ('UNIFORM', "Uniform", "All objects get the same volume"),
+                   ),
+            default='VOLUME',
+            )
+    
+    mass = props.FloatProperty(
+            name="Mass",
+            description="Mass to give created objects",
+            min=0.001, max=1000.0,
+            default=1.0,
+            )
    
 
     # -------------------------------------------------------------------------

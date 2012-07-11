@@ -269,7 +269,7 @@ def voronoiCube(context, obj, parts, vol, walls, mat_index):
         print("USING VOL")
         volobj = context.scene.objects[vol]
         volobj.select = True
-        ops.object.origin_set(type='GEOMETRY_ORIGIN')
+        #ops.object.origin_set(type='ORIGIN_GEOMETRY')
         ops.object.transform_apply(scale=True, rotation = True)
         volobj.select = False
         
@@ -388,16 +388,19 @@ def voronoiCube(context, obj, parts, vol, walls, mat_index):
     
     if vol != None and vol != "" and context.object.destruction.voro_exact_shape and partsystem == None:
         volobj = context.scene.objects[vol]
-        context.scene.objects.active = volobj
+        #context.scene.objects.active = volobj
         
-        volobj.select = True
-        ops.object.transform_apply(scale=True, location = True, rotation = True)
-        volobj.select = False
-                
+        #volobj.select = True
+       # ops.object.transform_apply(scale=True, location = True, rotation = True)
+        #volobj.select = False
+        
+        # impact location comes from game engine, is 0 by default
+        # in game engine is location of volobj 0 by default, so this expression should be correct.        
         for v in volobj.data.vertices:
-            values.append((v.co[0] + dd.DataStore.impactLocation[0], 
-                           v.co[1] + dd.DataStore.impactLocation[1], 
-                           v.co[2] + dd.DataStore.impactLocation[2]))
+            values.append((v.co[0] + dd.DataStore.impactLocation[0] + volobj.location[0], 
+                           v.co[1] + dd.DataStore.impactLocation[1] + volobj.location[1], 
+                           v.co[2] + dd.DataStore.impactLocation[2] + volobj.location[2]))
+        #print("VER", values)
             
     elif partsystem != None:
         for p in partsystem.particles:

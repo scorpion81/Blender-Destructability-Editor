@@ -72,17 +72,17 @@ class Processor():
     def destroy(self, context, objects, level):
     
         modes = {DestructionContext.destModes[0][0]: 
-                    "self.applyFracture(context, objects)",
+                    "self.applyFracture(context, obj)",
                  DestructionContext.destModes[1][0]: 
-                     "self.applyExplo(context, objects)",
+                     "self.applyExplo(context, obj)",
                  DestructionContext.destModes[2][0]: 
-                     "self.applyVoronoi(context, objects, True)",  
+                     "self.applyVoronoi(context, obj, True)",  
                  DestructionContext.destModes[3][0]: 
-                     "self.applyVoronoi(context, objects, False)",
+                     "self.applyVoronoi(context, obj, False)",
                  DestructionContext.destModes[4][0]: 
-                     "self.applyCellFracture(context, objects)",  
+                     "self.applyCellFracture(context, obj)",  
                  DestructionContext.destModes[5][0]:
-                     "self.applyLooseParts(context, objects)" } 
+                     "self.applyLooseParts(context, obj)" } 
         #according to mode call correct method
         
         #hack for boolean fracture
@@ -98,10 +98,13 @@ class Processor():
         recursion_chance = ctx.recursion_chance
         recursion_chance_select = ctx.recursion_chance_select
         use_remove_original = ctx.use_remove_original
+        
+        obj = objects
+        objects_recursive = eval(modes[mode])
                      
         if level < recursion:
-            objects_recurse_input = [(i, o) for i, o in enumerate(objects)]
-    
+            objects_recurse_input = [(i, o) for i, o in enumerate(objects_recursive)]
+         
             if recursion_chance != 1.0:
                 
                 if recursion_chance_select == 'RANDOM':
@@ -122,27 +125,29 @@ class Processor():
                             (ob_pair[1].matrix_world.translation - c).length_squared)
                         if recursion_chance_select == 'CURSOR_MAX':
                             objects_recurse_input.reverse()
-    
+                    
+                    
                     objects_recurse_input[int(recursion_chance * len(objects_recurse_input)):] = []
                     objects_recurse_input.sort()
-    
+                    print("LEN", len(objects_recurse_input), recursion_chance)
+         
             # reverse index values so we can remove from original list.
             objects_recurse_input.reverse()
-    
-            objects_recursive = []
-            for i, obj in objects_recurse_input:
-                assert(objects[i] is obj)
-                objects_recursive += self.destroy(context, eval(modes[mode]),  level + 1)
+         
+            objects_recursive =[]
+            for i, o in objects_recurse_input:
+                #assert(objects_out[i] is o)
+                obj = [o]
+                objects_recursive += self.destroy(context, obj, level + 1)
                 #if use_remove_original
                 #    context.scene.objects.unlink(obj_cell)
                 #    del objects[i]
             #objects.extend(objects_recursive)
-            #q.put(objects)
-            return objects
-        else:
-            #q.put(ret)
-            return eval(modes[mode])
-    
+            
+        return objects_recursive
+
+        
+        
 #    def applyToChildren(self, ob, objects, transMode):
 #        for c in ob.children:
 #           if transMode == ob.destruction.transModes[3][0]:
@@ -875,6 +880,13 @@ class Processor():
         c.destruction.cell_fracture.mass_mode = backup.destruction.cell_fracture.mass_mode
         c.destruction.cell_fracture.mass = backup.destruction.cell_fracture.mass
         c.destruction.dissolve_angle = backup.destruction.dissolve_angle
+        c.destruction.cell_fracture.recursion_chance = backup.destruction.cell_fracture.recursion_chance
+        c.destruction.cell_fracture.recursion_chance_select = backup.destruction.cell_fracture.recursion_chance_select
+        c.destruction.cell_fracture.recursion = backup.destruction.cell_fracture.recursion
+        c.destruction.voro_exact_shape = backup.destruction.voro_exact_shape
+        c.destruction.voro_volume = backup.destruction.voro_volume
+        c.destruction.voro_particles = backup.destruction.voro_particles
+        
         #calculate mass
         self.calcMass(c, backup)
         
@@ -1027,7 +1039,7 @@ class Processor():
                     
             p = p.parent
                 
-                
+        c.select = False        
            
             
         

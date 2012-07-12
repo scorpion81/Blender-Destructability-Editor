@@ -144,7 +144,8 @@ class Processor():
             for i, o in objects_recurse_input:
                 #assert(objects_out[i] is o)
                 obj = [o]
-                context.scene.objects.active = o
+                if context.active_object == None:
+                    context.scene.objects.active = o
                 objects_recursive += self.destroy(context, obj, level + 1)
                 #if use_remove_original
                 #    context.scene.objects.unlink(obj_cell)
@@ -427,7 +428,18 @@ class Processor():
             
             
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
+                #backup.use_fake_user = True
                 context.scene.objects.unlink(backup)
+                
+            elif context.scene.hideLayer != 1:
+                def deselect(o):
+                    o.select = False
+                
+                if backup.name.endswith(".000"): #first backup only    
+                    [deselect(o) for o in data.objects]
+                    backup.select = True
+                    ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
+                    backup.select = False
                     
             #do the parenting
             self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)  
@@ -549,9 +561,9 @@ class Processor():
                if o.destruction != None:
                    if o.destruction.is_backup_for == "P_0_" + nameStart + "." + largest:# + ".000":
                        pos = o.location
-                       if o.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
-                           pos += Vector(o.destruction.origLoc) #needed for voronoi
-                           o.destruction.origLoc = Vector((0, 0, 0))
+                       #if o.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
+                       pos += Vector(o.destruction.origLoc) #needed for voronoi
+                       o.destruction.origLoc = Vector((0, 0, 0))
             print("EMPTY Pos: ", pos)
             context.active_object.location = pos
         #else:
@@ -947,6 +959,10 @@ class Processor():
         if c != backup and (c.name != b or b == None):
             #print("Setting parent", pos)
             c.location -= pos
+            
+            if context.scene.hideLayer != 1:
+                c.location -= Vector(backup.destruction.pos) #correction ?
+            
             #if groups are wanted DO NOT parent here
             myparent = data.objects[parentName]
             

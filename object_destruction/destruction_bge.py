@@ -124,11 +124,11 @@ def getFaceDistance(a, b):
            v2 = obj.data.vertices[f.vertices[1]].co
            v3 = obj.data.vertices[f.vertices[2]].co
            
+           #print("ShardPos", b.localPosition)
            dist = distance(b.worldPosition, v1, v2, v3, obj)
            
            if dist < mindist:
                mindist = dist
-               #print("MinDist", mindist, a)
         return mindist
     else:
         return a.getDistanceTo(b)        
@@ -496,6 +496,7 @@ def collide():
     global ground
     global firstparent
     global allInUse
+    global children
     #colliders have collision sensors attached, which trigger for registered destructibles only
     
     #first the script controller brick, its sensor and owner are needed
@@ -593,26 +594,29 @@ def collide():
                 
     objs = []
     restoreAll()
-        
+    
+    #print(children)
+      
     #print("LEN", len(cellsToCheck))
     if not isGroundConn: #without grid, check all objects (bad)
         #print("checking all")
         for p in children.keys():
             for objname in children[p]:
-               # print("objname", p, objname)
+                #print("objname", p, objname)
                 if not objname.startswith("P_"):
                     if objname in scene.objects:
-                        ob = scene.objects[objname]
-                        if not "activated" in ob.getPropertyNames():
-                            objs.append(objname)
-                        elif not ob["activated"]:
-                            objs.append(objname)
+                        #ob = scene.objects[objname]
+                        #if not "activated" in ob.getPropertyNames():
+                        #    objs.append(objname)
+                        #elif not ob["activated"]:
+                        objs.append(objname)
     else:
     #print("checking cells")
         for c in cellsToCheck:
             objs.extend(c.children)
     
-    lastSpeed = 0        
+    lastSpeed = 0 
+   # print("LENOBJS", len(objs))       
     for ob in objs:
         if ob in scene.objects:
             obj = scene.objects[ob]
@@ -627,6 +631,7 @@ def collide():
             
             glue = bpy.data.objects[obj.name].destruction.glue_threshold 
             
+            #print("Collide", owner, dist, speed)
             if (dist < speed and glue < speed) or (dist < strength and glue < strength):  
                 dissolve(obj, depth, maxHierarchyDepth, owner)
             #if isDeformable(obj):
@@ -931,7 +936,7 @@ def swapBackup(obj):
             children[p] = list()
         children[p].append(r.name)
     
-    print("SWAP:", ret, p, children[p])
+   # print("SWAP:", ret, p, children[p])
     
     if isGroundConnectivity(first):
         calculateGrids()
@@ -952,8 +957,9 @@ def swapBackup(obj):
 def dissolve(obj, depth, maxdepth, owner):
     
     global initswap
+    global children
     
-    print("dissolve", obj, depth)               
+   # print("dissolve", obj, depth)               
     parent = None
     for p in children.keys():
         if obj.name in children[p]:
@@ -1024,7 +1030,7 @@ def dissolve(obj, depth, maxdepth, owner):
                 
            # if (depth == objDepth):# or (depth == objDepth):
             #    activate(obj, owner, grid)
-        
+            
         #print("DEPTH:", depth, maxdepth, parent)    
         if depth < maxdepth and parent != None:
 #                pParent = None
@@ -1034,7 +1040,7 @@ def dissolve(obj, depth, maxdepth, owner):
 #                        break
 #              #  print(children[p], parent)
 #                if pParent != None:
-            print("CHILDS", len(children[parent]))
+          #  print("CHILDS", len(children[parent]))
             [dissolve(scene.objects[c], depth+1, maxdepth, owner) for c in children[parent]]
 
 def activate(child, owner, grid):
@@ -1101,9 +1107,9 @@ def activate(child, owner, grid):
     #       if "joint" in child.getPropertyNames():
     #            child.cutSoftbodyJoint(scene.objects[child["joint"]])
         
-        if parent != None:
-            if child.name in children[parent]:
-                children[parent].remove(child.name)
+    #    if parent != None:
+    #        if child.name in children[parent]:
+    #            children[parent].remove(child.name)
      else:
         if not child.invalid:
             t = Timer(delay, child.suspendDynamics)

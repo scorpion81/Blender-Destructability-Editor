@@ -460,7 +460,13 @@ def modSpeed(owner, speed):
 
 def distSpeed(owner, obj, maxDepth, lastSpeed):
     speed = 0
-    tempSpeed = (owner.worldLinearVelocity - obj.worldLinearVelocity).length
+    
+    # only compound parents have a speed....
+    try:
+        tempSpeed = (owner.worldLinearVelocity - obj.worldLinearVelocity).length
+    except AttributeError:
+        tempSpeed = 0
+        
     if owner.name != "Ball":
         if tempSpeed != 0:
             speed = tempSpeed
@@ -559,8 +565,10 @@ def collide():
                 
             for o in scene.objects:
                 try:
-                    dist, speed, depth = distSpeed(owner, o, maxHierarchyDepth, lastSpeed)
-                    if dist < speed and bpy.data.objects[o.name].destruction.glue_threshold < speed:
+                    
+                    #dist, speed, depth = distSpeed(owner, o, maxHierarchyDepth, lastSpeed)
+                    #if dist < speed and bpy.data.objects[o.name].destruction.glue_threshold < speed:
+                    if compareSpeed(owner, o):
 #                        if "isShard" in o.getPropertyNames():
 #                            pos = Vector((o["posx"], o["posy"], o["posz"]))
 #                            o.worldPosition = pos
@@ -953,6 +961,18 @@ def swapBackup(obj):
 #            ret.append(scene.addObject(c.name, c.name))
 #    return ret
    
+
+def compareSpeed(owner, obj):
+    lastSpeed = 0
+    maxHierarchyDepth = hierarchyDepth(owner)
+    dist, speed, depth =  distSpeed(owner, obj, maxHierarchyDepth , lastSpeed)
+    if speed > 0:
+        lastSpeed = speed
+    
+    glue = bpy.data.objects[obj.name].destruction.glue_threshold 
+        
+    return (dist < speed) and (glue < speed) 
+   
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):
     
@@ -1010,13 +1030,14 @@ def dissolve(obj, depth, maxdepth, owner):
                         if isBackup(ch):
                             shards = swapBackup(ch)
                             ch["swapped"] = True
-                            [activate(s, owner, grid) for s in shards]
+                            [activate(s, owner, grid) for s in shards if compareSpeed(owner, s)]
                         #else:
                             activate(ch, owner, grid)
                                         
                 objs = swapBackup(obj)
-                obj["swapped"] = True 
-                [activate(ob, owner, grid) for ob in objs]
+                obj["swapped"] = True
+                 
+                [activate(ob, owner, grid) for ob in objs if compareSpeed(owner, ob)]
             
             #if owner.name == "Ball":
             #    objs = swapBackup(obj)
@@ -1025,7 +1046,7 @@ def dissolve(obj, depth, maxdepth, owner):
              #activate previously swapped shards    
             if (depth == objDepth+1):
                     
-                [activate(ob, owner, grid) for ob in initswap]
+                [activate(ob, owner, grid) for ob in initswap if compareSpeed(owner, ob)]
                 activate(obj, owner, grid)
                 
            # if (depth == objDepth):# or (depth == objDepth):

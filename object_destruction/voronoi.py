@@ -237,21 +237,25 @@ def select(obj):
 def fixNonManifolds(obj):
     
     bpy.context.scene.objects.active = obj
-    ops.object.mode_set(mode = 'EDIT')
-    ops.mesh.remove_doubles(mergedist = 0.00001)
-    ops.mesh.select_all(action = 'DESELECT')
-    ops.mesh.select_non_manifold()
-    #ops.mesh.edge_collapse()
-    bm = bmesh.from_edit_mesh(obj.data)
-    verts = [v for v in bm.verts if len(v.link_edges) < 3 and v.select]
-    for v in verts:
-        print(len(v.link_edges))
-        bm.verts.remove(v)
+    try:
+        ops.object.mode_set(mode = 'EDIT')
+        ops.mesh.select_all(action = 'SELECT')
+        ops.mesh.remove_doubles(mergedist = 0.00001)
+        ops.mesh.select_all(action = 'DESELECT')
+        ops.mesh.select_non_manifold()
+        #ops.mesh.edge_collapse()
+        bm = bmesh.from_edit_mesh(obj.data)
+        verts = [v for v in bm.verts if len(v.link_edges) < 3 and v.select]
+        for v in verts:
+            print(len(v.link_edges))
+            bm.verts.remove(v)
         
-    ops.mesh.select_all(action = 'DESELECT')
-    ops.mesh.select_non_manifold()
-    ops.mesh.edge_collapse()   
-    ops.object.mode_set(mode = 'OBJECT')
+        ops.mesh.select_all(action = 'DESELECT')
+        ops.mesh.select_non_manifold()
+        ops.mesh.edge_collapse()   
+        ops.object.mode_set(mode = 'OBJECT')
+    except RuntimeError:
+        print("fixManifold operator error")
     
 def voronoiCube(context, obj, parts, vol, walls, mat_index):
     
@@ -441,9 +445,10 @@ def voronoiCube(context, obj, parts, vol, walls, mat_index):
     start = clock()
     
     #do a remesh here if desired and try to fix non-manifolds
+    context.scene.objects.active = obj
+    
     if not walls:
          
-        context.scene.objects.active = obj
         if obj.destruction.remesh_depth > 0:
             rem = obj.modifiers.new("Remesh", 'REMESH')
             rem.mode = 'SHARP'
@@ -464,8 +469,6 @@ def voronoiCube(context, obj, parts, vol, walls, mat_index):
         #try to fix non-manifolds...
         fixNonManifolds(obj)
         
-    
-    context.scene.objects.active = obj
     objs = buildCellMesh(records, obj.name, walls, diff, mat_index, re_unwrap, smart_angle, dissolve_angle)
     
     print("Mesh Construction Time ", clock() - start)

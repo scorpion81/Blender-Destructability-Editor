@@ -13,8 +13,8 @@ import bisect
 import sys
 import bmesh
 
-import bgl
-import blf
+#import bgl
+#import blf
 
 #since a modification of fracture_ops is necessary, redistribute it
 from . import fracture_ops as fo
@@ -88,11 +88,17 @@ class Processor():
         #hack for boolean fracture
         if context.active_object == None:
             for o in objects:
-                if o.name in context.scene.objects:
-                    context.scene.objects.active = context.scene.objects[o.name]
-                    
-        mode = context.active_object.destruction.destructionMode
-        ctx = context.active_object.destruction.cell_fracture
+               if o.name in context.scene.objects:
+                   context.scene.objects.active = context.scene.objects[o.name]
+                   break
+               
+        ob = context.active_object
+        if ob == None:
+            #error case, if active_object does not intersect with original geometry
+            return objects  
+                   
+        mode = ob.destruction.destructionMode
+        ctx = ob.destruction.cell_fracture
             
         recursion = ctx.recursion
         recursion_chance = ctx.recursion_chance
@@ -127,17 +133,18 @@ class Processor():
                             objects_recurse_input.reverse()
                     
                     
-                    objects_recurse_input[int(recursion_chance * len(objects_recurse_input)):] = []
-                    objects_recurse_input.sort()
-                    print("LEN", len(objects_recurse_input), recursion_chance)
-         
-            # reverse index values so we can remove from original list.
-            objects_recurse_input.reverse()
-         
+                objects_recurse_input[int(recursion_chance * len(objects_recurse_input)):] = []
+                objects_recurse_input.sort()
+                print("LEN", len(objects_recurse_input), recursion_chance)
+            
+                # reverse index values so we can remove from original list.
+                objects_recurse_input.reverse()
+            
             objects_recursive =[]
             for i, o in objects_recurse_input:
                 #assert(objects_out[i] is o)
                 obj = [o]
+                context.scene.objects.active = o
                 objects_recursive += self.destroy(context, obj, level + 1)
                 #if use_remove_original
                 #    context.scene.objects.unlink(obj_cell)
@@ -633,10 +640,10 @@ class Processor():
             #backup.game.use_collision_compound = False
             if not comp:
                 self.setBackupCompound(parent)
-            if backup.name.endswith(".000"):
-                backup.select = True
-                ops.object.origin_set(type = "GEOMETRY_ORIGIN")
-                backup.select = False
+            #if backup.name.endswith(".000"):
+            #    backup.select = True
+            #    ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
+            #    backup.select = False
         
         return parent
     
@@ -886,6 +893,7 @@ class Processor():
         c.destruction.voro_exact_shape = backup.destruction.voro_exact_shape
         c.destruction.voro_volume = backup.destruction.voro_volume
         c.destruction.voro_particles = backup.destruction.voro_particles
+        c.destruction.destructionMode = backup.destruction.destructionMode
         
         #calculate mass
         self.calcMass(c, backup)

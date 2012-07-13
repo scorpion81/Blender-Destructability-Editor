@@ -428,21 +428,28 @@ class Processor():
             
             
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
-                #backup.use_fake_user = True
+                backup.use_fake_user = True
                 context.scene.objects.unlink(backup)
                 
             elif context.scene.hideLayer != 1:
                 def deselect(o):
                     o.select = False
                 
+                def select(o):
+                    o.select = True
+                
                 if backup.name.endswith(".000"): #first backup only    
-                    [deselect(o) for o in data.objects]
+                    [deselect(o) for o in parts]
                     backup.select = True
                     ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
                     backup.select = False
                     
             #do the parenting
-            self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)  
+            self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj) 
+            
+            #select from data because other selections seem to be ignored because of layers 
+            [select(o) for o in data.objects if o.name.startswith("S_")]           
+            ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS') 
         
         return parts
         
@@ -955,14 +962,16 @@ class Processor():
         if backup.destruction.destructionMode != 'DESTROY_V' and backup.destruction.destructionMode != 'DESTROY_VB':
             if c != backup and c.name != b and b != None: 
                 c.location += pos
+        else:
+            if c != backup and (c.name != b or b == None):
+                if context.scene.hideLayer != 1:
+                    c.location -= Vector(backup.destruction.pos) #correction ?
+            
           
         if c != backup and (c.name != b or b == None):
             #print("Setting parent", pos)
             c.location -= pos
-            
-            if context.scene.hideLayer != 1:
-                c.location -= Vector(backup.destruction.pos) #correction ?
-            
+                  
             #if groups are wanted DO NOT parent here
             myparent = data.objects[parentName]
             

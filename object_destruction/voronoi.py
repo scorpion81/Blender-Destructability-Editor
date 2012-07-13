@@ -318,7 +318,7 @@ def voronoiCube(context, obj, parts, vol, walls, mat_index):
         
         obj.destruction.tempLoc = diff
         
-        context.scene.cursor_location = old_orig
+        context.scene.cursor_location = old_orig.copy()
         ops.object.origin_set(type='ORIGIN_CURSOR')
         ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
     else:
@@ -500,7 +500,7 @@ def booleanIntersect(context, o, obj, diff, dissolve_angle):
     #       newnames.append(ob.name)
     obj.select = False
     
-    oldSel = o.select  
+    oldSel = o.select
     o.select = True
     ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
     if o.parent == None:

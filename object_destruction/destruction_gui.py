@@ -1085,9 +1085,13 @@ class ConvertParenting(types.Operator):
                 ops.logic.controller_add(type = 'PYTHON', object = o.name)
                 ops.logic.sensor_add(type = 'COLLISION', object = o.name)
                 context.active_object.game.sensors[sensors].name = "Collision"
-            
-            #    context.active_object.game.sensors[sensors].use_pulse_true_level = True
-            
+                
+                context.active_object.game.sensors[sensors].use_tap = True
+                
+                if o.name != "Ball":
+                    context.active_object.game.sensors[sensors].use_pulse_true_level = True
+                    context.active_object.game.sensors[sensors].frequency = 100
+        
                 context.active_object.game.controllers[controllers].mode = 'MODULE'
                 context.active_object.game.controllers[controllers].module = "destruction_bge.collide"
             

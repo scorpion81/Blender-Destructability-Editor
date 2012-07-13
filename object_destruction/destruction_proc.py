@@ -447,9 +447,10 @@ class Processor():
             #do the parenting
             self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj) 
             
-            #select from data because other selections seem to be ignored because of layers 
-            [select(o) for o in data.objects if o.name.startswith("S_")]           
-            ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS') 
+            if context.scene.hideLayer != 1 and not obj.destruction.flatten_hierarchy:
+                #select from data because other selections seem to be ignored because of layers 
+                [select(o) for o in data.objects if o.name.startswith("S_")]           
+                ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS') 
         
         return parts
         
@@ -1975,6 +1976,10 @@ def updateCam(self, context):
             p.game.controllers[0].unlink(p.game.sensors[0], p.game.actuators[0])
     return None
 
+def updateFlattenHierarchy(self, context):
+    if context.object.destruction.flatten_hierarchy:
+        context.scene.hideLayer = 1
+
 #disable decorator when persistence is not available
 def unchanged(func):
     return func
@@ -2326,7 +2331,8 @@ so only unconnected parts collapse according to their parent relations")
     hierarchy_depth = props.IntProperty(name = "hierarchy_depth", default = 1, min = 1, 
                                         description = "Up to which hierarchy depth given targets can be destroyed by this object")
     flatten_hierarchy = props.BoolProperty(name = "flatten_hierarchy", default = False, 
-                                           description = "Make one level out of hierarchy")
+                                           description = "Make one level out of hierarchy",
+                                           update = updateFlattenHierarchy)
     
     voro_volume = props.StringProperty(name="volumeSelector", description = "Create point cloud in this object instead of the target itself")
     is_backup_for = props.StringProperty(name = "is_backup_for")

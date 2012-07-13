@@ -426,6 +426,7 @@ class Processor():
             else:    
                 parts.extend(voronoi.voronoiCube(context, obj, partCount, volume, wall, mat_index))
             
+            origLoc = Vector(obj.destruction.origLoc)
             
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                 backup.use_fake_user = True
@@ -439,7 +440,7 @@ class Processor():
                     o.select = True
                 
                 if backup.name.endswith(".000"): #first backup only    
-                    [deselect(o) for o in parts]
+                    [deselect(o) for o in data.objects if o.name.startswith("S_")]
                     backup.select = True
                     ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
                     backup.select = False
@@ -449,8 +450,9 @@ class Processor():
             
             if context.scene.hideLayer != 1 and not obj.destruction.flatten_hierarchy:
                 #select from data because other selections seem to be ignored because of layers 
-                [select(o) for o in data.objects if o.name.startswith("S_")]           
-                ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS') 
+                [select(o) for o in data.objects if o.name.startswith("S_") and o != backup]           
+                ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')          
+                [deselect(o) for o in data.objects if o.name.startswith("S_")] 
         
         return parts
         
@@ -963,8 +965,8 @@ class Processor():
         if backup.destruction.destructionMode != 'DESTROY_V' and backup.destruction.destructionMode != 'DESTROY_VB':
             if c != backup and c.name != b and b != None: 
                 c.location += pos
-        else:
-            if c != backup and (c.name != b or b == None):
+        elif backup.destruction.destructionMode == 'DESTROY_VB':
+            if c != backup and (c.name != b or b == None) and (c.parent == None):
                 if context.scene.hideLayer != 1:
                     c.location -= Vector(backup.destruction.pos) #correction ?
             
@@ -1215,9 +1217,9 @@ class Processor():
                     by = abs(round(backup.location[1], 3))
                     bz = abs(round(backup.location[2], 3))
                 else:
-                    bx = abs(round(backup.destruction.tempLoc[0], 3))
-                    by = abs(round(backup.destruction.tempLoc[1], 3))
-                    bz = abs(round(backup.destruction.tempLoc[2], 3))
+                    bx = abs(round(backup.destruction.origLoc[0], 3))
+                    by = abs(round(backup.destruction.origLoc[1], 3))
+                    bz = abs(round(backup.destruction.origLoc[2], 3))
                 
                 #print("Distance", d, bx, by, bz)
                 if abs(d) in (bx, by, bz):

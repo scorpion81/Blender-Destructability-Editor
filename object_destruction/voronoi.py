@@ -287,7 +287,7 @@ def voronoiCube(context, obj, parts, vol, walls, mat_index):
         vzmax += loc[2] 
         
     
-    [deselect(o) for o in context.scene.objects]
+    [deselect(o) for o in bpy.data.objects]
       
     context.scene.objects.active = obj    
     obj.select = True
@@ -318,7 +318,7 @@ def voronoiCube(context, obj, parts, vol, walls, mat_index):
         
         obj.destruction.tempLoc = diff
         
-        context.scene.cursor_location = old_orig.copy()
+        context.scene.cursor_location = old_orig
         ops.object.origin_set(type='ORIGIN_CURSOR')
         ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
     else:

@@ -923,8 +923,14 @@ def swapBackup(obj):
     if not isGroundConnectivity(first):
         compound.worldPosition = obj.worldPosition        
         compound.worldOrientation = obj.worldOrientation
-        compound.linearVelocity = obj.linearVelocity
-        compound.angularVelocity = obj.angularVelocity
+        
+        lin = obj.linearVelocity.copy()
+        lin.rotate(obj.worldOrientation)
+        compound.linearVelocity = lin
+        
+        ang = obj.angularVelocity.copy()
+        ang.rotate(obj.worldOrientation)
+        compound.angularVelocity = ang
     else:
         compound.setParent(ground, False, False)
     

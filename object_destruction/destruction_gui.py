@@ -473,28 +473,46 @@ class AddTargetOperator(types.Operator):
     bl_description = "Add the selected target to target list"
     bl_options = {'UNDO'}
     
+    def isParent(self, obj):
+        meshChild = False
+        for o in obj.children:
+            if o.type == 'MESH':
+                meshChild = True
+                break;
+        return obj.type == 'EMPTY' and meshChild
+    
     def execute(self, context):
+        
+        #entered name has priority over selected objects
+        name = context.object.destruction.targetSelector
+        prop =[p.name for p in context.object.destruction.destructorTargets]
+        sel = [o.name for o in context.selected_objects if self.isParent(o) and o.name not in prop and o != context.object]
+        
         found = False
         for prop in context.object.destruction.destructorTargets:
-            if prop.name == context.object.destruction.targetSelector:
+            if prop.name == name:
                 found = True
                 break
         if not found:
-            name = context.object.destruction.targetSelector
-            if name == None or name == "":
+            #name = context.object.destruction.targetSelector
+            if (name == None or name == "") and len(sel) == 0:
                 self.report({'ERROR_INVALID_INPUT'}, "Please select an object first")
                 return {'CANCELLED'}  
-                 
-            obj = context.scene.objects[name]
+            elif name != "":     
+                objs = [context.scene.objects[name]]
+            else:
+                objs = [o for o in bpy.data.objects if o.name in sel]
+                
             context.object.destruction.targetSelector = ""
             
-            if obj != context.object and obj.type == 'EMPTY' and \
-            len(obj.children) > 0 and obj.destruction.destroyable:
-                propNew = context.object.destruction.destructorTargets.add()
-                propNew.name = name
-            else:
-                self.report({'ERROR_INVALID_INPUT'}, "Object must be another destroyable empty with children")
-                return {'CANCELLED'}  
+            for obj in objs:
+                if obj != context.object and obj.type == 'EMPTY' and \
+                len(obj.children) > 0 and obj.destruction.destroyable:
+                    propNew = context.object.destruction.destructorTargets.add()
+                    propNew.name = obj.name
+                else:
+                    self.report({'ERROR_INVALID_INPUT'}, "Object must be another destroyable empty with children")
+                    return {'CANCELLED'}  
             
         return {'FINISHED'}   
     
@@ -504,15 +522,44 @@ class RemoveTargetOperator(types.Operator):
     bl_description = "Remove the selected target from target list"
     bl_options = {'UNDO'}
     
+    def isParent(self, obj):
+        meshChild = False
+        for o in obj.children:
+            if o.type == 'MESH':
+                meshChild = True
+                break;
+        return obj.type == 'EMPTY' and meshChild
+    
+    def findIndex(self, context, name):
+        i = 0
+        ret = -1
+        for p in context.object.destruction.destructorTargets:
+            if p.name == name:
+                ret = i 
+            i += 1
+        
+        return ret
+            
     def execute(self, context):
         
         if len(context.object.destruction.destructorTargets) == 0:
             return {'CANCELLED'}
         
-        index = context.object.destruction.active_target
-        name = context.object.destruction.destructorTargets[index].name 
-        context.object.destruction.destructorTargets.remove(index)
-        context.object.destruction.active_target = len(context.object.destruction.destructorTargets) - 1
+        prop =[p.name for p in context.object.destruction.destructorTargets]
+        sel = [o.name for o in context.selected_objects if self.isParent(o) and o.name in prop]
+        
+        if len(sel) > 0: 
+            for s in sel:
+                index = self.findIndex(context, s)
+                if index != -1:
+                    name = context.object.destruction.destructorTargets[index].name 
+                    context.object.destruction.destructorTargets.remove(index)
+                    context.object.destruction.active_target = len(context.object.destruction.destructorTargets) - 1
+        else:
+            index = context.object.destruction.active_target
+            name = context.object.destruction.destructorTargets[index].name 
+            context.object.destruction.destructorTargets.remove(index)
+            context.object.destruction.active_target = len(context.object.destruction.destructorTargets) - 1
             
         return {'FINISHED'} 
     

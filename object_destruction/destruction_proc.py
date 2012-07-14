@@ -66,21 +66,21 @@ class Processor():
         if (parts > 1) or ((parts == 1) and cubify):
             print("OBJECTS: ", objects)
             
-            restore = False
-            if context.active_object.destruction.destructionMode == 'DESTROY_C' or \
-            context.active_object.destruction.destructionMode == 'DESTROY_F':
-                restore = True
+            #restore = False
+            #ifcontext.active_object.destruction.destructionMode == 'DESTROY_C' or \
+            #context.active_object.destruction.destructionMode == 'DESTROY_F':
+            restore = True
             #for some reason zeroizing the location is necessary for cell fracture in my addon
-                for o in data.objects:
-                    if o in objects:
-                        o.select = True
-                        ops.object.origin_set(type = 'ORIGIN_GEOMETRY', center = 'BOUNDS')
-                        o.select = False
+            for o in data.objects:
+                if o in objects:
+                    o.select = True
+                    ops.object.origin_set(type = 'ORIGIN_GEOMETRY', center = 'BOUNDS')
+                    o.select = False
                         
-                        o.destruction.tempLoc = o.location.copy()
-                        o.location = Vector((0,0,0))
-                        print("Memorizing...", o.destruction.tempLoc, o.location)
-                context.scene.update()
+                    o.destruction.restoreLoc = o.location.copy()
+                    o.location = Vector((0,0,0))
+                    print("Memorizing...", o.destruction.restoreLoc, o.location)
+            context.scene.update()
             
             self.destroy(context, objects, 0)   
             
@@ -88,8 +88,8 @@ class Processor():
                 for o in data.objects:
                     if o.name.startswith("P_0_"):
                         backup = data.objects[o.destruction.backup]
-                        o.location = Vector(backup.destruction.tempLoc)
-                        backup.destruction.tempLoc = Vector((0,0,0)) 
+                        o.location = Vector(backup.destruction.restoreLoc)
+                        backup.destruction.restoreLoc = Vector((0,0,0)) 
                         print("Restoring...", o.location)
                 context.scene.update()
         return None
@@ -2367,6 +2367,7 @@ so only unconnected parts collapse according to their parent relations")
     wall = props.BoolProperty(name = "wall", default = True)
     tempLoc = props.FloatVectorProperty(name = "tempLoc", default = (0, 0, 0))
     origLoc = props.FloatVectorProperty(name = "origLoc", default = (0, 0, 0))
+    restoreLoc = props.FloatVectorProperty(name = "restoreLoc", default = (0, 0, 0))
     custom_ball = props.StringProperty(name="custom_ball" , 
        description = "Select custom ball object here before setup player, this will be shot from the player instead of the default ball")
     voro_exact_shape = props.BoolProperty(name = "voro_exact_shape", description = "Use the vertices of the given object as point cloud")

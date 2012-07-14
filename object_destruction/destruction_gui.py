@@ -474,12 +474,7 @@ class AddTargetOperator(types.Operator):
     bl_options = {'UNDO'}
     
     def isParent(self, obj):
-        meshChild = False
-        for o in obj.children:
-            if o.type == 'MESH':
-                meshChild = True
-                break;
-        return obj.type == 'EMPTY' and meshChild
+        return obj.type == 'EMPTY' and obj.name.startswith("P_")
     
     def execute(self, context):
         
@@ -507,7 +502,7 @@ class AddTargetOperator(types.Operator):
             
             for obj in objs:
                 if obj != context.object and obj.type == 'EMPTY' and \
-                len(obj.children) > 0 and obj.destruction.destroyable:
+                obj.name.startswith("P_") and obj.destruction.destroyable:
                     propNew = context.object.destruction.destructorTargets.add()
                     propNew.name = obj.name
                 else:
@@ -523,12 +518,7 @@ class RemoveTargetOperator(types.Operator):
     bl_options = {'UNDO'}
     
     def isParent(self, obj):
-        meshChild = False
-        for o in obj.children:
-            if o.type == 'MESH':
-                meshChild = True
-                break;
-        return obj.type == 'EMPTY' and meshChild
+        return obj.type == 'EMPTY' and obj.name.startswith("P_")
     
     def findIndex(self, context, name):
         i = 0

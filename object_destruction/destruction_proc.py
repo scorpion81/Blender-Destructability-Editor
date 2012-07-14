@@ -67,7 +67,8 @@ class Processor():
             print("OBJECTS: ", objects)
             
             restore = False
-            if context.active_object.destruction.destructionMode == 'DESTROY_C':
+            if context.active_object.destruction.destructionMode == 'DESTROY_C' or \
+            context.active_object.destruction.destructionMode == 'DESTROY_F':
                 restore = True
             #for some reason zeroizing the location is necessary for cell fracture in my addon
                 for o in data.objects:

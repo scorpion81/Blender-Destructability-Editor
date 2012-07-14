@@ -65,8 +65,32 @@ class Processor():
         
         if (parts > 1) or ((parts == 1) and cubify):
             print("OBJECTS: ", objects)
+            
+            restore = False
+            if context.active_object.destruction.destructionMode == 'DESTROY_C':
+                restore = True
+            #for some reason zeroizing the location is necessary for cell fracture in my addon
+                for o in data.objects:
+                    if o in objects:
+                        o.select = True
+                        ops.object.origin_set(type = 'ORIGIN_GEOMETRY', center = 'BOUNDS')
+                        o.select = False
+                        
+                        o.destruction.tempLoc = o.location.copy()
+                        o.location = Vector((0,0,0))
+                        print("Memorizing...", o.destruction.tempLoc, o.location)
+                context.scene.update()
+            
             self.destroy(context, objects, 0)   
             
+            if restore:   
+                for o in data.objects:
+                    if o.name.startswith("P_0_"):
+                        backup = data.objects[o.destruction.backup]
+                        o.location = Vector(backup.destruction.tempLoc)
+                        backup.destruction.tempLoc = Vector((0,0,0)) 
+                        print("Restoring...", o.location)
+                context.scene.update()
         return None
     
     def destroy(self, context, objects, level):
@@ -962,7 +986,8 @@ class Processor():
                 pos = backup.parent.location
                 print("Correcting pos", pos)   
             
-        if backup.destruction.destructionMode != 'DESTROY_V' and backup.destruction.destructionMode != 'DESTROY_VB':
+        if backup.destruction.destructionMode != 'DESTROY_V' and backup.destruction.destructionMode != 'DESTROY_VB' and \
+        backup.destruction.destructionMode != 'DESTROY_C':
             if c != backup and c.name != b and b != None: 
                 c.location += pos
         elif backup.destruction.destructionMode == 'DESTROY_VB':
@@ -1021,7 +1046,7 @@ class Processor():
             c.game.soft_body.use_bending_constraints = False
             context.scene.objects.active = c
             c.select = True
-            ops.object.transform_apply(location = True)
+           # ops.object.transform_apply(location = True)
             c.select = False
             ops.object.mode_set(mode = 'EDIT')
             ops.mesh.subdivide()

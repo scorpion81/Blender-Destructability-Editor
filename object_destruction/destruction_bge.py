@@ -558,16 +558,17 @@ def collide():
            # if "lastProxy" in hitObj.getPropertyNames():
             #    bpy.data.meshes.remove(m)    
             bpyObj.select = False
-            if compareSpeed(owner, hitObj):
-                objs = swapDynamic(name, hitObj)
+            
+            objs = swapDynamic(name, hitObj)
                 #substitute parent with children.... maybe before convert ? is convert necessary at all ?
-                for o in objs:
-                    o["isShard"] = True
-                    
-                    if compareSpeed(owner, o):
-                        o.restoreDynamics()
-                        o["activated"] = True
-                    
+            for o in objs:
+                o["isShard"] = True
+                
+                if compareSpeed(owner, o):
+                    o.restoreDynamics()
+                    o["activated"] = True
+            
+            #handle all other objects as well        
             for o in scene.objects:
                 try:
                   #dist, speed, depth = distSpeed(owner, o, maxHierarchyDepth, lastSpeed)

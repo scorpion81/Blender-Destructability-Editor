@@ -979,7 +979,8 @@ class Processor():
         slots = 0
         context.scene.objects.active = c 
         if backup.destruction.destructionMode != 'DESTROY_VB' and \
-        backup.destruction.destructionMode != 'DESTROY_C':
+        backup.destruction.destructionMode != 'DESTROY_C' and \
+        backup.destruction.destructionMode != 'DESTROY_F':
             #assign materials
             materialname = backup.destruction.inner_material
             slots = self.getMatIndex(materialname, backup)    
@@ -1176,11 +1177,15 @@ class Processor():
             
             #fracture the sub objects if cubify is selected
             largest = self.setLargest(largest, backup)
+            materialname = backup.destruction.inner_material
+            
+            #assign inner material to another slot of object, so it is used together with cutter material
+            self.getMatIndex(materialname, obj)
             
             if obj.destruction.cubify:
-                parts.extend(self.cubify(context, obj, bbox, partCount, 0))
+                parts.extend(self.cubify(context, obj, bbox, partCount, 0, materialname))
             else:
-                parts.extend(self.boolFrac(context, obj, partCount, crack_type, roughness))
+                parts.extend(self.boolFrac(context, obj, partCount, crack_type, roughness, materialname))
             
             parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)
             
@@ -1191,9 +1196,9 @@ class Processor():
                                 
         return parts
     
-    def boolFrac(self, context, obj, partCount, crack_type, roughness):
+    def boolFrac(self, context, obj, partCount, crack_type, roughness, materialname):
         
-        fo.fracture_basic(context, [obj], partCount, crack_type, roughness)
+        fo.fracture_basic(context, [obj], partCount, crack_type, roughness, materialname)
         #find new parts and return them, needed for recursion
         if context.active_object != None:
             print("parts......")
@@ -1777,7 +1782,7 @@ class Processor():
             return "0" + str(nr)
         return str(nr)
         
-    def cubify(self, context, object, bbox, parts, mat_index):
+    def cubify(self, context, object, bbox, parts, mat_index, mat_name = ""):
         #create a cube with dim of cell size, (rotate/position it accordingly)
         #intersect with pos of cells[0], go through all cells, set cube to pos, intersect again
         #repeat always with original object
@@ -1817,7 +1822,7 @@ class Processor():
                 roughness = object.destruction.roughness
                 context.scene.objects.unlink(object) 
                 for cube in cubes:
-                    shards.extend(self.boolFrac(context, cubes, parts, crack_type, roughness))
+                    shards.extend(self.boolFrac(context, cubes, parts, crack_type, roughness, mat_name))
                 
 #            elif object.destruction.destructionMode == 'DESTROY_K':
 #                jitter = object.destruction.jitter

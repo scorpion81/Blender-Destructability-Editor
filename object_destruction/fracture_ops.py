@@ -23,7 +23,7 @@ import random
 from mathutils import *
 
 
-def create_cutter(context, crack_type, scale, roughness):
+def create_cutter(context, crack_type, scale, roughness, materialname):
     ncuts = 12
     if crack_type == 'FLAT' or crack_type == 'FLAT_ROUGH':
         bpy.ops.mesh.primitive_cube_add(
@@ -74,7 +74,16 @@ def create_cutter(context, crack_type, scale, roughness):
             v.co[0] += roughness * scale * 0.2 * (random.random() - 0.5)
             v.co[1] += roughness * scale * 0.1 * (random.random() - 0.5)
             v.co[2] += roughness * scale * 0.1 * (random.random() - 0.5)
-
+    
+    #assign inner material to cutter
+    #print("CUTTERMAT", materialname)
+    if materialname != "" and materialname != None:
+        ctx = bpy.context.copy()
+        ctx["object"] = bpy.context.active_object
+        bpy.ops.object.material_slot_add(ctx)
+        material = bpy.data.materials[materialname]
+        bpy.context.active_object.material_slots[0].material = material
+    
     bpy.context.active_object.select = True
 #    bpy.context.scene.objects.active.select = True
 
@@ -216,14 +225,14 @@ def boolop(ob, cutter, op):
     return fault, new_shards
 
 
-def splitobject(context, ob, crack_type, roughness):
+def splitobject(context, ob, crack_type, roughness, materialname):
     scene = context.scene
 
     size = getsizefrommesh(ob)
     shards = []
     scale = max(size) * 1.3
 
-    create_cutter(context, crack_type, scale, roughness)
+    create_cutter(context, crack_type, scale, roughness, materialname)
     cutter = context.active_object
     cutter.location = ob.location
 
@@ -264,7 +273,7 @@ def splitobject(context, ob, crack_type, roughness):
     return shards
 
 
-def fracture_basic(context, objects, nshards, crack_type, roughness):
+def fracture_basic(context, objects, nshards, crack_type, roughness, materialname):
     tobesplit = []
     shards = []
 
@@ -281,8 +290,8 @@ def fracture_basic(context, objects, nshards, crack_type, roughness):
 
     while i < maxshards and len(tobesplit) > 0 and iter < maxshards * 10:
         ob = tobesplit.pop(0)
-        newshards = splitobject(context, ob, crack_type, roughness)
 
+        newshards = splitobject(context, ob, crack_type, roughness, materialname)
         tobesplit.extend(newshards)
 
         if len(newshards) > 1:

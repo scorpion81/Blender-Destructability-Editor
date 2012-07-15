@@ -1,6 +1,6 @@
 bl_info = {
     "name": "Destructability Editor",
-    "author": "scorpion81",
+    "author": "scorpion81, plasmasolutions(Tester)",
     "version": (1, 1),
     "blender": (2, 6, 3),
     "api": 48468,

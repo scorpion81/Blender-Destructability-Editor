@@ -857,9 +857,12 @@ class ClearPlayer(types.Operator):
                                 False, False, False, False, False,
                                 False, False, False, False, False,
                                 False, False, False, False, False]
-        data.objects["Player"].select = True
-        data.objects["Eye"].select = True
-        data.objects["Launcher"].select = True
+        if "Player" in data.objects:
+            data.objects["Player"].select = True
+        if "Eye" in data.objects:
+            data.objects["Eye"].select = True
+        if "Launcher" in data.objects:
+            data.objects["Launcher"].select = True
         
         ballname = context.object.destruction.custom_ball
         if ballname != None and ballname != "":
@@ -871,8 +874,11 @@ class ClearPlayer(types.Operator):
                         o.select = True
         else:
             ballname = "Ball"
-            data.objects["Ball"].select = True
-        data.objects["Ground"].select = True
+            if "Ball" in data.objects:
+                data.objects["Ball"].select = True
+        
+        if "Ground" in data.objects:
+            data.objects["Ground"].select = True
         
         for o in data.objects:
             if "Ground" in o.destruction.grounds:

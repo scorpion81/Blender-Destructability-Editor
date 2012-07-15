@@ -73,6 +73,17 @@ class Processor():
             
             #for some reason zeroizing the location is necessary for cell fracture in my addon
             
+            area = None
+            for a in context.screen.areas:
+                if a.type == 'PROPERTIES':
+                    area = a
+                
+            space = None
+            for s in area.spaces:
+                if s.type == 'PROPERTIES':
+                    s.use_pin_id = True
+                    space = s
+            
             if context.scene.hideLayer != 1:
                 context.scene.layers = self.layer(context.scene.hideLayer, True)
                 
@@ -107,7 +118,8 @@ class Processor():
            
             if context.scene.hideLayer != 1:
                 context.scene.layers = self.layer(1)
-        
+            
+            space.use_pin_id = False
         return None
     
     def destroy(self, context, objects, level):

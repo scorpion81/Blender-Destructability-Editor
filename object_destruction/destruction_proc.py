@@ -72,6 +72,11 @@ class Processor():
             #restore = o.parent == None
             
             #for some reason zeroizing the location is necessary for cell fracture in my addon
+            
+            if context.scene.hideLayer != 1:
+                context.scene.layers = self.layer(context.scene.hideLayer, True)
+                
+            
             for o in data.objects:
                 if o in objects:
                     o.select = True
@@ -99,6 +104,10 @@ class Processor():
                         o.destruction.restore = True
                     
             context.scene.update()
+           
+            if context.scene.hideLayer != 1:
+                context.scene.layers = self.layer(1)
+        
         return None
     
     def destroy(self, context, objects, level):
@@ -565,10 +574,12 @@ class Processor():
             return parts
         return [] # error case 
         
-    def layer(self, n):
+    def layer(self, n, keepFirst = False):
         ret = []
         for i in range(0, 20):
-            if i == n-1:
+            if keepFirst and i == 0:
+               ret.append(True)
+            elif i == n-1:
                 ret.append(True)
             else:
                 ret.append(False)

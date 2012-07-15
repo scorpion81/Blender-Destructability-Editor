@@ -69,29 +69,36 @@ class Processor():
             #restore = False
             #ifcontext.active_object.destruction.destructionMode == 'DESTROY_C' or \
             #context.active_object.destruction.destructionMode == 'DESTROY_F':
-            restore = True
+            #restore = o.parent == None
+            
             #for some reason zeroizing the location is necessary for cell fracture in my addon
             for o in data.objects:
                 if o in objects:
                     o.select = True
                     ops.object.origin_set(type = 'ORIGIN_GEOMETRY', center = 'BOUNDS')
                     o.select = False
-                        
+                    
+                    if o.parent != None:
+                        o.parent.destruction.restore = True
+                            
                     o.destruction.restoreLoc = o.location.copy()
                     o.location = Vector((0,0,0))
                     print("Memorizing...", o.destruction.restoreLoc, o.location)
+                    
             context.scene.update()
-            
             self.destroy(context, objects, 0)   
             
-            if restore:   
-                for o in data.objects:
-                    if o.name.startswith("P_0_"):
+              
+            for o in data.objects:
+                if o.name.startswith("P_"):
+                    if not o.destruction.restore:
                         backup = data.objects[o.destruction.backup]
                         o.location = Vector(backup.destruction.restoreLoc)
                         backup.destruction.restoreLoc = Vector((0,0,0)) 
                         print("Restoring...", o.location)
-                context.scene.update()
+                        o.destruction.restore = True
+                    
+            context.scene.update()
         return None
     
     def destroy(self, context, objects, level):
@@ -941,6 +948,7 @@ class Processor():
         c.destruction.voro_volume = backup.destruction.voro_volume
         c.destruction.voro_particles = backup.destruction.voro_particles
         c.destruction.destructionMode = backup.destruction.destructionMode
+        c.destruction.dynamic_mode = backup.destruction.dynamic_mode
         
         #calculate mass
         self.calcMass(c, backup)
@@ -2424,6 +2432,7 @@ EACH cube will be further fractured to the given part count")
    
     cell_fracture = props.PointerProperty(type=CellFractureContext, name = "CellFractureContext")
     
+    restore = props.BoolProperty(name = "restore")
     advanced_fracture = props.BoolProperty(name = "advanced_fracture", description = "Show Advanced Fracture Options")
     auto_recursion = props.BoolProperty(name = "auto_recursion", description = "Show Automatic Recursion Options")
     setup_gameengine = props.BoolProperty(name = "setup_gameengine", description = "Show Game Engine Setup Options")

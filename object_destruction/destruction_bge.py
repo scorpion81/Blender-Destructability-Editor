@@ -558,25 +558,30 @@ def collide():
            # if "lastProxy" in hitObj.getPropertyNames():
             #    bpy.data.meshes.remove(m)    
             bpyObj.select = False
-            objs = swapDynamic(name, hitObj)
-            #substitute parent with children.... maybe before convert ? is convert necessary at all ?
-            for o in objs:
-                o["isShard"] = True
-                
+            if compareSpeed(owner, hitObj):
+                objs = swapDynamic(name, hitObj)
+                #substitute parent with children.... maybe before convert ? is convert necessary at all ?
+                for o in objs:
+                    o["isShard"] = True
+                    
+                    if compareSpeed(owner, o):
+                        o.restoreDynamics()
+                        o["activated"] = True
+                    
             for o in scene.objects:
                 try:
-                    
-                    #dist, speed, depth = distSpeed(owner, o, maxHierarchyDepth, lastSpeed)
-                    #if dist < speed and bpy.data.objects[o.name].destruction.glue_threshold < speed:
+                  #dist, speed, depth = distSpeed(owner, o, maxHierarchyDepth, lastSpeed)
+                  #if dist < speed and bpy.data.objects[o.name].destruction.glue_threshold < speed:
                     if compareSpeed(owner, o):
-#                        if "isShard" in o.getPropertyNames():
-#                            pos = Vector((o["posx"], o["posy"], o["posz"]))
-#                            o.worldPosition = pos
+    #                        if "isShard" in o.getPropertyNames():
+    #                            pos = Vector((o["posx"], o["posy"], o["posz"]))
+    #                            o.worldPosition = pos
                         o.restoreDynamics()
                         o["activated"] = True
                 except AttributeError:
-                    #print("AttributeError", o.name)
-                    continue           
+                    print("AttributeError", o.name)
+                    continue
+                           
     if isDynamic:
         print("Returning")
         return    
@@ -824,12 +829,13 @@ def swapDynamic(objname, obj):
             
             if "isShard" not in obj.getPropertyNames():
                 o.worldPosition = obj.worldPosition + child.location
-                tempLoc = Vector(bpyOb.destruction.tempLoc)
+                tempLoc = Vector(bpyOb.destruction.origLoc)
             elif "activated" in obj.getPropertyNames():
                 o.worldPosition = obj.worldPosition + child.location
             else:
-                o.worldPosition = tempLoc + child.location
-                
+                o.worldPosition = obj.worldPosition + child.location#tempLoc + child.location
+            
+            #print("CHILDLOC", child.location)    
 #            pos = obj.worldPosition + child.location
 #            o["posx"] = pos[0]
 #            o["posy"] = pos[1]
@@ -975,7 +981,10 @@ def compareSpeed(owner, obj):
     if speed > 0:
         lastSpeed = speed
     
-    glue = bpy.data.objects[obj.name].destruction.glue_threshold 
+    try:
+        glue = bpy.data.objects[obj.name].destruction.glue_threshold
+    except KeyError: #catch some strange error with __default_cam__ in dynamic fracture
+        glue = 0 
         
     return (dist < speed) and (glue < speed) 
    

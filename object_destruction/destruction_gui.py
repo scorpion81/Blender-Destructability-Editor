@@ -1239,22 +1239,20 @@ class DestroyObject(types.Operator):
     proc = None
     lock = None
     
-    def modal(self, context, event):
+    def execute(self, context):
         
         undo = context.user_preferences.edit.use_global_undo
         context.user_preferences.edit.use_global_undo = False
-       # s = None
-       # c = None
         
-        print(event.type)
-        if event.type == 'ESC':
-            context.user_preferences.edit.use_global_undo = undo 
+        #print(event.type)
+       # if event.type == 'ESC':
+        #    context.user_preferences.edit.use_global_undo = undo 
             
             #if c != None:# and s != None:
                 #MyServer.stop()
              #   c.join()
                 #s.join()
-            return {'CANCELLED'}
+        #    return {'CANCELLED'}
         
         #set a heavy mass as workaround, until mass update works correctly...
         #context.active_object.game.mass = 1000
@@ -1293,13 +1291,13 @@ class DestroyObject(types.Operator):
        # lock.release()     
         return {'FINISHED'}
     
-    def invoke(self, context, event):
-        if context.active_object:
-            context.window_manager.modal_handler_add(self)
-            return {'RUNNING_MODAL'}
-        else:
-            self.report({'WARNING'}, "No active object, could not finish")
-            return {'CANCELLED'}
+    #def invoke(self, context, event):
+    #    if context.active_object:
+    #        context.window_manager.modal_handler_add(self)
+    #        return {'RUNNING_MODAL'}
+    #    else:
+    #        self.report({'WARNING'}, "No active object, could not finish")
+    #        return {'CANCELLED'}
 
 class UndestroyObject(types.Operator):
     bl_idname = "object.undestroy"
@@ -1469,7 +1467,7 @@ class ActiveToSelected(types.Operator):
             for prop in active.destruction.items():
                 for s in selected:
                     if prop[0] not in ('wasCompound', 'backup', 'children', 'ascendants', 'converted', 'is_backup_for', 'destroyable', 
-                                        'tempLoc', 'origLoc', 'restoreLoc'):
+                                        'tempLoc', 'origLoc', 'restoreLoc', 'restore'):
                         print("Copying:", prop[0])
                         s.destruction[prop[0]] = prop[1]
                  

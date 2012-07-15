@@ -985,8 +985,8 @@ def compareSpeed(owner, obj):
         glue = bpy.data.objects[obj.name].destruction.glue_threshold
     except KeyError: #catch some strange error with __default_cam__ in dynamic fracture
         glue = 0 
-        
-    return (dist < speed) and (glue < speed) 
+    finally:    
+        return (dist < speed) and (glue < speed) 
    
 #recursively destroy parent relationships    
 def dissolve(obj, depth, maxdepth, owner):

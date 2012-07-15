@@ -77,7 +77,8 @@ def create_cutter(context, crack_type, scale, roughness, materialname):
     
     #assign inner material to cutter
     #print("CUTTERMAT", materialname)
-    if materialname != "" and materialname != None:
+    if materialname != "" and materialname != None and \
+    materialname in bpy.data.materials:
         ctx = bpy.context.copy()
         ctx["object"] = bpy.context.active_object
         bpy.ops.object.material_slot_add(ctx)

@@ -81,6 +81,8 @@ class Processor():
             space = None
             for s in area.spaces:
                 if s.type == 'PROPERTIES':
+                    s.context = 'OBJECT'
+                    s.pin_id = context.object
                     s.use_pin_id = True
                     space = s
             

@@ -120,8 +120,10 @@ class Processor():
            
             if context.scene.hideLayer != 1:
                 context.scene.layers = self.layer(1)
-            
+           
             space.use_pin_id = False
+            space.pin_id = None
+            
         return None
     
     def destroy(self, context, objects, level):

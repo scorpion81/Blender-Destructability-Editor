@@ -40,8 +40,16 @@ def aim():
 
 def addBall(act, value, isBomb, target):
     
+    scene = logic.getCurrentScene()
+    
+    
     balls = []
     for a in act:
+        
+        #if a.object.name in scene.objects:
+        #    o = scene.objects[a.object.namep]
+        #    o.endObject()
+            
         #control.activate(a)
         a.instantAddObject()
         #lastObj = scene.addObject(a.object, a.object)
@@ -62,7 +70,7 @@ def addBall(act, value, isBomb, target):
             b.setParent(parent)
             if parent.name not in db.children.keys():
                 db.children[parent.name] = list()
-            db.children[parent.name].append(b)
+            db.children[parent.name].append(b.name)
     
     if parent != None:
         childs = [c for c in parent.children]

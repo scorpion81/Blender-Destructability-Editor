@@ -2408,8 +2408,7 @@ so only unconnected parts collapse according to their parent relations")
     tempLoc = props.FloatVectorProperty(name = "tempLoc", default = (0, 0, 0))
     origLoc = props.FloatVectorProperty(name = "origLoc", default = (0, 0, 0))
     restoreLoc = props.FloatVectorProperty(name = "restoreLoc", default = (0, 0, 0))
-    custom_ball = props.StringProperty(name="custom_ball" , 
-       description = "Select custom ball object here before setup player, this will be shot from the player instead of the default ball")
+    
     voro_exact_shape = props.BoolProperty(name = "voro_exact_shape", description = "Use the vertices of the given object as point cloud")
     voro_particles = props.StringProperty(name = "voro_particles", description = "Use the particles of the given particle system as point cloud")
     voro_path = props.StringProperty(name="voro_path", default = bpy.app.tempdir + "test.out",
@@ -2496,7 +2495,9 @@ def initialize():
     
     Scene.use_player_cam = props.BoolProperty(name = "use_player_cam", default = True, update = updateCam, 
                                               description = "Use Player Camera in Game Engine")
-    
+                                              
+    Scene.custom_ball = props.StringProperty(name="custom_ball" , 
+       description = "Select custom ball object here before setup player, this will be shot from the player instead of the default ball")
     #Scene.fracture_progress = props.StringProperty(name = "fracture_progress", description = "Fracture Progress")
     
     dd.DataStore.proc = Processor()  

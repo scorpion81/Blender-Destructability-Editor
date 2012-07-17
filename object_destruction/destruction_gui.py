@@ -317,7 +317,7 @@ class DestructabilityPanel(types.Panel):
             #row.active = context.object.destruction.destructor 
         
         row = box.row()
-        row.prop_search(context.object.destruction, "custom_ball", context.scene, 
+        row.prop_search(context.scene, "custom_ball", context.scene, 
                     "objects", icon = 'OBJECT_DATA', text = "Custom Ball:")
         
         row = box.row()
@@ -602,7 +602,7 @@ class SetupPlayer(types.Operator):
         data.objects["Player"].select = True
         ops.transform.translate(value = (3, 0, 3))
        
-        ballname = context.object.destruction.custom_ball
+        ballname = context.scene.custom_ball
         if ballname == None or ballname == "":
             ops.mesh.primitive_ico_sphere_add(layers = [False, True, False, False, False,
                                                         False, False, False, False, False,
@@ -765,7 +765,29 @@ class SetupPlayer(types.Operator):
                 b.select = True
                 context.scene.objects.active = b
                 ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+               # ops.object.origin_set(type = 'ORIGIN_GEOMETRY', center = 'BOUNDS')
                 ops.object.transform_apply(location = True, scale = True, rotation = True)
+                #ops.object.transform_apply(scale = True, rotation = True)
+                  
+                controllers = len(context.active_object.game.controllers)
+                sensors = len(context.active_object.game.sensors)
+        
+                sensornames = [s.name for s in context.active_object.game.sensors]
+                if not "Collision" in sensornames:
+                    
+                    ops.logic.controller_add(type = 'PYTHON', object = b.name)
+                    ops.logic.sensor_add(type = 'COLLISION', object = b.name)
+                    context.active_object.game.sensors[sensors].name = "Collision"
+        
+                    context.active_object.game.sensors[sensors].use_tap = True
+                    context.active_object.game.sensors[sensors].use_pulse_true_level = True
+                    context.active_object.game.sensors[sensors].frequency = 100
+     
+                    context.active_object.game.controllers[controllers].mode = 'MODULE'
+                    context.active_object.game.controllers[controllers].module = "destruction_bge.collide"
+        
+                    context.active_object.game.controllers[controllers].link(
+                    context.active_object.game.sensors[sensors])
                
                 ops.object.game_property_new()
                 b.game.properties[0].name = "myParent"
@@ -864,7 +886,7 @@ class ClearPlayer(types.Operator):
         if "Launcher" in data.objects:
             data.objects["Launcher"].select = True
         
-        ballname = context.object.destruction.custom_ball
+        ballname = context.scene.custom_ball
         if ballname != None and ballname != "":
             data.objects[ballname].select = True
             for o in data.objects:
@@ -937,7 +959,36 @@ class ConvertParenting(types.Operator):
             #self.unconvert(context)
       #  context.scene.converted = not context.scene.converted
         return {'FINISHED'}
+    
+    def setDestructor(self, context, o):
+    
+        context.scene.objects.active = o        
+        controllers = len(context.active_object.game.controllers)
+        sensors = len(context.active_object.game.sensors)
         
+        sensornames = [s.name for s in context.active_object.game.sensors]
+        if "Collision" in sensornames:
+            return
+            
+        ops.logic.controller_add(type = 'PYTHON', object = o.name)
+        ops.logic.sensor_add(type = 'COLLISION', object = o.name)
+        context.active_object.game.sensors[sensors].name = "Collision"
+        
+        context.active_object.game.sensors[sensors].use_tap = True
+        
+        if o.name != "Ball":
+            context.active_object.game.sensors[sensors].use_pulse_true_level = True
+            context.active_object.game.sensors[sensors].frequency = 100
+     
+        context.active_object.game.controllers[controllers].mode = 'MODULE'
+        context.active_object.game.controllers[controllers].module = "destruction_bge.collide"
+        
+        context.active_object.game.controllers[controllers].link(
+        context.active_object.game.sensors[sensors])
+        
+        for c in o.children:
+            self.setDestructor(context, c)
+                    
     
     def convert(self, context):
         
@@ -1085,6 +1136,11 @@ class ConvertParenting(types.Operator):
                     ops.object.transform_apply(rotation = True)
                     ground.select = False
         
+        for o in data.objects: #context.scene.objects misses objects on deselected layers
+            #destructors
+            if o.destruction.destructor:
+                self.setDestructor(context, o)
+        
         for o in data.objects: #restrict to P_ parents only ! no use all
             if context.scene.player:
                 if o.name == "Player" or o.name == "Eye" or \
@@ -1107,39 +1163,10 @@ class ConvertParenting(types.Operator):
                     ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
                     o.select = False
         
-        
-        #destructors
-        for o in context.scene.objects:
-            
-           # if o.destruction.converted:
-        #        continue
-            
-            if o.destruction.destructor:
-         #       o.destruction.converted = True
-                context.scene.objects.active = o
-                
-                controllers = len(context.active_object.game.controllers)
-                sensors = len(context.active_object.game.sensors)
-                
-                sensornames = [s.name for s in context.active_object.game.sensors]
-                if "Collision" in sensornames:
-                    continue
-                    
-                ops.logic.controller_add(type = 'PYTHON', object = o.name)
-                ops.logic.sensor_add(type = 'COLLISION', object = o.name)
-                context.active_object.game.sensors[sensors].name = "Collision"
-                
-                context.active_object.game.sensors[sensors].use_tap = True
-                
-                if o.name != "Ball":
-                    context.active_object.game.sensors[sensors].use_pulse_true_level = True
-                    context.active_object.game.sensors[sensors].frequency = 100
-        
-                context.active_object.game.controllers[controllers].mode = 'MODULE'
-                context.active_object.game.controllers[controllers].module = "destruction_bge.collide"
-            
-                context.active_object.game.controllers[controllers].link(
-                context.active_object.game.sensors[sensors])                   
+                                                      
+    
+    
+    
                        
     def unconvert(self, context):
         

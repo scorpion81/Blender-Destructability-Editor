@@ -214,20 +214,20 @@ def setup():
     for o in scene.objects:
         if o.name != "Player":
             if "myParent" in o.getPropertyNames():
-                parent = o["myParent"]
+                parentname = o["myParent"]
                            
                 if bpy.context.scene.hideLayer != 1:
-                    if parent not in scene.objects:
-                        p = scene.addObject(parent, parent)
+                    if parentname not in scene.objects:
+                        p = scene.addObject(parentname, parentname)
                     else:
-                        p = scene.objects[parent]    
+                        p = scene.objects[parentname]    
                 else:
-                    p = scene.objects[parent]
+                    p = scene.objects[parentname]
                 
-                if parent.startswith("P_0") and p not in firstparent:
+                if parentname.startswith("P_0") and p not in firstparent:
                     firstparent.append(p)   
                             
-                print("Setting temp parent", o, parent)
+                print("Setting temp parent", o, parentname)
                 o.setParent(p)
                 bpyObjs[o.name] = bpy.context.scene.objects[o.name]
                 o["activated"] = False
@@ -248,7 +248,7 @@ def setup():
                 for fp in firstparent:
                     desc = descendants(fp)
                     if bpyObjs[o.name].game.use_collision_compound and o in desc :
-                        if fp.name not in firstShard.keys():
+                        if fp.name not in firstShard.keys() and fp.name != bpy.context.scene.custom_ball:
                             print("Setting compound", o.name)
                             fp["compound"] = o.name
                             firstShard[fp.name] = o
@@ -315,18 +315,18 @@ def setup():
                 #    o.suspendDynamics()
                 #    p.suspendDynamics()
                      
-                if flattenHierarchy(o) and o not in firstShard:
+                if flattenHierarchy(o) and o not in firstShard and oldPar.name != bpy.context.scene.custom_ball:
                     #if oldPar.name in firstShard: 
                     parent = firstShard[oldPar.name]
                     print("Setting parent", o, " -> ", parent)
                     o.setParent(parent, True, False)   
-                elif c not in firstShard:
+                elif c not in firstShard and oldPar.name != bpy.context.scene.custom_ball:
                     #if c != backup:
                     print("Setting parent hierarchically", c, " -> ", parent)  
                     o.setParent(parent, True, False)
              
                 #keep sticky if groundConnectivity is wanted
-                if isGroundConnectivity(oldPar):
+                if isGroundConnectivity(oldPar) and oldPar.name != bpy.context.scene.custom_ball:
                     o.suspendDynamics()
                     #parent.suspendDynamics()
                     ground = scene.objects["Ground"]
@@ -351,13 +351,14 @@ def setup():
 
     #swap immediately
     if bpy.context.scene.hideLayer != 1:
-        for p in firstparent:
+        for p in firstparent and p.name != bpy.context.scene.custom_ball:
             par = bpy.context.scene.objects[p.name]
             initswap = swapBackup(scene.objects[par.destruction.backup])
     
     for first in firstparent:
-        if isGroundConnectivity(first):
-            calculateGrids()
+        if first.name != bpy.context.scene.custom_ball:
+            if isGroundConnectivity(first):
+                calculateGrids()
                                            
 def checkSpeed():
 #    global gridValid
@@ -497,7 +498,7 @@ def distSpeed(owner, obj, maxDepth, lastSpeed):
     
 def collide():
     
-    print("collide")
+   
     global maxHierarchyDepth
     global ground
     global firstparent
@@ -510,7 +511,7 @@ def collide():
     scene = logic.getCurrentScene()
     sensor = control.sensors["Collision"]
     owner = sensor.owner
-    
+    print("collide", owner)
    
     maxHierarchyDepth = hierarchyDepth(owner)
     
@@ -988,14 +989,10 @@ def compareSpeed(owner, obj):
         glue = 0 
     finally:    
         return (dist < speed) and (glue < speed) 
-   
-#recursively destroy parent relationships    
-def dissolve(obj, depth, maxdepth, owner):
     
-    global initswap
+def findParent(obj):
     global children
     
-   # print("dissolve", obj, depth)               
     parent = None
     for p in children.keys():
         if obj.name in children[p]:
@@ -1010,19 +1007,32 @@ def dissolve(obj, depth, maxdepth, owner):
             par = scene.addObject(parent, parent)
     else:
         par = ground
-       
     
-   # print("Owner:", owner, isRegistered(par, owner), isDestroyable(par), parent, par)
+    return par
+    
+   
+#recursively destroy parent relationships    
+def dissolve(obj, depth, maxdepth, owner):
+    
+    global initswap
+    global children
+    
+   # print("dissolve", obj, depth)
+    parent = findParent(obj)
+    owparent = findParent(owner)               
+  
+    print("Owner:", owner, obj, isRegistered(parent, owner), isRegistered(parent, owparent), isDestroyable(parent), parent.name)
      
-    if isDestroyable(par) and (isRegistered(par, owner) or isGround(par)):
-        
+    if isDestroyable(parent) and (isRegistered(parent, owner) or isRegistered(parent, owparent) or \
+    isGround(parent)):
+            
         grid = None
-        if par.name in dd.DataStore.grids.keys():
-            grid = dd.DataStore.grids[par.name]                
+        if parent.name in dd.DataStore.grids.keys():
+            grid = dd.DataStore.grids[parent.name]                
         
         #only activate objects at current depth
-        if par != None:# and par.name != "Ground":
-            digitEnd = par.name.split("_")[1]
+        if parent != None:# and par.name != "Ground":
+            digitEnd = parent.name.split("_")[1]
             objDepth = int(digitEnd) 
             
             if obj.name.startswith("P_"):
@@ -1035,7 +1045,7 @@ def dissolve(obj, depth, maxdepth, owner):
             bDepth = backupDepth(obj)
              
             #print(depth, objDepth+1, bDepth+1)
-            first = findFirstParent(par.name)
+            first = findFirstParent(parent.name)
             if bpy.context.scene.hideLayer != 1 and isBackup(obj) and ((depth == bDepth+1) \
            # or ((depth == bDepth) and (owner.name == "Ball")) \
             and not isGroundConnectivity(first)):
@@ -1078,7 +1088,7 @@ def dissolve(obj, depth, maxdepth, owner):
 #              #  print(children[p], parent)
 #                if pParent != None:
           #  print("CHILDS", len(children[parent]))
-            [dissolve(scene.objects[c], depth+1, maxdepth, owner) for c in children[parent]]
+            [dissolve(scene.objects[c], depth+1, maxdepth, owner) for c in children[parent.name]]
 
 def activate(child, owner, grid):
    
@@ -1181,13 +1191,18 @@ def isDestroyable(obj):
 #    return destroyable["destroyable"]
 
 def isDestructor(obj):
+    
+    global children
+    
     if obj == None:
         return False
+    
+#    if obj.name.startswith("P_"): #TODO find out compoundparent if not custom_ball!!
+#        last = children[obj.name][-1]
+#        destructor = bpy.context.scene.objects[last.name].destruction.destructor
+#    else:
     destructor = bpy.context.scene.objects[obj.name].destruction.destructor
     return destructor
-#    if obj == None or "destructor" not in obj.getPropertyNames():
-#        return False
-#    return obj["destructor"]
 
 def isGround(obj):
     
@@ -1222,13 +1237,6 @@ def deadDelay(obj):
     return delay
 
 def isRegistered(destroyable, destructor):
-#    if destroyable == None:
-#        return False
-#    if not destructor["destructor"]:
-#        return False
-    
-   # targets = destructor["destructorTargets"].split(" ")
-#    print(targets, destructor)
 
     if not isDestroyable(destroyable):
         return False

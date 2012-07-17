@@ -460,9 +460,9 @@ class RemoveGroundOperator(types.Operator):
         context.object.destruction.grounds.remove(index)
         context.object.destruction.active_ground = len(context.object.destruction.grounds) - 1
         
-        if name not in context.scene.validGrounds:
-            propNew = context.scene.validGrounds.add()
-            propNew.name = name
+       # if name not in context.scene.validGrounds:
+        #    propNew = context.scene.validGrounds.add()
+        #    propNew.name = name
         
         return {'FINISHED'}
        

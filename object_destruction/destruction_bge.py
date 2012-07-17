@@ -45,6 +45,7 @@ objectCount = 0
 allInUse = False
 tempLoc = Vector((0,0,0))
 initswap = []
+firstGround = None
 
 def project(p, n):
     
@@ -208,6 +209,7 @@ def setup():
     global ground
     global children
    # global destructors
+    global firstGround
     print("setup")
     
     #temporarily parent
@@ -233,7 +235,9 @@ def setup():
                 o["activated"] = False
                 o["suspended"] = False
                # o["lastdist"] = sys.maxsize
-        if o.name == "Ground":
+        if isGround(o):# o.name == "Ground":
+            if firstGround == None:
+                firstGround = o.name
             bpyObjs[o.name] = bpy.context.scene.objects[o.name]
        # if isDestructor(o):
         #    destructors.append(o)
@@ -329,7 +333,7 @@ def setup():
                 if isGroundConnectivity(oldPar) and oldPar.name != bpy.context.scene.custom_ball:
                     o.suspendDynamics()
                     #parent.suspendDynamics()
-                    ground = scene.objects["Ground"]
+                    ground = scene.objects[firstGround]
                     o.setParent(ground, True, False)
         
         if start in compounds.keys():
@@ -504,6 +508,7 @@ def collide():
     global firstparent
     global allInUse
     global children
+    global firstGround
     #colliders have collision sensors attached, which trigger for registered destructibles only
     
     #first the script controller brick, its sensor and owner are needed
@@ -542,7 +547,7 @@ def collide():
         else:
             bpyObj = bpy.data.objects[hitObj.name]
                 
-        if bpyObj.destruction.dynamic_mode == "D_DYNAMIC" and bpyObj.name != "Ground":
+        if bpyObj.destruction.dynamic_mode == "D_DYNAMIC" and bpyObj.name != firstGround:
             isDynamic = True 
           
             bpy.context.scene.objects.active = bpyObj
@@ -592,7 +597,7 @@ def collide():
         if not isGroundConnectivity(fp):
             if "compound" in fp.getPropertyNames() and fp["compound"] in scene.objects:
                 compound = scene.objects[fp["compound"]]
-                if (compound.worldLinearVelocity.length < 0.05 and owner.name == "Ground"):
+                if (compound.worldLinearVelocity.length < 0.05 and owner.name == firstGround):
                     return #if compound does not move, ignore collisions...
         else: # a quicker pre-test of cells (less than objects)
             isGroundConn = True
@@ -1169,10 +1174,11 @@ def activate(child, owner, grid):
             
 def isGroundConnectivity(obj):
     global children
+    global firstGround
     
     if obj == None:
         return False
-    if obj.name in children.keys(): #valid parent
+    if obj.name in children.keys() and firstGround != None: #valid parent
         groundConnectivity = bpy.context.scene.objects[obj.name].destruction.groundConnectivity
         return groundConnectivity
     else:
@@ -1208,14 +1214,15 @@ def isGround(obj):
     
     if obj == None:
         return False
-    if obj.name in bpyObjs.keys():
-        isground = bpyObjs[obj.name].destruction.isGround
+    #if obj.name in bpyObjs.keys():
+    try:
+        isground = bpy.context.scene.objects[obj.name].destruction.isGround
+    except KeyError: #catch strange __default_cam__ error again ...
+        isground = False
+    finally:
         return isground
-    else:
-        return False
-#    if obj == None or "isGround" not in obj.getPropertyNames():
-#        return False
-#    return obj["isGround"]
+    #else:
+    #    return False
 
 def flattenHierarchy(obj):
     if obj == None:

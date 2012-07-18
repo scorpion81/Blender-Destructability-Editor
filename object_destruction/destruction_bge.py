@@ -355,9 +355,10 @@ def setup():
 
     #swap immediately
     if bpy.context.scene.hideLayer != 1:
-        for p in firstparent and p.name != bpy.context.scene.custom_ball:
-            par = bpy.context.scene.objects[p.name]
-            initswap = swapBackup(scene.objects[par.destruction.backup])
+        for p in firstparent: 
+            if p.name != bpy.context.scene.custom_ball:
+                par = bpy.context.scene.objects[p.name]
+                initswap = swapBackup(scene.objects[par.destruction.backup])
     
     for first in firstparent:
         if first.name != bpy.context.scene.custom_ball:

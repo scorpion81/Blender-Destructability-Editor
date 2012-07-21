@@ -106,6 +106,16 @@ class Processor():
             context.scene.update()
             self.destroy(context, objects, 0)   
             
+            
+            mode = context.active_object.destruction.destructionMode
+            if mode == 'DESTROY_C':
+                ctx = context.active_object.destruction.cell_fracture
+                if ctx.use_interior_vgroup or ctx.use_sharp_edges:
+                    fracture_cell_setup.cell_fracture_interior_handle(objects,
+                            use_interior_vgroup=ctx.use_interior_vgroup,
+                            use_sharp_edges=ctx.use_sharp_edges,
+                            use_sharp_edges_apply=ctx.use_sharp_edges_apply,
+                                                              )
               
             for o in data.objects:
                 if o.name.startswith("P_"):
@@ -161,6 +171,7 @@ class Processor():
         recursion_chance = ctx.recursion_chance
         recursion_chance_select = ctx.recursion_chance_select
         use_remove_original = ctx.use_remove_original
+        recursion_clamp = ctx.recursion_clamp
         
         obj = objects
         objects_recursive = eval(modes[mode])
@@ -169,30 +180,27 @@ class Processor():
             objects_recurse_input = [(i, o) for i, o in enumerate(objects_recursive)]
          
             if recursion_chance != 1.0:
-                
+                from mathutils import Vector
                 if recursion_chance_select == 'RANDOM':
                     random.shuffle(objects_recurse_input)
-                else:
-                    from mathutils import Vector
-                    
-                    if recursion_chance_select == {'SIZE_MIN', 'SIZE_MAX'}:
-                        objects_recurse_input.sort(key=lambda ob_pair:
-                            (Vector(ob_pair[1].bound_box[0]) -
-                             Vector(ob_pair[1].bound_box[6])).length_squared)
-                        if recursion_chance_select == 'SIZE_MAX':
-                            objects_recurse_input.reverse()
-                    elif recursion_chance_select == {'CURSOR_MIN', 'CURSOR_MAX'}:
-                        print(recursion_chance_select)
-                        c = scene.cursor_location.copy()
-                        objects_recurse_input.sort(key=lambda ob_pair:
-                            (ob_pair[1].matrix_world.translation - c).length_squared)
-                        if recursion_chance_select == 'CURSOR_MAX':
-                            objects_recurse_input.reverse()
+                elif recursion_chance_select == {'SIZE_MIN', 'SIZE_MAX'}:
+                    objects_recurse_input.sort(key=lambda ob_pair:
+                        (Vector(ob_pair[1].bound_box[0]) -
+                         Vector(ob_pair[1].bound_box[6])).length_squared)
+                    if recursion_chance_select == 'SIZE_MAX':
+                        objects_recurse_input.reverse()
+                elif recursion_chance_select == {'CURSOR_MIN', 'CURSOR_MAX'}:
+                    print(recursion_chance_select)
+                    c = scene.cursor_location.copy()
+                    objects_recurse_input.sort(key=lambda ob_pair:
+                        (ob_pair[1].location - c).length_squared)
+                    if recursion_chance_select == 'CURSOR_MAX':
+                        objects_recurse_input.reverse()
                     
                     
                 objects_recurse_input[int(recursion_chance * len(objects_recurse_input)):] = []
                 objects_recurse_input.sort()
-                print("LEN", len(objects_recurse_input), recursion_chance)
+               # print("LEN", len(objects_recurse_input), recursion_chance)
             
                 # reverse index values so we can remove from original list.
                 objects_recurse_input.reverse()
@@ -203,6 +211,9 @@ class Processor():
                 obj = [o]
                 if context.active_object == None:
                     context.scene.objects.active = o
+                
+                if recursion_clamp and len(objects_recursive) >= recursion_clamp:
+                    break
                 objects_recursive += self.destroy(context, obj, level + 1)
                 #if use_remove_original
                 #    context.scene.objects.unlink(obj_cell)
@@ -2169,9 +2180,15 @@ class CellFractureContext(types.PropertyGroup):
             default=False,
             )
 
-    use_smooth_edges = props.BoolProperty(
-            name="Smooth Edges",
+    use_sharp_edges = BoolProperty(
+            name="Sharp Edges",
             description="Set sharp edges when disabled",
+            default=True,
+            )
+
+    use_sharp_edges_apply = BoolProperty(
+            name="Apply Split Edge",
+            description="Split sharp hard edges",
             default=True,
             )
 
@@ -2283,6 +2300,20 @@ class CellFractureContext(types.PropertyGroup):
                    ('CURSOR_MAX', "Cursor Far", "Recursively subdivide objects closer to the cursor"),
                    ),
             default='SIZE_MIN',
+            )
+            
+    recursion_source_limit = props.IntProperty(
+            name="Source Limit",
+            description="Limit the number of input points, 0 for unlimited (applies to recursion only)",
+            min=0, max=5000,
+            default=8,
+            )
+
+    recursion_clamp = props.IntProperty(
+            name="Clamp Recursion",
+            description="Finish recursion when this number of objects is reached (prevents recursing for extended periods of time), zero disables",
+            min=0, max=10000,
+            default=250,
             )
 
 

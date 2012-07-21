@@ -147,7 +147,7 @@ class Processor():
                  DestructionContext.destModes[3][0]: 
                      "self.applyVoronoi(context, obj, False)",
                  DestructionContext.destModes[4][0]: 
-                     "self.applyCellFracture(context, obj)",  
+                     "self.applyCellFracture(context, obj, level)",  
                  DestructionContext.destModes[5][0]:
                      "self.applyLooseParts(context, obj)" } 
         #according to mode call correct method
@@ -417,7 +417,7 @@ class Processor():
                 largest = str(bEnd)
         return largest
     
-    def applyCellFracture(self, context, objects):
+    def applyCellFracture(self, context, objects, level):
         
         parts = []
         for obj in objects:
@@ -433,9 +433,9 @@ class Processor():
             mat_index = self.getMatIndex(materialname, backup)
             
             if obj.destruction.cubify:
-                parts.extend(self.cubify(context, obj, bbox, 1, mat_index))
+                parts.extend(self.cubify(context, obj, bbox, 1, mat_index, level))
             else:
-                parts.extend(self.fracture_cells(context, obj, mat_index))
+                parts.extend(self.fracture_cells(context, obj, mat_index, level))
             
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                 if not obj.destruction.cubify:
@@ -1797,7 +1797,7 @@ class Processor():
             return "0" + str(nr)
         return str(nr)
         
-    def cubify(self, context, object, bbox, parts, mat_index, mat_name = ""):
+    def cubify(self, context, object, bbox, parts, mat_index, mat_name = "", level = 0):
         #create a cube with dim of cell size, (rotate/position it accordingly)
         #intersect with pos of cells[0], go through all cells, set cube to pos, intersect again
         #repeat always with original object
@@ -1829,7 +1829,7 @@ class Processor():
         shards = []
         if object.destruction.destructionMode == "DESTROY_C":
             for cube in cubes:
-                shards.extend(self.fracture_cells(context, cube))
+                shards.extend(self.fracture_cells(context, cube, level))
                 
         if parts > 1: 
             if object.destruction.destructionMode == 'DESTROY_F':
@@ -1939,15 +1939,16 @@ class Processor():
         return ob
         
        #from ideasman42    
-    def fracture_cell(self, scene, obj, ctx, mat_index):
+    def fracture_cell(self, scene, obj, ctx, mat_index, level):
         
         # pull out some args
         use_recenter = ctx.use_recenter
         group_name = ctx.group_name
         #use_island_split = ctx.use_island_split
         
+        use_interior_hide=(ctx.use_interior_vgroup or ctx.use_sharp_edges)
         objects = fracture_cell_setup.cell_fracture_objects(scene, obj, mat_index)
-        objects = fracture_cell_setup.cell_fracture_boolean(scene, obj, objects)
+        objects = fracture_cell_setup.cell_fracture_boolean(scene, obj, objects, use_interior_hide, level)
     
         # todo, split islands.
     
@@ -1974,13 +1975,13 @@ class Processor():
         return objects
     
     
-    def fracture_cells(self,context, obj, mat_index):
+    def fracture_cells(self,context, obj, mat_index, level):
         import time
         t = time.time()
         scene = context.scene
         #obj = context.active_object
         ctx = obj.destruction.cell_fracture
-        objects = self.fracture_cell(scene, obj, ctx, mat_index)
+        objects = self.fracture_cell(scene, obj, ctx, mat_index, level)
     
         bpy.ops.object.select_all(action='DESELECT')
         for obj_cell in objects:
@@ -2180,13 +2181,13 @@ class CellFractureContext(types.PropertyGroup):
             default=False,
             )
 
-    use_sharp_edges = BoolProperty(
+    use_sharp_edges = props.BoolProperty(
             name="Sharp Edges",
             description="Set sharp edges when disabled",
             default=True,
             )
 
-    use_sharp_edges_apply = BoolProperty(
+    use_sharp_edges_apply = props.BoolProperty(
             name="Apply Split Edge",
             description="Split sharp hard edges",
             default=True,
@@ -2302,12 +2303,12 @@ class CellFractureContext(types.PropertyGroup):
             default='SIZE_MIN',
             )
             
-    recursion_source_limit = props.IntProperty(
-            name="Source Limit",
-            description="Limit the number of input points, 0 for unlimited (applies to recursion only)",
-            min=0, max=5000,
-            default=8,
-            )
+    #recursion_source_limit = props.IntProperty(
+    #        name="Source Limit",
+    #        description="Limit the number of input points, 0 for unlimited (applies to recursion only)",
+    #        min=0, max=5000,
+    #        default=8,
+    #        )
 
     recursion_clamp = props.IntProperty(
             name="Clamp Recursion",

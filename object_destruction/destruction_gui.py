@@ -221,7 +221,7 @@ class DestructabilityPanel(types.Panel):
             col.label("Recursive Shatter")
             rowsub = col.row(align=True)
             rowsub.prop(context.object.destruction.cell_fracture, "recursion")
-            rowsub.prop(context.object.destruction.cell_fracture, "recursion_source_limit")
+            #rowsub.prop(context.object.destruction.cell_fracture, "recursion_source_limit")
             rowsub.prop(context.object.destruction.cell_fracture, "recursion_clamp")
             rowsub = col.row()
             rowsub.prop(context.object.destruction.cell_fracture, "recursion_chance")

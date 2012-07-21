@@ -149,7 +149,6 @@ def cell_fracture_objects(scene, obj, material_index):
     
     # operator options
     use_smooth_faces = ctx.use_smooth_faces
-    use_smooth_edges = ctx.use_smooth_edges
     use_data_match = ctx.use_data_match
     use_island_split = True
     margin = ctx.margin
@@ -336,7 +335,7 @@ def cell_fracture_objects(scene, obj, material_index):
     return objects
 
 
-def cell_fracture_boolean(scene, obj, objects):
+def cell_fracture_boolean(scene, obj, objects, use_interior_hide, level):
     
     ctx = obj.destruction.cell_fracture
     use_debug_bool = ctx.use_debug_bool

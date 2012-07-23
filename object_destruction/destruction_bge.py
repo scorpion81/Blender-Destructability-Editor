@@ -726,6 +726,7 @@ def checkGravityCollapse():
  
 def findCompound(childs, parent):
     compound = None
+    loc = None
     for c in childs:
         ob = bpy.context.scene.objects[c.name]
         par = bpy.context.scene.objects[parent]
@@ -734,8 +735,12 @@ def findCompound(childs, parent):
             mesh = ob.data.name
             print("Adding compound", c.name)
             compound = scene.addObject(c.name, c.name)
+          #  compound.worldPosition = ob.location.copy()
+            print("POS", compound.worldPosition, ob.location)
             compound.replaceMesh(mesh, True, True)    
             return compound
+        elif ob.destruction.wasCompound:
+            loc = ob.location.copy()
     if compound == None:
         for c in childs:
             compound = bpy.context.scene.objects[c.name].destruction.backup
@@ -746,9 +751,15 @@ def findCompound(childs, parent):
                 if compound not in scene.objects:
                     #mesh = bpy.context.scene.objects[compound].data.name
                     comp = scene.addObject(compound, compound)
+                    if loc != None:
+                        comp.worldPosition = loc
                     #comp.replaceMesh(mesh, True, True)
                     return comp
-                return scene.objects[compound]
+                comp = scene.objects[compound]
+                if loc != None:
+                    comp.worldPosition = loc
+                
+                return comp 
         
         #descend if necessary
 #        for c in childs:
@@ -935,7 +946,7 @@ def swapBackup(obj):
             ret.append(o)
     
     if not isGroundConnectivity(first):
-        compound.worldPosition = obj.worldPosition        
+        #compound.worldPosition = obj.worldPosition        
         compound.worldOrientation = obj.worldOrientation
         
         lin = obj.linearVelocity.copy()

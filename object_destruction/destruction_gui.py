@@ -948,11 +948,18 @@ class ConvertParenting(types.Operator):
     
     def execute(self, context):
         
-        
         if not context.scene.converted:
             undo = context.user_preferences.edit.use_global_undo
             context.user_preferences.edit.use_global_undo = False
+            
+            if context.scene.hideLayer != 1:
+                context.scene.layers = self.layer(context.scene.hideLayer, True)
+                
             self.convert(context)
+            
+            if context.scene.hideLayer != 1:
+                context.scene.layers = self.layer(1)
+                
             context.scene.converted = True
             context.user_preferences.edit.use_global_undo = undo
         else:
@@ -962,6 +969,17 @@ class ConvertParenting(types.Operator):
             #self.unconvert(context)
       #  context.scene.converted = not context.scene.converted
         return {'FINISHED'}
+    
+    def layer(self, n, keepFirst = False):
+        ret = []
+        for i in range(0, 20):
+            if keepFirst and i == 0:
+               ret.append(True)
+            elif i == n-1:
+                ret.append(True)
+            else:
+                ret.append(False)
+        return ret
     
     def setDestructor(self, context, o):
     

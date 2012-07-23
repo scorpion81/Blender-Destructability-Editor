@@ -101,6 +101,11 @@ class Processor():
                             
                     o.destruction.restoreLoc = o.location.copy()
                     o.location = Vector((0,0,0))
+                    #move also the volume object RELATIVE to the base object
+                    if o.destruction.voro_volume != "" and o.destruction.voro_volume in data.objects:
+                        vol = data.objects[o.destruction.voro_volume]
+                        vol.location -= Vector(o.destruction.restoreLoc)
+                    
                     print("Memorizing...", o.destruction.restoreLoc, o.location)
                     
             context.scene.update()
@@ -114,14 +119,18 @@ class Processor():
                     fracture_cell_setup.cell_fracture_interior_handle(objects,
                             use_interior_vgroup=ctx.use_interior_vgroup,
                             use_sharp_edges=ctx.use_sharp_edges,
-                            use_sharp_edges_apply=ctx.use_sharp_edges_apply,
-                                                              )
+                            use_sharp_edges_apply=ctx.use_sharp_edges_apply)
               
             for o in data.objects:
                 if o.name.startswith("P_"):
                     if not o.destruction.restore:
                         backup = data.objects[o.destruction.backup]
                         o.location = Vector(backup.destruction.restoreLoc)
+                        #restore also the volume object RELATIVE to the base object
+                        if backup.destruction.voro_volume != "" and backup.destruction.voro_volume in data.objects:
+                            vol = data.objects[backup.destruction.voro_volume]
+                            vol.location += Vector(backup.destruction.restoreLoc)
+                        
                         backup.destruction.restoreLoc = Vector((0,0,0)) 
                         print("Restoring...", o.location)
                         o.destruction.restore = True

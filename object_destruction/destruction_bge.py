@@ -735,7 +735,7 @@ def findCompound(childs, parent):
             mesh = ob.data.name
             print("Adding compound", c.name)
             compound = scene.addObject(c.name, c.name)
-          #  compound.worldPosition = ob.location.copy()
+            compound.worldPosition = ob.location.copy()
             print("POS", compound.worldPosition, ob.location)
             compound.replaceMesh(mesh, True, True)    
             return compound
@@ -946,7 +946,8 @@ def swapBackup(obj):
             ret.append(o)
     
     if not isGroundConnectivity(first):
-        #compound.worldPosition = obj.worldPosition        
+        if not parent.startswith("P_0"):
+            compound.worldPosition = obj.worldPosition        
         compound.worldOrientation = obj.worldOrientation
         
         lin = obj.linearVelocity.copy()

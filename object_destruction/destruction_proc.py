@@ -264,11 +264,13 @@ class Processor():
                     o.destruction.cluster_dist = context.active_object.destruction.cluster_dist
                     o.destruction.cluster = context.active_object.destruction.cluster
                     o.destruction.dynamic_mode = context.active_object.destruction.dynamic_mode
+                    o.destruction.destructionMode = context.active_object.destruction.destructionMode
+                           
 #                elif transMode == context.object.destruction.transModes[2][0] or \ #not supported atm
 #                transMode == context.object.destruction.transModes[3][0]:
 #                    objects.append(o)
 #                    self.applyToChildren(o, objects, transMode)
-#                o.select = False
+                o.select = False
                    
     def createBackup(self, context, obj):
         
@@ -786,8 +788,11 @@ class Processor():
             if c.name.startswith("P_"): # since we still have P_ members, use the backup name
                 bName = c.destruction.backup
             
+            parEnd = parent.name.split(".")[1]
+            obEnd = bName.split(".")[1] 
+            
            # print(parent.name, bName, bName in childs)
-            if c.type == 'MESH' and not bName in childs and not c.name.endswith(".000"):
+            if c.type == 'MESH' and not bName in childs and parEnd != obEnd: # c.name.endswith(".000"):
                 if delOld and c.game.use_collision_compound:
                     c.game.use_collision_compound = False
                     c.destruction.wasCompound = True

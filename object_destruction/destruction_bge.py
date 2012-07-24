@@ -341,7 +341,9 @@ def setup():
             if len(compounds[start]) > 1: #TODO, what if there are no real compounds left... use other layers for correct substitution
                 real = scene.objects[realcompounds[start]]
                 for c in compounds[start]:
-                    if c != real.name:
+                    obj = bpy.context.scene.objects[c]
+                    par = obj.destruction.is_backup_for
+                    if c != real.name and (par == "" or not par.startswith("P_0_")):
                         childs = [ob for ob in scene.objects[c].children]
                         for ch in childs:
                             print("Re-Setting compound", ch,  " -> ", real) 
@@ -730,8 +732,10 @@ def findCompound(childs, parent):
     for c in childs:
         ob = bpy.context.scene.objects[c.name]
         par = bpy.context.scene.objects[parent]
+        parEnd = par.name.split(".")[1]
+        obEnd = ob.name.split(".")[1]
         if ob.game.use_collision_compound and c.name not in par.destruction.ascendants and \
-        not c.name.endswith(".000"): #".000" = backup of original object
+        parEnd != obEnd: #not c.name.endswith(".000"): ".000" = backup of original object
             mesh = ob.data.name
             print("Adding compound", c.name)
             compound = scene.addObject(c.name, c.name)
@@ -743,7 +747,9 @@ def findCompound(childs, parent):
             loc = ob.location.copy()
     if compound == None:
         for c in childs:
-            compound = bpy.context.scene.objects[c.name].destruction.backup
+            ob = bpy.context.scene.objects[c.name]
+            compound = ob.destruction.backup
+           # mesh = bpy.context.scene.objects[compound].data.name
             print("Testing: ", compound)
             if compound != None and compound != "" and \
             bpy.context.scene.objects[compound].game.use_collision_compound:
@@ -758,6 +764,7 @@ def findCompound(childs, parent):
                 comp = scene.objects[compound]
                 if loc != None:
                     comp.worldPosition = loc
+                #comp.replaceMesh(mesh, True, True)
                 
                 return comp 
         
@@ -946,7 +953,7 @@ def swapBackup(obj):
             ret.append(o)
     
     if not isGroundConnectivity(first):
-        if not parent.startswith("P_0"):
+        if not parent.startswith("P_0_"):
             compound.worldPosition = obj.worldPosition        
         compound.worldOrientation = obj.worldOrientation
         

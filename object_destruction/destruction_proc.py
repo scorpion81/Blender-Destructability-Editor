@@ -104,7 +104,9 @@ class Processor():
                     #move also the volume object RELATIVE to the base object
                     if o.destruction.voro_volume != "" and o.destruction.voro_volume in data.objects:
                         vol = data.objects[o.destruction.voro_volume]
-                        vol.location -= Vector(o.destruction.restoreLoc)
+                        if vol.destruction.move_name == "":
+                            vol.destruction.move_name = str(o.name)
+                            vol.location -= Vector(o.destruction.restoreLoc)
                     
                     print("Memorizing...", o.destruction.restoreLoc, o.location)
                     
@@ -129,7 +131,9 @@ class Processor():
                         #restore also the volume object RELATIVE to the base object
                         if backup.destruction.voro_volume != "" and backup.destruction.voro_volume in data.objects:
                             vol = data.objects[backup.destruction.voro_volume]
-                            vol.location += Vector(backup.destruction.restoreLoc)
+                            if vol.destruction.move_name == backup.destruction.orig_name:
+                                vol.destruction.move_name = ""
+                                vol.location += Vector(backup.destruction.restoreLoc)
                         
                         backup.destruction.restoreLoc = Vector((0,0,0)) 
                         print("Restoring...", o.location)
@@ -432,8 +436,11 @@ class Processor():
         
         parts = []
         for obj in objects:
+            orig_name = str(obj.name)
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = obj
+            
+            backup.destruction.orig_name = orig_name
             
             if len(backup.name.split(".")) == 1:
                 backup.name += ".000"
@@ -472,8 +479,11 @@ class Processor():
             obj.destruction.wall = wall
             
             #prepare parenting
+            orig_name = str(obj.name)
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = obj
+            
+            backup.destruction.orig_name = orig_name
             
             print("BACKUP", backup.name)
             
@@ -551,6 +561,8 @@ class Processor():
             #prepare parenting
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = self.createBackup(context, obj)
+            
+            backup.destruction.orig_name = str(obj.name)
             
             largest = self.setLargest(largest, backup)
            
@@ -1203,6 +1215,8 @@ class Processor():
         for obj in objects:
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
             backup = self.createBackup(context, obj) 
+            
+            backup.destruction.orig_name = str(obj.name)
             
             #fracture the sub objects if cubify is selected
             largest = self.setLargest(largest, backup)
@@ -2523,6 +2537,8 @@ EACH cube will be further fractured to the given part count")
                                          max = math.radians(180.0), 
                                          subtype = 'ANGLE',
                                          description = "Angle limit for Limited Dissolve")
+    move_name = props.StringProperty(name = "move_name")
+    orig_name = props.StringProperty(name = "orig_name")
     
 def initialize():
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")

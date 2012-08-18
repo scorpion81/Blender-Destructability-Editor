@@ -285,9 +285,10 @@ def setup():
         oldPar = scene.objects[i[0]]  
         split = oldPar.name.split(".")
         temp = split[0]
+        sp = temp.split("_")
         
-        if len(split) >= 4:
-            start = temp.split("_")[3]
+        if len(sp) >= 4:
+            start = sp[3]
         else:
             start = temp
          
@@ -302,6 +303,7 @@ def setup():
                 if start not in compounds.keys():
                     compounds[start] = list()
                 compounds[start].append(c)
+                print("Appending compound", c, start)
                 
                 if bpyObjs[c].game.use_collision_compound:
                     realcompounds[start] = c
@@ -336,24 +338,24 @@ def setup():
                     ground = scene.objects[firstGround]
                     o.setParent(ground, True, False)
         
-        if start in compounds.keys():
-            print(compounds[start])                
-            if len(compounds[start]) > 1: #TODO, what if there are no real compounds left... use other layers for correct substitution
-                real = scene.objects[realcompounds[start]]
-                for c in compounds[start]:
-                    obj = bpy.context.scene.objects[c]
-                    par = obj.destruction.is_backup_for
-                    if c != real.name and (par == "" or not par.startswith("P_0_")):
-                        childs = [ob for ob in scene.objects[c].children]
-                        for ch in childs:
-                            print("Re-Setting compound", ch,  " -> ", real) 
-                            ch.removeParent()
-                            ch.setParent(real, True, False)
-                            #ch["compound"] = c
-                        
-                        o = scene.objects[c]    
-                        print("Re-Setting compound", o,  " -> ", real) 
-                        o.setParent(real, True, False)
+    if start in compounds.keys():
+        print(compounds[start])                
+        if len(compounds[start]) > 1: #TODO, what if there are no real compounds left... use other layers for correct substitution
+            real = scene.objects[realcompounds[start]]
+            for c in compounds[start]:
+                obj = bpy.context.scene.objects[c]
+                par = obj.destruction.is_backup_for
+                if c != real.name and (par == "" or not par.startswith("P_0_")):
+                    childs = [ob for ob in scene.objects[c].children]
+                    for ch in childs:
+                        print("Re-Setting compound 1", ch,  " -> ", real) 
+                        ch.removeParent()
+                        ch.setParent(real, True, False)
+                        #ch["compound"] = c
+                    
+                    o = scene.objects[c]    
+                    print("Re-Setting compound 2", o,  " -> ", real) 
+                    o.setParent(real, True, False)
 
     #swap immediately
     if bpy.context.scene.hideLayer != 1:

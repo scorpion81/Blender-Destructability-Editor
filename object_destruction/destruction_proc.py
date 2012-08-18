@@ -736,8 +736,8 @@ class Processor():
             backup.use_fake_user = True
           
         #deactivate old compound settings always (not only if flatten hierarchy)
-        if parent.parent != None and context.scene.hideLayer == 1 and \
-        parent.destruction.flatten_hierarchy:
+        if parent.parent != None and context.scene.hideLayer == 1: #and \
+        #parent.destruction.flatten_hierarchy:
             self.delCompound(parent.parent)
         
         

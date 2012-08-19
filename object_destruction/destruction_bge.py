@@ -398,14 +398,16 @@ def checkSpeed():
         
         if not "suspended" in owner.getPropertyNames():
             continue 
-
-        if vel.length < 0.5 and owner["activated"] and not owner["suspended"]:
-            print("suspending", owner.name)
-            owner["suspended"] = True
-            #owner["lastdist"] = math.fabs((owner.worldPosition - scene.objects["Ground"].worldPosition)[2])
-           # print("d", owner["lastdist"])
-            owner.suspendDynamics()
         
+        try: # if object has no physics controller, possible if object has no verts (error case)
+            if vel.length < 0.5 and owner["activated"] and not owner["suspended"]:
+                print("suspending", owner.name)
+                owner["suspended"] = True
+                #owner["lastdist"] = math.fabs((owner.worldPosition - scene.objects["Ground"].worldPosition)[2])
+           #    print("d", owner["lastdist"])
+                owner.suspendDynamics()
+        except AttributeError:
+            continue
 
 def calculateGrids():
     

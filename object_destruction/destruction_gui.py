@@ -784,7 +784,7 @@ class SetupPlayer(types.Operator):
         
                     context.active_object.game.sensors[sensors].use_tap = True
                     context.active_object.game.sensors[sensors].use_pulse_true_level = True
-                    context.active_object.game.sensors[sensors].frequency = 100
+                    context.active_object.game.sensors[sensors].frequency = 50
      
                     context.active_object.game.controllers[controllers].mode = 'MODULE'
                     context.active_object.game.controllers[controllers].module = "destruction_bge.collide"
@@ -999,7 +999,7 @@ class ConvertParenting(types.Operator):
         
         if o.name != "Ball":
             context.active_object.game.sensors[sensors].use_pulse_true_level = True
-            context.active_object.game.sensors[sensors].frequency = 100
+            context.active_object.game.sensors[sensors].frequency = 50
      
         context.active_object.game.controllers[controllers].mode = 'MODULE'
         context.active_object.game.controllers[controllers].module = "destruction_bge.collide"

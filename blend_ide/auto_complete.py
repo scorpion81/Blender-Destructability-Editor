@@ -13,9 +13,18 @@
 #     correctly replace previously typed text by suggestion
 #     handle class member display correctly after pushing "PERIOD"
 #     categorize items: Class, Function, Variable at least
+#     handle imports, fill datastructure with all imported scopes
+#     test unnamed scopes, maybe do not store them (unnecessary, maybe active scope only? for indentation bookkeeping)
+#     make autocomplete info persisent, maybe pickle it, so it can be re-applied to the file (watch versions, if file has been changed
+#     externally, continue using or discard or rebuild(!) by parsing the existing code
+#     fix buffer behavior, must be cleared correctly, some state errors still
+#     substitute operator, or function in autocomplete ? buffer is in op, hmm, shared between ops or via text.buffer stringprop
+#     delete buffer content from text(select word, cut selected ?) and buffer itself and replace buffer content and insert into text
+#     make new lookups on smaller buffers, on each time on initial buffer
+#     if any keyword before variable, same line, do not accept declaration with = (would be wrong in python at all)
 
 import bpy
-import re
+#import re
 
 class Declaration:
     
@@ -51,20 +60,6 @@ class Scope(Declaration):
             self.local_unnamed_scopes.append(declaration)
         elif isinstance(declaration, Declaration):
             self.local_vars[declaration.name] = declaration
-    
-#    def copy(self):
-#        s = None
-#        
-#        if parent != None:
-#            s = Scope(self.name, self.parent)
-#        else:
-#            s = Scope(self.name, None)
-#            
-#        #copy Scope object only, need another reference in case activeScope is changed
-#        s.local_funcs = self.local_funcs
-#        s.local_vars = self.local_vars
-#        s.local_classes = self.local_classes
-#        return s
 
 class Function(Scope):
     
@@ -76,11 +71,6 @@ class Function(Scope):
         
     def declare(self, declaration):
         super().declare(declaration)
-        
-#    def copy(self):
-#        s = self.super.copy()
-#        s.paramlist = paramlist
-#        return s
  
 class Class(Function):
     
@@ -90,9 +80,6 @@ class Class(Function):
     def declare(self, declaration):
         super().declare(declaration)
     
-#    def copy(self):
-#        s = self.super.copy()
-#        return s
 
 #list of that (imported) modules must be generated, and active module (__module__)
 class Module(Scope):
@@ -109,6 +96,43 @@ class Module(Scope):
             submodules.append(declaration)
         else:
             super().declare(declaration)
+            
+class SubstituteTextOperator(bpy.types.Operator):
+    bl_idname = "text.substitute"
+    bl_label = "Substitute Text"
+    
+    choice = bpy.props.StringProperty(name = "choice")
+    
+    def execute(self, context):
+        #easy(?) way to delete entered word, but watch this for classes and functions (only select back to period), maybe this is done
+        #already...
+        
+        isObject = False
+        line = context.edit_text.current_line
+        pos = context.edit_text.current_character
+        print(line, pos)
+        
+        char = line.body[pos-1]
+        if char != ".": #do not remove variable before . when choosing member after entering .
+           bpy.ops.text.select_word()    
+           #bpy.ops.text.cut()
+           line = context.edit_text.current_line
+           pos = context.edit_text.current_character
+           char = line.body[pos]
+           if char == ".":
+               isObject = True
+           
+        
+        context.edit_text.buffer = self.choice
+        context.edit_text.bufferReset = True
+        
+        if isObject:
+            insert = "." + self.choice 
+        else:
+            insert = self.choice
+               
+        bpy.ops.text.insert(text = insert)
+        return {'FINISHED'}    
         
         
 class AutoCompletePopup(bpy.types.Menu):
@@ -120,7 +144,7 @@ class AutoCompletePopup(bpy.types.Menu):
         entries = context.edit_text.suggestions
         
         for e in entries:
-            layout.operator("text.insert", text = e.name).text = e.name
+            layout.operator("text.substitute", text = e.name).choice = e.name
                                    
 class AutoCompleteOperator(bpy.types.Operator):
     bl_idname = "text.autocomplete"
@@ -134,10 +158,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                  #    #varname : typename , WHICH class
                     
     buflist = []
-    buffer = ""
     oldbuffer = ""
-#    lhs = "" # left hand side of =
-#    lookupBuffer = ""
     lastLookups = {} #?, backspace must delete sub-buffers, that is 2 indexes on (sorted) list
     module = None
     activeScope = None
@@ -153,8 +174,8 @@ class AutoCompleteOperator(bpy.types.Operator):
     def parseIdentifier(self):
         
         #first check if we have a new identifier which mustnt be a keyword...
-        self.buffer = "".join(str(i) for i in self.buflist).lstrip()
-        print("BUFFER", self.buffer)
+        bpy.context.edit_text.buffer = "".join(str(i) for i in self.buflist).lstrip()
+        print("BUFFER", bpy.context.edit_text.buffer)
         
         #go to parent scope if new char_pos is smaller, "unindent"
         char_pos = bpy.context.edit_text.current_character
@@ -167,8 +188,8 @@ class AutoCompleteOperator(bpy.types.Operator):
          
         #Case 1: Variable declaration: after SPACE/ENTER check for =
         #somewhere must be a single! "=" only !!, it must be the first one and no other = must follow, (split[1] is "" then)
-        if "=" in self.buffer:
-            s = self.buffer.split('=')
+        if "=" in bpy.context.edit_text.buffer:
+            s = bpy.context.edit_text.buffer.split('=')
             s[0] = s[0].strip()
             print(s[0], s[1])
             if s[0] and s[1]: #maybe later get type of s[1] ??
@@ -184,11 +205,11 @@ class AutoCompleteOperator(bpy.types.Operator):
                  
         #Case 2: Function declaration: after SPACE/ENTER check for def and :
         #Case 3: Class declaration: after SPACE/ENTER check for class and :
-        elif self.buffer.startswith("def") or self.buffer.startswith("class"):
+        elif bpy.context.edit_text.buffer.startswith("def") or bpy.context.edit_text.buffer.startswith("class"):
             name = ""
             params = []
             
-            openbr = self.buffer.split('(')
+            openbr = bpy.context.edit_text.buffer.split('(')
             name = openbr[0].split(' ')[1]
             
             closedbr = openbr[1].split(')')[0]
@@ -197,7 +218,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 #strip whitespace
                 params.append(p.strip())
             
-            if self.buffer.startswith("def"):
+            if bpy.context.edit_text.buffer.startswith("def"):
                 f = Function(name, params)
                 if f.char_pos > self.activeScope.char_pos and self.isValid(name):
                     self.activeScope.declare(f)
@@ -213,7 +234,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             print(self.identifiers)    
                 
         #Case 4: Anonymous scope declaration: after SPACE/ENTER check for :        
-        elif self.buffer.endswith(":"):
+        elif bpy.context.edit_text.buffer.endswith(":"):
             scope = Scope("")
             if scope.char_pos > self.activeScope.char_pos:
                 self.activeScope.declare(scope)
@@ -221,34 +242,14 @@ class AutoCompleteOperator(bpy.types.Operator):
         
      
         self.buflist = []
-         
-         #check identation level, if lower than current scope's one, go to parent scope(s)
-         #compare how often indentation has taken place ?
-         #if current_char < als scope.currentchar zu parent, while smaller, go to parent until parent = None      
-                       
-#        if self.isRhs: #rhs is type = var is declared here, rhs is expression/function = evaluate(?), rhs is var = reference
-#            if self.lhs != "":
-#                #check whether rhs is a type, -> compare with dict (all keys with value Type)
-#               classes = [it[0] for it in identifiers.items() if isinstance(it[1], Class)]
-#               funcs = [it[0] for it in identifiers.items() if is_instance(it[1], Function)]
-##                if self.buffer in classes:
-##                    self.identifiers[self.lhs] = self.buffer
-##                elif if self.buffer in funcs:
-##                    #must(?) eval the function, no just find its return type, by introspection
-#                   
-#        #put buffer content into dict (if not a keyword) or not there -> is var
-#        if not self.identifiers[self.buffer] or self.identifiers[self.buffer] != "keyword":
-#            self.identifiers[self.buffer] = "unknown"
-#                
-#            #empty buffer for next word, store potential lhs
-#           # self.lhs = str(self.buffer) 
-#            self.buffer = ""
-            
-            
+                     
     def lookupIdentifier(self, lastWords = None):
         
-        self.buffer = "".join(str(i) for i in self.buflist).lstrip()
-        print("lookupbuf", self.buffer)
+        bpy.context.edit_text.buffer = "".join(str(i) for i in self.buflist).lstrip()
+        print("lookupbuf", bpy.context.edit_text.buffer)
+        
+        #if period/members: first show all members, then limit selection to members and so on
+        #must pass/store lastWords selection, together with lastBuffer ?
         
         #only the NEW string compared to the last buffer is relevant
         #to look it up inside a subset/subdict of items
@@ -256,35 +257,34 @@ class AutoCompleteOperator(bpy.types.Operator):
         if lastWords == None:
             #if self.oldbuffer in self.lastLookups:
             #    lastWords = self.lastLookups[self.oldbuffer] #its a list only
-            #    words = [it for it in lastWords if it.startswith(self.buffer)]
+            #    words = [it for it in lastWords if it.startswith(bpy.context.edit_text.buffer)]
             #else:
             lastWords = self.identifiers
-            words = [it[0] for it in lastWords.items() if it[0].startswith(self.buffer)]
+            words = [it[0] for it in lastWords.items() if it[0].startswith(bpy.context.edit_text.buffer)]
         else:
-            words = [it for it in lastWords if it.startswith(self.buffer)]
+            words = [it for it in lastWords if it.startswith(bpy.context.edit_text.buffer)]
             
         #print("WORDS", words)
         
         #display all looked up words
         self.displayPopup(words) # close after some time or selection/keypress
-#        self.lastLookups[self.buffer] = words #make copy of string for key ?
-#        self.oldbuffer = str(self.buffer)
+#        self.lastLookups[bpy.context.edit_text.buffer] = words #make copy of string for key ?
+#        self.oldbuffer = str(bpy.context.edit_text.buffer)
     
     def lookupMembers(self):
         words = []
-        self.buffer = "".join(str(i) for i in self.buflist).lstrip()
+        #bpy.context.edit_text.buffer = "".join(str(i) for i in self.buflist).lstrip()
         
-        if self.buffer in self.identifiers:
-            cl = self.identifiers[self.buffer]
+        if bpy.context.edit_text.buffer in self.identifiers:
+            cl = self.identifiers[bpy.context.edit_text.buffer]
             if isinstance(cl, Class):
-                if self.buffer in cl.local_vars:
-                    words.append(self.buffer)
-                if self.buffer in cl.local_funcs:
-                    words.append(self.buffer + "(")
-                if self.buffer in cl.local_classes:
-                    words.append(self.buffer + ".")
-        self.buffer = ""
-        self.buflist = []            
+                [words.append(v) for v in cl.local_vars]
+                [words.append(v) for v in cl.local_funcs]
+                [words.append(v) for v in cl.local_classes]
+        #bpy.context.edit_text.buffer = ""
+        self.buflist = [] 
+        
+        print(words)           
         return words   
                     
     def displayPopup(self, words):
@@ -301,7 +301,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             for d in disp:
                 prop = bpy.context.edit_text.suggestions.add()
                 prop.name = d
-            
+                
             bpy.ops.wm.call_menu(name = "text.popup")
         
        
@@ -319,13 +319,6 @@ class AutoCompleteOperator(bpy.types.Operator):
         elif event.type == 'ESC':
             print("... autocompleter stopped")
             return {'CANCELLED'}
-        
-#        #detect variable declaration, add lhs to identifiers, look up rhs now  
-#        elif event.type == '=':
-#             self.isRhs = True
-#             
-#             if self.buffer != "": # if we didnt  press space before =, create lhs now
-#                self.addIdentifier()
                 
         #do lookups here
         elif event.type == 'PERIOD' and event.value == 'PRESS' and not event.shift:
@@ -348,34 +341,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             if len(self.buflist) > 0:
                 self.buflist.pop()
                 if len(self.buflist) > 0:
-                    self.lookupIdentifier()
-        
-        #detect scope/function/class declaration, if not def and not class -> unnamed scope
-#        elif event.type == ':':
-#            #check for defs/classes in buffer
-#            #remove leading whitespace...
-#            if self.buffer.startswith("def") or self.buffer.startswith("class"):
-#                #name = nonwhitespace until "("
-#                #params = all until ")"
-#                #split by comma, remove whitespace
-#                #params (store with name, paramlist)
-#                
-#                decl = []
-#                openbr = self.buffer.split('(')
-#                name = openbr[0].split(' ')[1]
-#                decl.append(name)
-#                
-#                closedbr = openbr.split(')')[0]
-#                params = closedbr.split(',')
-#                for p in params:
-#                    #strip whitespace
-#                    decl.append(p)
-#                    #treat kwargs too !! and ctors are methods!! with classname -> __init__ must be checked
-#                      
-#                #same with class, here is superclass between ()
-#               
-#            #else do nothing, : is a delimiter and scope has no name, but look in active scope first
-        
+                    self.lookupIdentifier()        
            
         elif ((event.type in ('A', 'B', 'C', 'D', 'E', 
                             'F', 'G', 'H', 'I', 'J',
@@ -393,34 +359,19 @@ class AutoCompleteOperator(bpy.types.Operator):
             #maybe check whether we are run inside text editor
             
             #obviously this is called BEFORE the text editor receives the event. 
-#            char = event.type #very hacky, better fetch it from the editor... ?
-#            if not event.shift:
-#                char = char.lower()
-#            
-#            #handle = and : and ( and ) and ., better read them AFTER typing from editor... or get it from locale at least
-#            if event.shift:
-#                if event.type == 'ZERO':
-#                    char = '='
-#                elif event.type == 'MINUS':
-#                    char = '_'
-#                elif event.type == 'EIGHT':
-#                    char = '('
-#                elif event.type == 'NINE':
-#                    char = ')'
-#                elif event.type == 'PERIOD':
-#                    char = '
             char = event.unicode
-#            print("CHAR", char)
                    
-            text = context.edit_text #are we in the right context ?
-            line = text.current_line
-            pos = text.current_character
+#            text = context.edit_text #are we in the right context ?
+#            line = text.current_line
+#            pos = text.current_character
             #print(line, pos) 
             
             #char = line.body[pos]
             #watch copy and paste ! must add all pasted chars to buffer and separate by space TODO
+            if context.edit_text.bufferReset: 
+                self.buflist = []
+                context.edit_text.bufferReset = False
             self.buflist.append(char)
-            
             
             #also do word lookup, maybe triggered by a special key for now... 
             #start a timer, re-init it always, and accumulate a buffer
@@ -444,37 +395,24 @@ class AutoCompleteOperator(bpy.types.Operator):
        
 
 def register():
+    bpy.utils.register_class(SubstituteTextOperator)
     bpy.utils.register_class(AutoCompletePopup)
     bpy.utils.register_class(AutoCompleteOperator)
     bpy.types.Text.suggestions = bpy.props.CollectionProperty(
                             type = bpy.types.PropertyGroup, 
                             name = "suggestions")
+    bpy.types.Text.buffer = bpy.props.StringProperty(name = "buffer")
+    bpy.types.Text.bufferReset = bpy.props.BoolProperty(name = "bufferReset")
 
 
 def unregister():
     bpy.utils.unregister_class(AutoCompleteOperator)
     bpy.utils.unregister_class(AutoCompletePopup)
-
+    bpy.utils.unregister_class(SubstituteTextOperator)
 
 if __name__ == "__main__":
     register()
 
+#started by run script...
 bpy.ops.text.autocomplete('INVOKE_DEFAULT')
     
-#text = bpy.context.edit_text
-#print(text.name) 
-#print(__file__)
-#currentDir = path.abspath(os.path.split(__file__)[0])  
-#print(currentDir)
-#line = text.current_line
-#char = text.current_character
-#print("char", line.body[char]) 
-
-#strg = " a = b == c "
-#print(strg.split("="))
-#p = re.compile("=")
-#m = p.search(strg, 0)
-#print(m.start(0))
-
-
-

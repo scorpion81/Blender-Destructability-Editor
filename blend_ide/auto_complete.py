@@ -22,6 +22,8 @@
 #     delete buffer content from text(select word, cut selected ?) and buffer itself and replace buffer content and insert into text
 #     make new lookups on smaller buffers, on each time on initial buffer
 #     if any keyword before variable, same line, do not accept declaration with = (would be wrong in python at all)
+#     parse existing code line by line after loading(all) or backspace (current line)
+#     if function name == classname, this is a constructor, and "return" type will be of class type -> eval should handle this 
 
 import bpy
 #import re
@@ -29,11 +31,14 @@ import bpy
 class Declaration:
     
     name = ""
-    char_pos = 0
+    type = ""
+    indent = 0
+    parent = None
    
-    def __init__(self, name):
+    def __init__(self, name, type):
         self.name = name
-        self.char_pos = bpy.context.edit_text.current_character
+        self.type = type
+        #self.indent = bpy.context.edit_text.current_character / 4 #TODO use bpy.context.area.spaces[0].tab_width or so...
     
 class Scope(Declaration):
 
@@ -41,15 +46,15 @@ class Scope(Declaration):
     local_vars = {}
     local_classes = {}
     local_unnamed_scopes = []
-    parent = None
     
-    def __init__(self, name): #indentation creates new scope too, name can be empty here
-        super().__init__(name)
+    def __init__(self, name, type): #indentation creates new scope too, name can be empty here
+        super().__init__(name, type)
         
     def declare(self, declaration):
         #add a new declaration
         # if its a variable, add to localvars
         # if its a scope, add to scopes
+        self.indent += 4
         declaration.parent = self
         
         if isinstance(declaration, Class):
@@ -66,16 +71,19 @@ class Function(Scope):
     paramlist = []
     
     def __init__(self, name, paramlist):
-        super().__init__(name)
+        super().__init__(name, "function") #must be evaluated to find out return type...
         self.paramlist = paramlist
         
     def declare(self, declaration):
         super().declare(declaration)
  
-class Class(Function):
+class Class(Scope):
     
+    superclasses = []
+        
     def __init__(self, name, superclasses):
-        super().__init__(name, superclasses)
+        super().__init__(name, "class")
+        self.superclasses = superclasses
     
     def declare(self, declaration):
         super().declare(declaration)
@@ -87,9 +95,9 @@ class Module(Scope):
     submodules = []
     
     def __init__(self, name):
-        super().__init__(name)
-        self.char_pos = 0
-        #print("PRINT", self.char_pos, super().char_pos)
+        super().__init__(name, "module")
+        self.indent = 0
+        #print("PRINT", self.indent, super().indent)
     
     def declare(self, declaration):
         if isinstance(declaration, Module):
@@ -162,6 +170,9 @@ class AutoCompleteOperator(bpy.types.Operator):
     lastLookups = {} #?, backspace must delete sub-buffers, that is 2 indexes on (sorted) list
     module = None
     activeScope = None
+    lhs = ""
+    tempBuffer = ""
+    indent = 0
     
     def handleImport(self):
         #add all types of import to identifiers...
@@ -174,12 +185,17 @@ class AutoCompleteOperator(bpy.types.Operator):
     def parseIdentifier(self):
         
         #first check if we have a new identifier which mustnt be a keyword...
-        bpy.context.edit_text.buffer = "".join(str(i) for i in self.buflist).lstrip()
+        if self.tempBuffer != "":
+            self.tempBuffer += "".join(str(i) for i in self.buflist).lstrip()
+            bpy.context.edit_text.buffer = self.tempBuffer
+            self.tempBuffer = ""
+        else:    
+            bpy.context.edit_text.buffer = "".join(str(i) for i in self.buflist).lstrip()
         print("BUFFER", bpy.context.edit_text.buffer)
         
-        #go to parent scope if new char_pos is smaller, "unindent"
-        char_pos = bpy.context.edit_text.current_character
-        while char_pos < self.activeScope.char_pos:
+        #go to parent scope if new indent is smaller, "unindent"
+        #indent = bpy.context.edit_text.current_character
+        while self.indent < self.activeScope.indent:
             if self.activeScope.parent != None:
                 self.activeScope = self.activeScope.parent
             else:
@@ -188,19 +204,26 @@ class AutoCompleteOperator(bpy.types.Operator):
          
         #Case 1: Variable declaration: after SPACE/ENTER check for =
         #somewhere must be a single! "=" only !!, it must be the first one and no other = must follow, (split[1] is "" then)
-        if "=" in bpy.context.edit_text.buffer:
-            s = bpy.context.edit_text.buffer.split('=')
-            s[0] = s[0].strip()
-            print(s[0], s[1])
-            if s[0] and s[1]: #maybe later get type of s[1] ??
-                 v = Declaration(s[0])
+        if self.lhs != "":
+            rhs = bpy.context.edit_text.buffer
+            lhs = self.lhs.strip()
+            if lhs and rhs: #maybe later get type of s[1] ??'
+                 print(lhs, rhs)
+                 #exec/compile: necessary to "create" live objects from source ?
+                 code = bpy.types.Text.as_string(bpy.context.edit_text)
+                 exec(compile(code, '<string>', 'exec'))
+                 
+                 typ = type(eval(rhs)).__name__
+                 print("TYPE", typ)
+                 v = Declaration(lhs, typ)
                  #active module -> open file ? (important later, when treating different modules too)
-                 #print(v.char_pos, self.activeScope.char_pos, self.isValid(s[0]))
-                 if v.char_pos > self.activeScope.char_pos and self.isValid(s[0]):
+                 print(v.indent, self.activeScope.indent, self.isValid(lhs))
+                 if v.indent >= self.activeScope.indent and self.isValid(lhs):
                     self.activeScope.declare(v) 
                    # self.activeScope = v #variables build no scope
-                    self.identifiers[s[0]] = v
+                    self.identifiers[lhs] = v
                     print(self.identifiers)
+                    self.lhs = ""
                     
                  
         #Case 2: Function declaration: after SPACE/ENTER check for def and :
@@ -209,34 +232,46 @@ class AutoCompleteOperator(bpy.types.Operator):
             name = ""
             params = []
             
-            openbr = bpy.context.edit_text.buffer.split('(')
-            name = openbr[0].split(' ')[1]
-            
-            closedbr = openbr[1].split(')')[0]
-            psplit = closedbr.split(',')
-            for p in psplit:
-                #strip whitespace
-                params.append(p.strip())
-            
-            if bpy.context.edit_text.buffer.startswith("def"):
-                f = Function(name, params)
-                if f.char_pos > self.activeScope.char_pos and self.isValid(name):
-                    self.activeScope.declare(f)
-                    self.activeScope = f
-                    self.identifiers[name] = f
-            else:
-                c = Class(name, params)
-                if c.char_pos > self.activeScope.char_pos and self.isValid(name):
+            #class definition can omit brackets
+            if bpy.context.edit_text.buffer.startswith("class") and \
+            "(" not in bpy.context.edit_text.buffer:
+                beforeColon = bpy.context.edit_text.buffer.split(":")
+                name = beforeColon[0].split(' ')[1]
+                c = Class(name, [])
+                if c.indent >= self.activeScope.indent and self.isValid(name):
                     self.activeScope.declare(c)
                     self.activeScope = c
                     self.identifiers[name] = c
                     
+            else:
+                openbr = bpy.context.edit_text.buffer.split('(')
+                name = openbr[0].split(' ')[1]
+                
+                closedbr = openbr[1].split(')')[0]
+                psplit = closedbr.split(',')
+                for p in psplit:
+                    #strip whitespace
+                    params.append(p.strip())
+                
+                if bpy.context.edit_text.buffer.startswith("def"):
+                    f = Function(name, params)
+                    if f.indent >= self.activeScope.indent and self.isValid(name):
+                        self.activeScope.declare(f)
+                        self.activeScope = f
+                        self.identifiers[name] = f
+                else:
+                    c = Class(name, params)
+                    if c.indent >= self.activeScope.indent and self.isValid(name):
+                        self.activeScope.declare(c)
+                        self.activeScope = c
+                        self.identifiers[name] = c
+                        
             print(self.identifiers)    
                 
         #Case 4: Anonymous scope declaration: after SPACE/ENTER check for :        
         elif bpy.context.edit_text.buffer.endswith(":"):
-            scope = Scope("")
-            if scope.char_pos > self.activeScope.char_pos:
+            scope = Scope("", "")
+            if scope.indent > self.activeScope.indent:
                 self.activeScope.declare(scope)
                 self.activeScope = scope 
         
@@ -245,8 +280,11 @@ class AutoCompleteOperator(bpy.types.Operator):
                      
     def lookupIdentifier(self, lastWords = None):
         
-        bpy.context.edit_text.buffer = "".join(str(i) for i in self.buflist).lstrip()
+        bpy.context.edit_text.buffer = "".join(str(i) for i in self.buflist if i != " ").lstrip()
         print("lookupbuf", bpy.context.edit_text.buffer)
+        
+        if bpy.context.edit_text.buffer == "" and lastWords == None:
+            return
         
         #if period/members: first show all members, then limit selection to members and so on
         #must pass/store lastWords selection, together with lastBuffer ?
@@ -281,6 +319,13 @@ class AutoCompleteOperator(bpy.types.Operator):
                 [words.append(v) for v in cl.local_vars]
                 [words.append(v) for v in cl.local_funcs]
                 [words.append(v) for v in cl.local_classes]
+            elif isinstance(cl, Declaration):
+                typ = cl.type
+                cl = self.identifiers[typ]
+                [words.append(v) for v in cl.local_vars]
+                [words.append(v) for v in cl.local_funcs]
+                [words.append(v) for v in cl.local_classes]
+                    
         #bpy.context.edit_text.buffer = ""
         self.buflist = [] 
         
@@ -319,16 +364,22 @@ class AutoCompleteOperator(bpy.types.Operator):
         elif event.type == 'ESC':
             print("... autocompleter stopped")
             return {'CANCELLED'}
+        
+        elif event.unicode == "=" and self.lhs == "" and event.value == 'PRESS':
+            context.edit_text.buffer = "".join(str(i) for i in self.buflist).lstrip()
+            self.lhs = context.edit_text.buffer.split("=")[0]
+            self.buflist = []
+            
                 
         #do lookups here
         elif event.type == 'PERIOD' and event.value == 'PRESS' and not event.shift:
             #look up all members of class/module of variable, depending on chars
             self.lookupIdentifier(self.lookupMembers())
 #            
-        elif event.type == '(':
+        #elif event.type == '(':
             #look up parameters of function
             #self.lookupParameters()
-            pass
+         #   pass
 #        
 #        elif event.type == '[':
 #            #look up keys in dictionary /indexable class ???            
@@ -341,9 +392,11 @@ class AutoCompleteOperator(bpy.types.Operator):
             if len(self.buflist) > 0:
                 self.buflist.pop()
                 if len(self.buflist) > 0:
-                    self.lookupIdentifier()        
+                    self.lookupIdentifier()
+            #else:
+            #    #parse current line to fill buffer        
            
-        elif ((event.type in ('A', 'B', 'C', 'D', 'E', 
+        elif (((event.type in ('A', 'B', 'C', 'D', 'E',
                             'F', 'G', 'H', 'I', 'J',
                             'K', 'L', 'M', 'N', 'O',
                             'P', 'Q', 'R', 'S', 'T',
@@ -351,10 +404,10 @@ class AutoCompleteOperator(bpy.types.Operator):
                             'Z', 'ZERO','ONE', 'TWO',
                             'THREE', 'FOUR', 'FIVE',
                             'SIX', 'SEVEN','EIGHT', 
-                            'NINE', 'MINUS',
-                            'SPACE')) or \
+                            'NINE', 'MINUS', 'PLUS',
+                            'SPACE', 'COMMA')) or \
                             (event.type == 'PERIOD' and \
-                             event.shift)) and event.value == 'PRESS': 
+                             event.shift)) or (event.unicode in ["'", "#", "?", "+" ,"*"])) and event.value == 'PRESS': 
             #catch all KEYBOARD events here....except (python) operators
             #maybe check whether we are run inside text editor
             
@@ -363,13 +416,14 @@ class AutoCompleteOperator(bpy.types.Operator):
                    
 #            text = context.edit_text #are we in the right context ?
 #            line = text.current_line
-#            pos = text.current_character
+            self.indent = context.edit_text.current_character
             #print(line, pos) 
             
             #char = line.body[pos]
             #watch copy and paste ! must add all pasted chars to buffer and separate by space TODO
-            if context.edit_text.bufferReset: 
+            if context.edit_text.bufferReset:
                 self.buflist = []
+                self.tempBuffer = context.edit_text.buffer
                 context.edit_text.bufferReset = False
             self.buflist.append(char)
             
@@ -386,7 +440,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         
         text = context.edit_text
         self.module = Module(text.name.split(".")[0]) #better: filepath, if external
-        print(self.module.name, self.module.char_pos)
+        print(self.module.name, self.module.indent)
         self.activeScope = self.module
         context.window_manager.modal_handler_add(self)
         print("autocompleter started...")

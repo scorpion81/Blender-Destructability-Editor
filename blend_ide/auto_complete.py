@@ -29,7 +29,8 @@
 
 #     categorize items: Class, Function, Variable at least
 
-#     handle imports, fill datastructure with all imported scopes
+#     handle imports, fill datastructure with all imported scopes (classes, functions, modules and vars visible, local vars relevant 
+#     for own code only
 
 #     test unnamed scopes, maybe do not store them (unnecessary, maybe active scope only? for indentation bookkeeping)
 
@@ -47,7 +48,21 @@
 #     if any keyword before variable, same line, do not accept declaration with = (would be wrong in python at all)
 
 #     parse existing code line by line after loading(all) or backspace (current line) (partially done)
- 
+
+#    BIG todo: make usable for any type of text / code     
+
+bl_info = {
+    "name": "Python Editor Autocomplete",
+    "author": "scorpion81",
+    "version": (0, 1),
+    "blender": (2, 6, 3),
+    "api": 50083,
+    "location": "Text Editor > Left Panel > Autocomplete",
+    "description": "Simple autocompletion for Blender Text Editor (for Python only currently)",
+    "warning": "",
+    "wiki_url": "",
+    "tracker_url": "",
+    "category": "Development" } 
 
 import bpy
 
@@ -243,7 +258,7 @@ class AutoCompletePopup(bpy.types.Menu):
                                    
 class AutoCompleteOperator(bpy.types.Operator):
     bl_idname = "text.autocomplete"
-    bl_label = "Auto Complete Text"
+    bl_label = "Autocomplete"
     
     identifiers = {'if': 'keyword', 
                    'else': 'keyword'}
@@ -473,10 +488,12 @@ class AutoCompleteOperator(bpy.types.Operator):
     def modal(self, context, event):
         
         
-        
         #add new entry to identifier list
         if 'MOUSE' not in event.type and event.value == 'PRESS':
             print(event.type, event.value)
+        
+        #if event.type == 'LEFT_MOUSE' and event.value == 'PRESS':
+            
         if event.shift:
             print("SHIFT")
         
@@ -579,32 +596,57 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.module = Module(text.name.split(".")[0]) #better: filepath, if external
         print(self.module.name, self.module.indent)
         self.activeScope = self.module
+        self.identifiers = {}
         context.window_manager.modal_handler_add(self)
        
         print("autocompleter started...")
      
         return {'RUNNING_MODAL'}
-       
+
+class AutoCompletePanel(bpy.types.Panel):
+    bl_idname = 'auto_complete'
+    bl_label = 'Autocomplete'
+    bl_space_type = 'TEXT_EDITOR'
+    bl_region_type = 'UI'
+    
+    def draw(self, context):
+        layout = self.layout
+       # layout.prop(context.edit_text, "autocomplete_enabled", text = "Enabled",  event = True)
+        layout.operator("text.autocomplete", text = "Enable")
+        layout.label("disable with ESC")
+
+def enablerUpdate(self, context):
+    pass
+               
 
 def register():
     bpy.utils.register_class(SubstituteTextOperator)
     bpy.utils.register_class(AutoCompletePopup)
     bpy.utils.register_class(AutoCompleteOperator)
+    
     bpy.types.Text.suggestions = bpy.props.CollectionProperty(
                             type = bpy.types.PropertyGroup, 
                             name = "suggestions")
     bpy.types.Text.buffer = bpy.props.StringProperty(name = "buffer")
     bpy.types.Text.bufferReset = bpy.props.BoolProperty(name = "bufferReset")
+    bpy.types.Text.autocomplete_enabled = bpy.props.BoolProperty(name = "autocomplete_enabled")
+    
+    bpy.utils.register_class(AutoCompletePanel)
 
 
 def unregister():
+    bpy.utils.unregister_class(AutoCompletePanel)
     bpy.utils.unregister_class(AutoCompleteOperator)
     bpy.utils.unregister_class(AutoCompletePopup)
     bpy.utils.unregister_class(SubstituteTextOperator)
+    
+    del bpy.types.Text.suggestions
+    del bpy.types.Text.buffer
+    del bpy.types.Text.bufferReset
+    del bpy.types.Text.autocomplete_enabled 
 
 if __name__ == "__main__":
     register()
-
-#started by run script...
-bpy.ops.text.autocomplete('INVOKE_DEFAULT')
+    #started by run script...
+    bpy.ops.text.autocomplete('INVOKE_DEFAULT')
     

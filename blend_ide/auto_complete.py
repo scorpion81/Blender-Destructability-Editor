@@ -49,7 +49,10 @@
 
 #     parse existing code line by line after loading(all) or backspace (current line) (partially done)
 
-#    BIG todo: make usable for any type of text / code     
+#    BIG todo: make usable for any type of text / code   
+
+#    parseLine benutzen dort wird der indent gemessen! evtl bei parseIdentifier keinen buffer benutzen sondern die Zeile
+#    buffer nur für den Lookup benutzen !! auch nicht indent auf -1 setzen und dann current char ermitteln...  
 
 bl_info = {
     "name": "Python Editor Autocomplete",
@@ -89,11 +92,12 @@ class Declaration:
         print("TYPE", typ)
         v = Declaration(name, typ)
         #active module -> open file ? (important later, when treating different modules too)
-        print(opdata.indent, opdata.activeScope.indent, opdata.isValid(name))
+        print("INDENT", opdata.indent, opdata.activeScope.indent, opdata.isValid(name))
         if opdata.indent >= opdata.activeScope.indent and opdata.isValid(name):
             print("SCOPE", opdata.activeScope)
             opdata.activeScope.declare(v) 
            # self.activeScope = v #variables build no scope
+            v.indent = opdata.indent
             opdata.identifiers[name] = v
             opdata.lhs = ""
             [print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
@@ -115,7 +119,7 @@ class Scope(Declaration):
         # if its a scope, add to scopes
         
         declaration.parent = self
-        declaration.indent = self.indent + 4
+        #declaration.indent = self.indent + 4
         
         if isinstance(declaration, Class):
             self.local_classes[declaration.name] = declaration
@@ -162,6 +166,7 @@ class Function(Scope):
         if opdata.indent >= opdata.activeScope.indent and opdata.isValid(name):
             print("SCOPE", opdata.activeScope)
             opdata.activeScope.declare(f)
+            f.indent = opdata.indent + 4
             opdata.activeScope = f
             opdata.identifiers[name] = f
             [print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
@@ -186,6 +191,7 @@ class Class(Scope):
         if opdata.indent >= opdata.activeScope.indent and opdata.isValid(name):
             print("SCOPE", opdata.activeScope)
             opdata.activeScope.declare(c)
+            c.indent = opdata.indent + 4
             opdata.activeScope = c
             opdata.identifiers[name] = c
             [print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
@@ -220,7 +226,7 @@ class SubstituteTextOperator(bpy.types.Operator):
         isObject = False
         line = context.edit_text.current_line
         pos = context.edit_text.current_character
-        print(line, pos)
+        print("LINEPOS", line, pos)
         
         char = line.body[pos-1]
         if char != ".": #do not remove variable before . when choosing member after entering .
@@ -229,7 +235,7 @@ class SubstituteTextOperator(bpy.types.Operator):
            line = context.edit_text.current_line
            pos = context.edit_text.current_character
            char = line.body[pos]
-           if char == ".":
+           if char in (".", " "):
                isObject = True
            
         
@@ -237,7 +243,7 @@ class SubstituteTextOperator(bpy.types.Operator):
         context.edit_text.bufferReset = True
         
         if isObject:
-            insert = "." + self.choice 
+            insert = char + self.choice 
         else:
             insert = self.choice
                
@@ -267,7 +273,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                  #    ...}
                  #    #varname : typename , WHICH class
                     
-    buflist = []
+    typedChar = []
     oldbuffer = ""
     lastLookups = {} #?, backspace must delete sub-buffers, that is 2 indexes on (sorted) list
     module = None
@@ -276,8 +282,16 @@ class AutoCompleteOperator(bpy.types.Operator):
     tempBuffer = ""
     indent = 0
     
+    def cleanup(self):
+        self.typedChar = []
+        self.module = None
+        self.activeScope = None
+        self.lhs = ""
+        self.identifiers = {}
+        self.indent = 0
+    
     def trackScope(self):
-        print(self.indent, self.activeScope.indent)
+        print("TRACKSCOPE", self.indent, self.activeScope.indent)
         while self.indent < self.activeScope.indent:
             if self.activeScope.parent != None:
                 self.activeScope = self.activeScope.parent
@@ -308,7 +322,12 @@ class AutoCompleteOperator(bpy.types.Operator):
             params.append(p.strip())
         
         return name, params
-        
+    
+    def parseDeclaration(self, line):
+        index = line.index("=")
+        lhs = line[:index-1].strip()
+        rhs = line[index+1:].strip()
+        return lhs, rhs    
     
     def parseLine(self, line):
         # variable:
@@ -321,9 +340,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         
         print(line)
         if "=" in line:
-            index = line.index("=")
-            lhs = line[:index-1].strip()
-            rhs = line[index+1:].strip()
+            lhs, rhs = self.parseDeclaration(line)
             Declaration.create(lhs, rhs, self)
         elif line.startswith("def"):
             name, params = self.parseFunction(line)
@@ -337,6 +354,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             
             Class.create(name, params, self)
             
+        self.indent = 0    
             
     
     def handleImport(self):
@@ -349,70 +367,53 @@ class AutoCompleteOperator(bpy.types.Operator):
     
     def parseIdentifier(self):
         
+        self.lhs = ""
+        
         #first check if we have a new identifier which mustnt be a keyword...
-        if self.tempBuffer != "":
-            self.tempBuffer += "".join(str(i) for i in self.buflist).lstrip()
-            bpy.context.edit_text.buffer = self.tempBuffer
-            self.tempBuffer = ""
-        else:    
-            bpy.context.edit_text.buffer = "".join(str(i) for i in self.buflist).lstrip()
+        bpy.context.edit_text.buffer = bpy.context.edit_text.current_line.body
         print("BUFFER", bpy.context.edit_text.buffer)
         
         #go to parent scope if new indent is smaller, "unindent"
         #indent = bpy.context.edit_text.current_character
-        self.trackScope()
+        self.parseLine(bpy.context.edit_text.buffer)
         
-        #reset indent to re-capture the pos of the first letter latter
-         
-        #Case 1: Variable declaration: after SPACE/ENTER check for =
-        #somewhere must be a single! "=" only !!, it must be the first one and no other = must follow, (split[1] is "" then)
-        if self.lhs != "":
-            rhs = bpy.context.edit_text.buffer
-            lhs = self.lhs.strip()
-            if lhs and rhs: #maybe later get type of s[1] ??'
-                 print(lhs, rhs)
-                 Declaration.create(lhs, rhs, self)
-                
-        #Case 2: Function declaration: after SPACE/ENTER check for def and :
-        #Case 3: Class declaration: after SPACE/ENTER check for class and :
-        elif bpy.context.edit_text.buffer.startswith("def") or bpy.context.edit_text.buffer.startswith("class"):
-            name = ""
-            params = []
-            
-            #class definition can omit brackets
-            if bpy.context.edit_text.buffer.startswith("class") and \
-            "(" not in bpy.context.edit_text.buffer:
-                name = self.parseClass(bpy.context.edit_text.buffer)
-                Class.create(name, [], self)
-                    
-            else:
-                name, params = self.parseFunction(bpy.context.edit_text.buffer)
-                
-                if bpy.context.edit_text.buffer.startswith("def"):
-                    Function.create(name, params, self)
-                else: # class with superclasses
-                    Class.create(name, params, self)
                           
         #Case 4: Anonymous scope declaration: after SPACE/ENTER check for :        
-        elif bpy.context.edit_text.buffer.endswith(":"):
-            scope = Scope("", "")
-            if scope.indent > self.activeScope.indent:
-                self.activeScope.declare(scope)
-                self.activeScope = scope 
+        #elif bpy.context.edit_text.buffer.endswith(":"):
+        #    scope = Scope("", "")
+        #    if scope.indent > self.activeScope.indent:
+        #        self.activeScope.declare(scope)
+        #        self.activeScope = scope 
         
-        self.indent = -1
-        self.buflist = []
     
     def testIndent(self, declaration):
         if isinstance(declaration, Declaration):
             print("TESTINDENT", self.indent, declaration.indent)
-            return self.indent <= declaration.indent
+            if isinstance(declaration, Function) or isinstance(declaration, Class):
+                return self.indent == (declaration.indent - 4) # the "outer" indent
+            return self.indent == declaration.indent
         else:
             return False
                     
     def lookupIdentifier(self, lastWords = None):
         
-        bpy.context.edit_text.buffer = "".join(str(i) for i in self.buflist if i != " ").lstrip()
+        #self.lhs = ""
+           
+        if len(self.typedChar) > 0:
+            char = self.typedChar[0]
+        else:
+            char = ""
+        
+        if self.lhs == "":    
+            bpy.context.edit_text.buffer = bpy.context.edit_text.current_line.body
+            l1 = len(bpy.context.edit_text.buffer)
+            bpy.context.edit_text.buffer = bpy.context.edit_text.buffer.lstrip()
+            l2 = len(bpy.context.edit_text.buffer)
+            self.indent = l1-l2
+        
+        bpy.context.edit_text.buffer += char
+        bpy.context.edit_text.buffer = bpy.context.edit_text.buffer.lstrip()
+        
         print("lookupbuf", bpy.context.edit_text.buffer)
         
         if bpy.context.edit_text.buffer == "" and lastWords == None:
@@ -434,7 +435,8 @@ class AutoCompleteOperator(bpy.types.Operator):
                     (it[1] == 'keyword' or self.testIndent(it[1]))]
         else:
             #print("OKKK")
-            words = [it for it in lastWords if it.startswith(bpy.context.edit_text.buffer)]
+            #words = [it for it in lastWords if it.startswith(bpy.context.edit_text.buffer)]
+            words = lastWords
             
         #print("WORDS", words)
         
@@ -445,8 +447,8 @@ class AutoCompleteOperator(bpy.types.Operator):
     
     def lookupMembers(self):
         words = []
-        self.tempBuffer = "".join(str(i) for i in self.buflist).lstrip()
-        print("TEMP", self.tempBuffer)
+       # self.tempBuffer = "".join(str(i) for i in self.buflist).lstrip()
+        #print("TEMP", self.tempBuffer)
         
         if bpy.context.edit_text.buffer in self.identifiers:
             cl = self.identifiers[bpy.context.edit_text.buffer]
@@ -462,7 +464,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 [words.append(v) for v in cl.local_classes]
                     
         #bpy.context.edit_text.buffer = ""
-        self.buflist = [] 
+        #self.buflist = [] 
         
         print("MEMBERZ", words)           
         return words   
@@ -487,108 +489,117 @@ class AutoCompleteOperator(bpy.types.Operator):
        
     def modal(self, context, event):
         
-        
-        #add new entry to identifier list
-        if 'MOUSE' not in event.type and event.value == 'PRESS':
-            print(event.type, event.value)
-        
-        #if event.type == 'LEFT_MOUSE' and event.value == 'PRESS':
+        try:
+            #add new entry to identifier list
+            if 'MOUSE' not in event.type and event.value == 'PRESS':
+                print(event.type, event.value)
             
-        if event.shift:
-            print("SHIFT")
-        
-        #hack, trigger parse manually, must be done with bpy.app. handler somehow (on change of text block)
-        if event.shift and event.ctrl:
-            #parse existing code to buildup data structure, what to do when code has syntax errors (it is execed to get types)
-            #maybe avoid unnecessary compile steps
-            print("Reading file...")
-            self.parseCode(context.edit_text)
-            print("... file read")
-        
-        elif event.type == 'RET' and event.value == 'PRESS':
-            self.parseIdentifier()
-            
-        elif event.type == 'ESC':
-            print("... autocompleter stopped")
-            return {'CANCELLED'}
-        
-        elif event.unicode == "=" and self.lhs == "" and event.value == 'PRESS':
-            self.buflist.append(event.unicode)
-            context.edit_text.buffer = "".join(str(i) for i in self.buflist).lstrip()
-            self.lhs = context.edit_text.buffer.split("=")[0]
-            self.buflist = []
-            
+            #if event.type == 'LEFT_MOUSE' and event.value == 'PRESS':
                 
-        #do lookups here
-        elif event.type == 'PERIOD' and event.value == 'PRESS' and not event.shift:
-            #look up all members of class/module of variable, depending on chars
-            self.buflist.append(event.unicode) # . is part of name
-            self.lookupIdentifier(self.lookupMembers())
-#            
-        #elif event.type == '(':
-            #look up parameters of function
-            #self.lookupParameters()
-         #   pass
-#        
-#        elif event.type == '[':
-#            #look up keys in dictionary /indexable class ???            
-#            #self.lookupDictKeys()
-#            pass
-#        
-        elif event.type == 'BACK_SPACE' and event.value == 'PRESS':
-            #delete last lookup structure (sample, ...)
-            #remove last char from buffer, do lookup again
-            if len(self.buflist) > 0:
-                self.buflist.pop()
-                if len(self.buflist) > 0:
-                    temp = "".join(str(i) for i in self.buflist if i != " ").lstrip()
-                    if temp == "":
-                        self.indent = -1 #only whitespace in line, need pos of first char !!
-                    self.lookupIdentifier()
-            #else:
-            #    #parse current line to fill buffer        
-           
-        elif (((event.type in ('A', 'B', 'C', 'D', 'E',
-                            'F', 'G', 'H', 'I', 'J',
-                            'K', 'L', 'M', 'N', 'O',
-                            'P', 'Q', 'R', 'S', 'T',
-                            'U', 'V', 'W', 'X', 'Y',
-                            'Z', 'ZERO','ONE', 'TWO',
-                            'THREE', 'FOUR', 'FIVE',
-                            'SIX', 'SEVEN','EIGHT', 
-                            'NINE', 'MINUS', 'PLUS',
-                            'SPACE', 'COMMA')) or \
-                            (event.type == 'PERIOD' and \
-                             event.shift)) or (event.unicode in ["'", "#", "?", "+" ,"*"])) and event.value == 'PRESS': 
-            #catch all KEYBOARD events here....except (python) operators
-            #maybe check whether we are run inside text editor
+            if event.shift:
+                print("SHIFT")
             
-            #obviously this is called BEFORE the text editor receives the event. 
-            char = event.unicode
-                   
-#            text = context.edit_text #are we in the right context ?
-#            line = text.current_line
-            if self.indent == -1:
-                self.indent = context.edit_text.current_character
-                print("INDENT", self.indent)
-            #print(line, pos) 
+            #hack, trigger parse manually, must be done with bpy.app. handler somehow (on change of text block)
+            if event.shift and event.ctrl:
+                #parse existing code to buildup data structure, what to do when code has syntax errors (it is execed to get types)
+                #maybe avoid unnecessary compile steps
+                print("Reading file...")
+                self.parseCode(context.edit_text)
+                print("... file read")
             
-            #char = line.body[pos]
-            #watch copy and paste ! must add all pasted chars to buffer and separate by space TODO
-            if context.edit_text.bufferReset:
-                self.buflist = []
-                self.tempBuffer += context.edit_text.buffer
-                context.edit_text.bufferReset = False
-            self.buflist.append(char)
+            elif event.type == 'RET' and event.value == 'PRESS':
+                self.parseIdentifier()
+                
+            elif event.type == 'ESC':
+                context.edit_text.suggestions.clear()
+                context.edit_text.buffer = ""
+                self.cleanup()
+                
+                print("... autocompleter stopped")
+                return {'CANCELLED'}
             
-            #also do word lookup, maybe triggered by a special key for now... 
-            #start a timer, re-init it always, and accumulate a buffer
-            #if timer expires, pass oldbuffer and buffer to lookup function, oldbuffer = buffer
-            if len(self.buflist) > 0:
+            elif event.unicode == "=" and self.lhs == "" and event.value == 'PRESS':
+                
+                print("ASSIGN")
+                context.edit_text.buffer += event.unicode 
+                lhs, rhs = self.parseDeclaration(context.edit_text.buffer)
+                self.lhs = lhs
+                context.edit_text.buffer = ""
+                    
+            #do lookups here
+            elif event.type == 'PERIOD' and event.value == 'PRESS' and not event.shift:
+                #look up all members of class/module of variable, depending on chars
+                self.typedChar.append(event.unicode) # . is part of name
+                self.lookupIdentifier(self.lookupMembers())
+                
+                if len(self.typedChar) > 0:
+                    self.typedChar.pop()
+    #            
+            #elif event.type == '(':
+                #look up parameters of function
+                #self.lookupParameters()
+             #   pass
+    #        
+    #        elif event.type == '[':
+    #            #look up keys in dictionary /indexable class ???            
+    #            #self.lookupDictKeys()
+    #            pass
+    #        
+            elif event.type in ('BACK_SPACE', 'LEFT_ARROW', 'RIGHT_ARROW', 'UP_ARROW', 'DOWN_ARROW') and event.value == 'PRESS':
+                #delete last lookup structure (sample, ...)
+                #remove last char from buffer, do lookup again
+                if len(self.typedChar) > 0:
+                    self.typedChar.pop()
+                    
+                #self.lookupIdentifier()
+                       
+            elif (((event.type in ('A', 'B', 'C', 'D', 'E',
+                                'F', 'G', 'H', 'I', 'J',
+                                'K', 'L', 'M', 'N', 'O',
+                                'P', 'Q', 'R', 'S', 'T',
+                                'U', 'V', 'W', 'X', 'Y',
+                                'Z', 'ZERO','ONE', 'TWO',
+                                'THREE', 'FOUR', 'FIVE',
+                                'SIX', 'SEVEN','EIGHT', 
+                                'NINE', 'MINUS', 'PLUS',
+                                'SPACE', 'COMMA')) or \
+                                (event.type == 'PERIOD' and \
+                                 event.shift)) or (event.unicode in ["'", "#", "?", "+" ,"*"])) and event.value == 'PRESS': 
+                #catch all KEYBOARD events here...
+                #maybe check whether we are run inside text editor
+                
+                #obviously this is called BEFORE the text editor receives the event. so we need to store the typed char too.
+                self.typedChar.append(event.unicode)
+            
+                #watch copy and paste ! must add all pasted chars to buffer and separate by space TODO
+                #via MOUSE events and is_dirty/is_modified
+                
+                if context.edit_text.bufferReset:
+                    #self.typedChar.pop()
+                    self.tempBuffer += context.edit_text.buffer
+                    context.edit_text.bufferReset = False
+                #self.buflist.append(char)
+                
+                #also do word lookup, maybe triggered by a special key for now... 
+                #start a timer, re-init it always, and accumulate a buffer
+                #if timer expires, pass oldbuffer and buffer to lookup function, oldbuffer = buffer
+                
                 self.lookupIdentifier()
-            
-            #how to end the op ?
-        return {'PASS_THROUGH'}
+                
+                if len(self.typedChar) > 0:
+                    self.typedChar.pop()
+                
+                #how to end the op ?
+            return {'PASS_THROUGH'}
+        
+        except Exception as e:
+            # clean up after error
+            print("Exception", e)
+            context.edit_text.suggestions.clear()
+            context.edit_text.buffer = ""
+            self.cleanup()
+            self.report({'ERROR'}, "Autocompleter stopped because of exception: " + str(e))
+            return {'CANCELLED'}
     
     def invoke(self, context, event):
         
@@ -596,7 +607,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.module = Module(text.name.split(".")[0]) #better: filepath, if external
         print(self.module.name, self.module.indent)
         self.activeScope = self.module
-        self.identifiers = {}
+       # self.identifiers = {}
         context.window_manager.modal_handler_add(self)
        
         print("autocompleter started...")

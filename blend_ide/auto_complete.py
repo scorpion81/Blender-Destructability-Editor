@@ -16,7 +16,7 @@
 #    press SHIFT+CTRL to load existing code and create autocomplete datastructures
 
 #TODO 
-#     make addon out of this
+#     make addon out of this (partially done)
 
 #     integrate nicely: create datastructures automatically (on text open), enable/disable via checkbox (maybe
 #     then load datastructures), end modal operator with other operator/gui event ?
@@ -30,11 +30,13 @@
 #     categorize items: Class, Function, Variable at least
 
 #     handle imports, fill datastructure with all imported scopes (classes, functions, modules and vars visible, local vars relevant 
-#     for own code only
+#     for own code only - need to parse imports AND importable stuff (module handling, parse dir for that ?), importable as new
+#     datastructure
 
-#     test unnamed scopes, maybe do not store them (unnecessary, maybe active scope only? for indentation bookkeeping)
+#     test unnamed scopes, maybe do not store them (unnecessary, maybe active scope only? for indentation bookkeeping) (partially done)
 
-#     make autocomplete info persisent, maybe pickle it, so it can be re-applied to the file (watch versions, if file has been changed
+#     make autocomplete info persisent, maybe pickle it, so it can be re-applied to the file (watch versions, 
+#     if file has been changed
 
 #     externally, continue using or discard or rebuild(!) by parsing the existing code (partially done)
 
@@ -46,13 +48,29 @@
 #     make new lookups on smaller buffers, on each time on initial buffer
 
 #     if any keyword before variable, same line, do not accept declaration with = (would be wrong in python at all)
+#     hmm are those keyword scopes ?, no unnamed... and type = scope
 
 #     parse existing code line by line after loading(all) or backspace (current line) (partially done)
 
 #    BIG todo: make usable for any type of text / code   
 
 #    parseLine benutzen dort wird der indent gemessen! evtl bei parseIdentifier keinen buffer benutzen sondern die Zeile
-#    buffer nur für den Lookup benutzen !! auch nicht indent auf -1 setzen und dann current char ermitteln...  
+#    buffer nur für den Lookup benutzen !! auch nicht indent auf -1 setzen und dann current char ermitteln...
+ 
+#    scope parsing: check for \ as last char in previous lines, if there, prepend it to buffer !!!
+#    substitution, preserve whitespaces before inserted text 
+
+#    scope, special cases: higher class, function(?) names not usable as lhs ! only rhs (its usable both!)
+#                          higher declaration: if isinstance(parent, Class) prepend self in choice ! (or check for it)
+#                          or if startswith(__) static vars, usable with className only (check it, both lhs and rhs)
+#    evaluate self, and dotted stuff, or simply create entry for it ?
+
+#    exclude those entries from suggestions, which match completely with the buffer entry. 
+#    watch for comma separated assignments, those are multiple identifiers, which need to be assigned separately !!
+
+#    if only one matching entry in autocomplete suggestions, then substitute automatically !!
+#    first restore menu functionality  with self drawn menu!!   
+
 
 bl_info = {
     "name": "Python Editor Autocomplete",
@@ -68,7 +86,118 @@ bl_info = {
     "category": "Development" } 
 
 import bpy
+import bgl
+import blf
 
+
+#encapsulate drawing and functionality of a menu
+#select callback with parameter tuple
+class Menu:
+    
+    color = (0.2, 0.2, 0.2, 1.0)
+    hColor = (0.02, 0.4, 0.7, 1.0)
+    textColor = (1.0, 1.0, 1.0, 1.0)
+    width = 6 # get that from font object ?
+    height = 11
+    margin = 10
+    pos_x = 0
+    pos_y = 0
+    max = 0
+    highlighted = ""
+    #shift = int((height + margin) / 2)
+    shift = 0
+    
+    def __init__(self, items):
+        self.items = items
+        self.itemRects = {}
+    
+    def highlightItem(self, x, y):
+        #self.open(self.pos_x, self.pos_y)
+        self.highlighted = ""
+        for it in self.itemRects.items():
+            ir = it[1] 
+            if x >= ir[0] and x <= ir[2] and \
+               y >= ir[1] and y <= ir[3]:
+                #print(x, y, ir)
+                self.highlighted = it[0]
+                break
+                    
+        
+    def selectItem(self, x, y):
+        pass
+    
+    def previousItem(self):
+        pass
+    
+    def nextItem(self):
+        pass 
+    
+    def draw(self, x, y):
+         
+        #memorize position once
+        if self.pos_x == 0:
+            self.pos_x = x
+        
+        if self.pos_y == 0:
+            self.pos_y = y
+        
+        #store rect of each item    
+        if len(self.itemRects) == 0:
+            self.max = 0
+            i = 0
+            for it in self.items:
+                if len(it) > self.max:
+                    self.max = len(it)
+                
+                width = self.max * self.width
+                rect_x = x - self.margin
+                rect_y = y - i * (self.height + self.margin) 
+                     
+                self.itemRects[it] = (rect_x, rect_y, 
+                                      rect_x + width + 2*self.margin, 
+                                      rect_y + self.height + self.margin)
+                i += 1
+            
+        self.open(self.pos_x, self.pos_y)     
+    
+    def open(self, x, y):
+        
+        if len(self.items) == 0:
+            return
+         
+        width = self.max * self.width        
+        
+        #menu background
+        bgl.glColor4f(self.color[0], self.color[1], self.color[2], self.color[3])
+        bgl.glRecti(x - self.margin, y - (self.height + self.margin) * (len(self.items)-1) - self.margin , 
+                    x + width + self.margin, y + self.height + self.margin - 2)
+        
+        if self.highlighted != "":
+            ir = self.itemRects[self.highlighted]    
+            bgl.glColor4f(self.hColor[0], self.hColor[1], self.hColor[2], self.hColor[3])
+            bgl.glRecti(ir[0], ir[1]-self.shift, ir[2], ir[3]-self.shift)
+            #bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
+        
+        font_id = 0  # XXX, need to find out how best to get this.        
+        bgl.glColor4f(self.textColor[0], self.textColor[1], self.textColor[2], self.textColor[3])
+        
+        for it in self.items:
+            rect = self.itemRects[it]
+            
+            #if it == self.highlighted:
+            #    bgl.glColor4f(self.color[0], self.color[1], self.color[2], self.color[3])
+              
+            blf.position(font_id, float(rect[0] + self.margin), float(rect[1]), 0) # check for boundaries ?
+            blf.size(font_id, self.height, 72)
+            blf.draw(font_id, it)
+            
+            #if it == self.highlighted:
+            #   bgl.glColor4f(self.textColor[0], self.textColor[1], self.textColor[2], self.textColor[3])
+            
+        # restore opengl defaults
+        bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
+        
+         
 class Declaration:
    
     def __init__(self, name, type):
@@ -147,6 +276,17 @@ class Scope(Declaration):
             #c = "".join(it[0] + ":" + str(it[1]) for it in self.local_classes.items())
         
         return self.type + " " + f + " " + v + " " + c
+    
+    @staticmethod
+    def create(opdata):
+        #Case 4: Anonymous scope declaration: after SPACE/ENTER check for :        
+        s = Scope("", "scope")
+        if opdata.indent >= opdata.activeScope.indent:
+            opdata.activeScope.declare(s)
+            s.indent = opdata.indent + 4 
+            opdata.activeScope = s
+            print("scope created") 
+        
 
 class Function(Scope):
     
@@ -218,6 +358,8 @@ class SubstituteTextOperator(bpy.types.Operator):
     bl_label = "Substitute Text"
     
     choice = bpy.props.StringProperty(name = "choice")
+   # type = bpy.props.StringProperty(name = "type")
+   # indent = bpy.props.IntProperty(name = "indent")
     
     def execute(self, context):
         #easy(?) way to delete entered word, but watch this for classes and functions (only select back to period), maybe this is done
@@ -229,7 +371,7 @@ class SubstituteTextOperator(bpy.types.Operator):
         print("LINEPOS", line, pos)
         
         char = line.body[pos-1]
-        if char != ".": #do not remove variable before . when choosing member after entering .
+        if char not in (".", " "): #do not remove variable before . when choosing member after entering .
            bpy.ops.text.select_word()    
            #bpy.ops.text.cut()
            line = context.edit_text.current_line
@@ -281,7 +423,16 @@ class AutoCompleteOperator(bpy.types.Operator):
     lhs = ""
     tempBuffer = ""
     indent = 0
+    mouse_x = 0
+    mouse_y = 0
+    menu = None
+ 
     
+    def draw_popup_callback_px(self, context):
+        
+        if self.menu != None:
+            self.menu.draw(self.mouse_x, self.mouse_y)
+        
     def cleanup(self):
         self.typedChar = []
         self.module = None
@@ -289,6 +440,14 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.lhs = ""
         self.identifiers = {}
         self.indent = 0
+        self.mouse_x = 0
+        self.mouse_y = 0
+        self.menu = None
+        
+        #TODO remove this from context
+        bpy.context.edit_text.suggestions.clear()
+        bpy.context.edit_text.buffer = ""
+        bpy.context.region.callback_remove(self._handle)
     
     def trackScope(self):
         print("TRACKSCOPE", self.indent, self.activeScope.indent)
@@ -354,6 +513,9 @@ class AutoCompleteOperator(bpy.types.Operator):
             
             Class.create(name, params, self)
             
+        elif line.endswith(":"):
+            Scope.create(self)
+            
         self.indent = 0    
             
     
@@ -377,21 +539,16 @@ class AutoCompleteOperator(bpy.types.Operator):
         #indent = bpy.context.edit_text.current_character
         self.parseLine(bpy.context.edit_text.buffer)
         
-                          
-        #Case 4: Anonymous scope declaration: after SPACE/ENTER check for :        
-        #elif bpy.context.edit_text.buffer.endswith(":"):
-        #    scope = Scope("", "")
-        #    if scope.indent > self.activeScope.indent:
-        #        self.activeScope.declare(scope)
-        #        self.activeScope = scope 
-        
     
     def testIndent(self, declaration):
-        if isinstance(declaration, Declaration):
+  
+        if isinstance(declaration, Function) or isinstance(declaration, Class) or \
+        isinstance(declaration, Scope):
             print("TESTINDENT", self.indent, declaration.indent)
-            if isinstance(declaration, Function) or isinstance(declaration, Class):
-                return self.indent == (declaration.indent - 4) # the "outer" indent
-            return self.indent == declaration.indent
+            return self.indent >= (declaration.indent - 4) # the "outer" indent
+        elif isinstance(declaration, Declaration): 
+            print("TESTINDENT", self.indent, declaration.indent)   
+            return self.indent >= declaration.indent
         else:
             return False
                     
@@ -432,7 +589,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             #else:
             lastWords = self.identifiers
             words = [it[0] for it in lastWords.items() if it[0].startswith(bpy.context.edit_text.buffer) and \
-                    (it[1] == 'keyword' or self.testIndent(it[1]))]
+                    (it[1] == 'keyword' or self.testIndent(it[1])) and it[0] != bpy.context.edit_text.buffer]
         else:
             #print("OKKK")
             #words = [it for it in lastWords if it.startswith(bpy.context.edit_text.buffer)]
@@ -474,22 +631,32 @@ class AutoCompleteOperator(bpy.types.Operator):
         #s = sorted(words, key=itemgetter(1))     # sort on value first
         #disp = sorted(s, key=itemgetter(0))      # now sort that on key
         if len(words) > 0:
-            disp = sorted(words)
+            self.menu = Menu(sorted(words))
             #toPopup(disp)
-            print("POPUP", disp)
+            print("POPUP", self.menu.items)
             
-            items = []
-            bpy.context.edit_text.suggestions.clear()
-            for d in disp:
-                prop = bpy.context.edit_text.suggestions.add()
-                prop.name = d
+            
+            
+            #items = []
+            #bpy.context.edit_text.suggestions.clear()
+            #for d in disp:
+            #    prop = bpy.context.edit_text.suggestions.add()
+            #    prop.name = d
                 
-            bpy.ops.wm.call_menu(name = "text.popup")
-        
-       
+           # bpy.ops.wm.call_menu(name = "text.popup")
+             
     def modal(self, context, event):
         
         try:
+            
+            context.area.tag_redraw()
+            self.mouse_x = event.mouse_region_x
+            self.mouse_y = event.mouse_region_y
+            
+            if event.type == 'MOUSEMOVE':
+                if self.menu != None:
+                    self.menu.highlightItem(self.mouse_x, self.mouse_y)    
+                
             #add new entry to identifier list
             if 'MOUSE' not in event.type and event.value == 'PRESS':
                 print(event.type, event.value)
@@ -509,10 +676,10 @@ class AutoCompleteOperator(bpy.types.Operator):
             
             elif event.type == 'RET' and event.value == 'PRESS':
                 self.parseIdentifier()
+                self.menu = None
                 
             elif event.type == 'ESC':
-                context.edit_text.suggestions.clear()
-                context.edit_text.buffer = ""
+                
                 self.cleanup()
                 
                 print("... autocompleter stopped")
@@ -552,6 +719,8 @@ class AutoCompleteOperator(bpy.types.Operator):
                     self.typedChar.pop()
                     
                 #self.lookupIdentifier()
+                self.indent = 0
+                self.menu = None
                        
             elif (((event.type in ('A', 'B', 'C', 'D', 'E',
                                 'F', 'G', 'H', 'I', 'J',
@@ -569,6 +738,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 #maybe check whether we are run inside text editor
                 
                 #obviously this is called BEFORE the text editor receives the event. so we need to store the typed char too.
+                self.menu = None
                 self.typedChar.append(event.unicode)
             
                 #watch copy and paste ! must add all pasted chars to buffer and separate by space TODO
@@ -595,11 +765,9 @@ class AutoCompleteOperator(bpy.types.Operator):
         except Exception as e:
             # clean up after error
             print("Exception", e)
-            context.edit_text.suggestions.clear()
-            context.edit_text.buffer = ""
-            self.cleanup()
-            self.report({'ERROR'}, "Autocompleter stopped because of exception: " + str(e))
-            return {'CANCELLED'}
+            self.cleanup() # maybe to finally ?
+            #self.report({'ERROR'}, "Autocompleter stopped because of exception: " + str(e))
+            raise
     
     def invoke(self, context, event):
         
@@ -607,8 +775,8 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.module = Module(text.name.split(".")[0]) #better: filepath, if external
         print(self.module.name, self.module.indent)
         self.activeScope = self.module
-       # self.identifiers = {}
         context.window_manager.modal_handler_add(self)
+        self._handle = context.region.callback_add(self.draw_popup_callback_px, (context,), 'POST_PIXEL')
        
         print("autocompleter started...")
      

@@ -21,7 +21,7 @@
 #     integrate nicely: create datastructures automatically (on text open), enable/disable via checkbox (maybe
 #     then load datastructures), end modal operator with other operator/gui event ?
 
-#     make menu disappear when i continue typing (change focus)
+#     make menu disappear when i continue typing (change focus) (done)
 
 #     correctly replace previously typed text by suggestion (partially done)
 
@@ -36,14 +36,15 @@
 #     test unnamed scopes, maybe do not store them (unnecessary, maybe active scope only? for indentation bookkeeping) (partially done)
 
 #     make autocomplete info persisent, maybe pickle it, so it can be re-applied to the file (watch versions, 
-#     if file has been changed
+#     if file has been changed (not necessary, will be parsed in dynamically, but maybe for big files ?)
 
-#     externally, continue using or discard or rebuild(!) by parsing the existing code (partially done)
+#     externally, continue using or discard or rebuild(!) by parsing the existing code (partially done) automate this
 
 #     fix buffer behavior, must be cleared correctly, some state errors still (partially done)
 
 #     substitute operator, or function in autocomplete ? buffer is in op, hmm, shared between ops or via text.buffer stringprop
-#     delete buffer content from text(select word, cut selected ?) and buffer itself and replace buffer content and insert into text (done)
+#     delete buffer content from text(select word, cut selected ?) and buffer itself and replace buffer content and insert into 
+#     text (done)
 
 #     make new lookups on smaller buffers, on each time on initial buffer
 
@@ -55,7 +56,7 @@
 #    BIG todo: make usable for any type of text / code   
 
 #    parseLine benutzen dort wird der indent gemessen! evtl bei parseIdentifier keinen buffer benutzen sondern die Zeile
-#    buffer nur für den Lookup benutzen !! auch nicht indent auf -1 setzen und dann current char ermitteln...
+#    buffer nur für den Lookup benutzen !! auch nicht indent auf -1 setzen und dann current char ermitteln... (done)
  
 #    scope parsing: check for \ as last char in previous lines, if there, prepend it to buffer !!!
 #    substitution, preserve whitespaces before inserted text 
@@ -63,13 +64,13 @@
 #    scope, special cases: higher class, function(?) names not usable as lhs ! only rhs (its usable both!)
 #                          higher declaration: if isinstance(parent, Class) prepend self in choice ! (or check for it)
 #                          or if startswith(__) static vars, usable with className only (check it, both lhs and rhs)
-#    evaluate self, and dotted stuff, or simply create entry for it ?
+#    evaluate self, and dotted stuff, or simply create entry for it ?, dot -> if available, find object
 
 #    exclude those entries from suggestions, which match completely with the buffer entry. 
 #    watch for comma separated assignments, those are multiple identifiers, which need to be assigned separately !!
 
 #    if only one matching entry in autocomplete suggestions, then substitute automatically !!
-#    first restore menu functionality  with self drawn menu!!   
+#    first restore menu functionality  with self drawn menu!! (done)  
 #    lookup with dots, commas: always get the last element in sequence only after detecting . or , (when typing)
 #    when parsing, evaluate dotted or take last part always (or leave it as is ?) and with comma watch whether ret type count
 #    types match and assign one after other
@@ -229,16 +230,12 @@ class Declaration:
         return self.type 
     
     @staticmethod
-    def create(name, typename, opdata):
+    def createDecl(name, typename, opdata):
         
-        #exec/compile: necessary to "create" live objects from source ?
-        code = bpy.types.Text.as_string(bpy.context.edit_text)
-        print(code)
-        exec(compile(code, '<string>', 'exec'))
-                 
-        typ = type(eval(typename)).__name__
-        print("TYPE", typ)
-        v = Declaration(name, typ)
+        if "." in name:
+            name = name.split(".")[-1].strip()
+            
+        v = Declaration(name, typename)
         #active module -> open file ? (important later, when treating different modules too)
         print("INDENT", opdata.indent, opdata.activeScope.indent, opdata.isValid(name))
         if opdata.indent >= opdata.activeScope.indent and opdata.isValid(name):
@@ -250,7 +247,32 @@ class Declaration:
             opdata.lhs = ""
             [print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
         
-          
+    
+    @staticmethod
+    def create(name, typename, opdata):
+        
+        #exec/compile: necessary to "create" live objects from source ?
+        code = bpy.types.Text.as_string(bpy.context.edit_text)
+        print(code)
+        exec(compile(code, '<string>', 'exec'))
+        
+        #g = globals()
+        #l = locals()
+        
+        #print("LOCALS", l)
+        
+        ret = eval(typename)         
+        typ = type(ret).__name__
+        print("TYPE", typ)
+        
+        if typ == "tuple" and isinstance(name, list):
+            for i in range(0, len(name)): #name list can be shorter, might not be interested in all ret vals
+                Declaration.createDecl(name[i].strip(), type(ret[i]).__name__, opdata)
+        elif isinstance(name, str):
+            Declaration.createDecl(name, typ, opdata)        
+        
+        
+  
 class Scope(Declaration):
 
     
@@ -502,13 +524,20 @@ class AutoCompleteOperator(bpy.types.Operator):
         return name, params
     
     def parseDeclaration(self, line):
+        
         index = line.index("=")
         lhs = line[:index-1].strip()
+        if "," in lhs:
+            lhs = line.split(",")
+            
         rhs = line[index+1:].strip()
         return lhs, rhs    
     
     def parseLine(self, line):
-        # variable:
+        # ignore comments, do that at typing too!!
+        if "#" in line:
+            line = line.split("#")[0]
+        
         l1 = len(line)
         line = line.lstrip()
         l2 = len(line)
@@ -517,6 +546,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.trackScope()
         
         print(line)
+        
         if "=" in line:
             lhs, rhs = self.parseDeclaration(line)
             Declaration.create(lhs, rhs, self)
@@ -580,12 +610,13 @@ class AutoCompleteOperator(bpy.types.Operator):
         else:
             char = ""
         
-        if self.lhs == "":    
+        if self.lhs == "" and "." not in bpy.context.edit_text.buffer and "." != char:    
             bpy.context.edit_text.buffer = bpy.context.edit_text.current_line.body
             l1 = len(bpy.context.edit_text.buffer)
             bpy.context.edit_text.buffer = bpy.context.edit_text.buffer.lstrip()
             l2 = len(bpy.context.edit_text.buffer)
             self.indent = l1-l2
+            print("INDENT SET", self.indent, self.lhs, bpy.context.edit_text.buffer)
         
         bpy.context.edit_text.buffer += char
         bpy.context.edit_text.buffer = bpy.context.edit_text.buffer.lstrip()
@@ -598,6 +629,15 @@ class AutoCompleteOperator(bpy.types.Operator):
         #if period/members: first show all members, then limit selection to members and so on
         #must pass/store lastWords selection, together with lastBuffer ?
         
+        #dynamically get the last of . and , lists on lhs of =
+        buffer = bpy.context.edit_text.buffer
+        if "," in buffer and self.lhs == "":
+            sp = buffer.split(",")
+            buffer = sp[-1]
+        if "." in buffer and self.lhs == "":     
+            sp = buffer.split(".")
+            buffer = sp[-1]
+        
         #only the NEW string compared to the last buffer is relevant
         #to look it up inside a subset/subdict of items
         words = []
@@ -607,8 +647,8 @@ class AutoCompleteOperator(bpy.types.Operator):
             #    words = [it for it in lastWords if it.startswith(bpy.context.edit_text.buffer)]
             #else:
             lastWords = self.identifiers
-            words = [it[0] for it in lastWords.items() if it[0].startswith(bpy.context.edit_text.buffer) and \
-                    (it[1] == 'keyword' or self.testIndent(it[1])) and it[0] != bpy.context.edit_text.buffer]
+            words = [it[0] for it in lastWords.items() if it[0].startswith(buffer) and \
+                    (it[1] == 'keyword' or self.testIndent(it[1])) and it[0] != buffer]
         else:
             #print("OKKK")
             #words = [it for it in lastWords if it.startswith(bpy.context.edit_text.buffer)]
@@ -740,6 +780,9 @@ class AutoCompleteOperator(bpy.types.Operator):
             elif event.type == 'PERIOD' and event.value == 'PRESS' and not event.shift:
                 #look up all members of class/module of variable, depending on chars
                 self.typedChar.append(event.unicode) # . is part of name
+                if event.unicode == ".":
+                    self.indent += 4
+                    
                 self.lookupIdentifier(self.lookupMembers())
                 
                 if len(self.typedChar) > 0:
@@ -762,8 +805,9 @@ class AutoCompleteOperator(bpy.types.Operator):
                     self.typedChar.pop()
                     
                 #self.lookupIdentifier()
-                self.indent = 0
-                self.menu = None
+                if event.type in ('BACK_SPACE', 'LEFT_ARROW', 'RIGHT_ARROW'): 
+                    self.indent = 0
+                    self.menu = None
                        
             elif (((event.type in ('A', 'B', 'C', 'D', 'E',
                                 'F', 'G', 'H', 'I', 'J',
@@ -781,6 +825,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 #maybe check whether we are run inside text editor
                 
                 #obviously this is called BEFORE the text editor receives the event. so we need to store the typed char too.
+                #self.indent = 0
                 self.menu = None
                 self.typedChar.append(event.unicode)
             

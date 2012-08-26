@@ -70,6 +70,17 @@
 
 #    if only one matching entry in autocomplete suggestions, then substitute automatically !!
 #    first restore menu functionality  with self drawn menu!!   
+#    lookup with dots, commas: always get the last element in sequence only after detecting . or , (when typing)
+#    when parsing, evaluate dotted or take last part always (or leave it as is ?) and with comma watch whether ret type count
+#    types match and assign one after other
+
+#    take special care with lambdas, generators, list comprehensions ? or simply eval them
+
+#    parenthesis: open parameter sequences in menu, and close sucessively entered params (highlight them separately,
+#    do similar with brackets ([]), eval indexing or show possible keys (dicts) or range of indexes (list)
+
+#    caution with re-setting/deleting(!!) variables, exec / eval must re-parse the variables too, and delete identifier
+#    list before
 
 
 bl_info = {
@@ -104,8 +115,8 @@ class Menu:
     pos_y = 0
     max = 0
     highlighted = ""
-    #shift = int((height + margin) / 2)
-    shift = 0
+    shift = int(margin / 2)
+    index = -1
     
     def __init__(self, items):
         self.items = items
@@ -120,18 +131,26 @@ class Menu:
                y >= ir[1] and y <= ir[3]:
                 #print(x, y, ir)
                 self.highlighted = it[0]
+                self.index = self.items.index(it[0])
                 break
                     
         
-    def selectItem(self, x, y):
-        pass
-    
+    def pickItem(self):
+        
+        if self.highlighted != "":
+            bpy.ops.text.substitute(choice = self.highlighted)
+            
     def previousItem(self):
-        pass
+        if self.index > 0:
+            self.index -= 1
+            self.highlighted = self.items[self.index]
     
     def nextItem(self):
-        pass 
-    
+        
+        if self.index < len(self.items) - 1:
+            self.index += 1
+            self.highlighted = self.items[self.index]
+       
     def draw(self, x, y):
          
         #memorize position once
@@ -170,12 +189,12 @@ class Menu:
         #menu background
         bgl.glColor4f(self.color[0], self.color[1], self.color[2], self.color[3])
         bgl.glRecti(x - self.margin, y - (self.height + self.margin) * (len(self.items)-1) - self.margin , 
-                    x + width + self.margin, y + self.height + self.margin - 2)
+                    x + width + self.margin, y + self.height + self.margin - self.shift)
         
         if self.highlighted != "":
             ir = self.itemRects[self.highlighted]    
             bgl.glColor4f(self.hColor[0], self.hColor[1], self.hColor[2], self.hColor[3])
-            bgl.glRecti(ir[0], ir[1]-self.shift, ir[2], ir[3]-self.shift)
+            bgl.glRecti(ir[0], ir[1] - self.shift, ir[2], ir[3] - 2 * self.shift)
             #bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
         
         font_id = 0  # XXX, need to find out how best to get this.        
@@ -393,16 +412,16 @@ class SubstituteTextOperator(bpy.types.Operator):
         return {'FINISHED'}    
         
         
-class AutoCompletePopup(bpy.types.Menu):
-    bl_idname = "text.popup"
-    bl_label = ""
-       
-    def draw(self, context):
-        layout = self.layout
-        entries = context.edit_text.suggestions
-        
-        for e in entries:
-            layout.operator("text.substitute", text = e.name).choice = e.name
+#class AutoCompletePopup(bpy.types.Menu):
+#    bl_idname = "text.popup"
+#    bl_label = ""
+#       
+#    def draw(self, context):
+#        layout = self.layout
+#        entries = context.edit_text.suggestions
+#        
+#        for e in entries:
+#            layout.operator("text.substitute", text = e.name).choice = e.name
                                    
 class AutoCompleteOperator(bpy.types.Operator):
     bl_idname = "text.autocomplete"
@@ -655,14 +674,34 @@ class AutoCompleteOperator(bpy.types.Operator):
             
             if event.type == 'MOUSEMOVE':
                 if self.menu != None:
-                    self.menu.highlightItem(self.mouse_x, self.mouse_y)    
+                    self.menu.highlightItem(self.mouse_x, self.mouse_y)
+            
+            if event.type == 'RIGHTMOUSE' and event.value == 'PRESS':
+                self.menu = None
+                return {'RUNNING_MODAL'}
+                
+            if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
+                if self.menu != None:
+                    self.menu.pickItem()
+                    self.menu = None
+                    return {'RUNNING_MODAL'} #do not pass the event ?
+            
+            if event.type == 'DOWN_ARROW' and event.value == 'PRESS':
+                if self.menu != None:
+                    self.menu.nextItem()
+                    return {'RUNNING_MODAL'}
+                    
+            
+            if event.type == 'UP_ARROW' and event.value == 'PRESS':
+                if self.menu != None:
+                    self.menu.previousItem()
+                    return {'RUNNING_MODAL'}        
                 
             #add new entry to identifier list
             if 'MOUSE' not in event.type and event.value == 'PRESS':
                 print(event.type, event.value)
             
-            #if event.type == 'LEFT_MOUSE' and event.value == 'PRESS':
-                
+           
             if event.shift:
                 print("SHIFT")
             
@@ -675,8 +714,12 @@ class AutoCompleteOperator(bpy.types.Operator):
                 print("... file read")
             
             elif event.type == 'RET' and event.value == 'PRESS':
+                if self.menu != None:
+                    self.menu.pickItem()
+                    self.menu = None
+                    return {'RUNNING_MODAL'}
+                
                 self.parseIdentifier()
-                self.menu = None
                 
             elif event.type == 'ESC':
                 
@@ -800,7 +843,7 @@ def enablerUpdate(self, context):
 
 def register():
     bpy.utils.register_class(SubstituteTextOperator)
-    bpy.utils.register_class(AutoCompletePopup)
+    #bpy.utils.register_class(AutoCompletePopup)
     bpy.utils.register_class(AutoCompleteOperator)
     
     bpy.types.Text.suggestions = bpy.props.CollectionProperty(
@@ -816,7 +859,7 @@ def register():
 def unregister():
     bpy.utils.unregister_class(AutoCompletePanel)
     bpy.utils.unregister_class(AutoCompleteOperator)
-    bpy.utils.unregister_class(AutoCompletePopup)
+   # bpy.utils.unregister_class(AutoCompletePopup)
     bpy.utils.unregister_class(SubstituteTextOperator)
     
     del bpy.types.Text.suggestions

@@ -616,53 +616,86 @@ class AutoCompleteOperator(bpy.types.Operator):
                 self.activeScope = self.module
                 break
     
-    def parseModule(self, e):
-         
-        #print(e)     
+    def list(self):
         try:
-            ret = eval(e)
-            #par = None
-            #if self.activeScope.parent != self.module and self.activeScope.parent != None:
-            #    par = dir(eval(self.activeScope.parent.name))
+            if self.activeScope != self.module:
+                act = dir(eval(self.activeScope.name))
+            else:
+                act = dir(builtins)
+            return act
         except NameError as ex:
             print(ex)
-            return
+            return None
         except AttributeError as ex:
             print(ex)
+            return None
+        
+    
+    def parseModule(self, e):
+        
+        #ignore indents completely here 
+        self.indent = -1
+        self.activeScope.indent = -1
+      #  self.trackScope()
+             
+        try:
+            ret = eval(e)
+        except NameError as ex:
+            print(ex)
+            #self.indent = 0
             return
             
+        except AttributeError as ex:
+            print(ex)
+            #self.indent = 0
+            return
+        
         typ = type(ret).__name__
         print("TYPE", typ)
         names = dir(ret)
+        act = self.list()
+        #print("ACT", act, self.last(e))
         
-        if "function" in typ or "method" in typ:
-            Function.create(self.last(e), [], self) #get paramlist length and elems/types ?
+        if act == None:
+            return
+        
+        if ("function" in typ or "method" in typ):
+            if self.last(e) in act:
+                Function.create(self.last(e), [], self) #get paramlist length and elems/types ?
+            else:
+                self.activeScope = self.module
+                act = self.list()
+                if self.last(e) in act:
+                    Function.create(self.last(e), [], self)
+                 
             filter = []
-            
-            self.indent = self.activeScope.parent.indent
-            self.trackScope()
-            
-        elif "class" in typ or "type" == typ or "bool" == typ or "list" == typ:
-            
+           
+            self.activeScope = self.activeScope.parent
+            if self.activeScope == None:
+                self.activeScope = self.module
+             
+        elif ("class" in typ or "type" == typ or "bool" == typ or "list" == typ):
             #special cases
             if "bool" == typ or "list" == typ:
                 e = typ
-                 
-            Class.create(self.last(e), [], self) #get superclasses somehow ?    
+                
+            if (self.last(e) in act):
+                Class.create(self.last(e), [], self) #get superclasses somehow ?  
+            else:
+                self.activeScope = self.module
+                act = self.list()
+                if (self.last(e) in act):
+                    Class.create(self.last(e), [], self)
+                          
             filter = [e + "." + n for n in names if not n.startswith("_")]
-            
-            #not child class, go back to original scope
-          #  print("PAR", par, e)
-            #if par != None and e not in par:
-            #    self.activeScope = self.activeScope.parent
-            self.indent = self.activeScope.indent
-            self.trackScope()
-               
+                
         else:
+            self.activeScope = self.module
             filter = [n for n in names if not n.startswith("_")]
         
-        print(self.activeScope)    
-     
+        #fake correct indentation...
+        #self.indent = self.activeScope.indent
+          
         for f in filter:
             self.parseModule(f)  
             

@@ -108,6 +108,7 @@ bl_info = {
 import bpy
 import bgl
 import blf
+import builtins
 
 
 #encapsulate drawing and functionality of a menu
@@ -283,8 +284,9 @@ class Declaration:
             v.qualify(opdata)
             
             opdata.identifiers[v.name] = v
+            print(v.name, v)
             opdata.lhs = ""
-            [print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
+            #[print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
         
     
     @staticmethod
@@ -415,7 +417,8 @@ class Function(Scope):
             f.qualify(opdata)
             opdata.activeScope = f
             opdata.identifiers[f.name] = f
-            [print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
+            print(f.name, f)
+           # [print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
     
     def copy(self):
         f = Function(self.name, self.paramlist)
@@ -446,7 +449,8 @@ class Class(Scope):
             c.qualify(opdata)
             opdata.activeScope = c
             opdata.identifiers[c.name] = c
-            [print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
+            print(c.name, c)
+            #[print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
     
     def copy(self):
         c =  Class(self.name, self.superclasses)
@@ -560,19 +564,22 @@ class AutoCompleteOperator(bpy.types.Operator):
     def compile(self, all, expr):
         #code = bpy.context.edit_text.as_string()
         #compile only the code BEFORE the editing location
-         
-        code = bpy.context.edit_text.as_string()
-        if not all:
-            lines = code.splitlines()
-            code = ""
-            line_index = bpy.context.edit_text.lines.values().index(bpy.context.edit_text.current_line)
-            for i in range(0, line_index):
-                code += (lines[i] + "\n")             
-                       
-       # print("CODE", code)
-        exec(compile(code, '<string>', 'exec'))
-        ret = eval(expr)
-        return ret
+        try:
+             
+            code = bpy.context.edit_text.as_string()
+            if not all:
+                lines = code.splitlines()
+                code = ""
+                line_index = bpy.context.edit_text.lines.values().index(bpy.context.edit_text.current_line)
+                for i in range(0, line_index):
+                    code += (lines[i] + "\n")             
+                           
+           # print("CODE", code)
+            exec(compile(code, '<string>', 'exec'))
+            ret = eval(expr)
+            return ret
+        except Exception as ex:
+            print(ex)
         
         
     
@@ -608,8 +615,57 @@ class AutoCompleteOperator(bpy.types.Operator):
             else:
                 self.activeScope = self.module
                 break
-        
     
+    def parseModule(self, e):
+         
+        #print(e)     
+        try:
+            ret = eval(e)
+            #par = None
+            #if self.activeScope.parent != self.module and self.activeScope.parent != None:
+            #    par = dir(eval(self.activeScope.parent.name))
+        except NameError as ex:
+            print(ex)
+            return
+        except AttributeError as ex:
+            print(ex)
+            return
+            
+        typ = type(ret).__name__
+        print("TYPE", typ)
+        names = dir(ret)
+        
+        if "function" in typ or "method" in typ:
+            Function.create(self.last(e), [], self) #get paramlist length and elems/types ?
+            filter = []
+            
+            self.indent = self.activeScope.parent.indent
+            self.trackScope()
+            
+        elif "class" in typ or "type" == typ or "bool" == typ or "list" == typ:
+            
+            #special cases
+            if "bool" == typ or "list" == typ:
+                e = typ
+                 
+            Class.create(self.last(e), [], self) #get superclasses somehow ?    
+            filter = [e + "." + n for n in names if not n.startswith("_")]
+            
+            #not child class, go back to original scope
+          #  print("PAR", par, e)
+            #if par != None and e not in par:
+            #    self.activeScope = self.activeScope.parent
+            self.indent = self.activeScope.indent
+            self.trackScope()
+               
+        else:
+            filter = [n for n in names if not n.startswith("_")]
+        
+        print(self.activeScope)    
+     
+        for f in filter:
+            self.parseModule(f)  
+            
     def parseCode(self, codetxt):
         
         try:
@@ -1082,8 +1138,6 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.module = Module(text.name.split(".")[0], []) #better: filepath, if external
         print(self.module.name, self.module.indent)
         self.activeScope = self.module
-        context.window_manager.modal_handler_add(self)
-        self._handle = context.region.callback_add(self.draw_popup_callback_px, (context,), 'POST_PIXEL')
         self.globals = globals()
         self.identifiers = {'if': 'keyword', 
                             'else': 'keyword'}
@@ -1091,7 +1145,6 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.typedChar = []
         #self.oldbuffer = ""
         #    self.lastLookups = {} #?, backspace must delete sub-buffers, that is 2 indexes on (sorted) list
-
         self.lhs = ""   
         self.tempBuffer = ""
         self.indent = 0
@@ -1101,12 +1154,22 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.caret_x = 0
         self.caret_y = 0
         
-        
+        self.globals['__builtins__'] = builtins
+        try:
+            self.parseModule("builtins")
+        except Exception as e:
+            print("Exception(parseModule)", e)
+            raise
+            
         #do not automatically parse own code (throws registration errors)
         print("autocompleter started...")
-        
+             
+        context.window_manager.modal_handler_add(self)
+        self._handle = context.region.callback_add(self.draw_popup_callback_px, (context,), 'POST_PIXEL')
+   
         if text.name != "auto_complete.py": 
             return self.parseCode(text)
+         
         return {'RUNNING_MODAL'}
 
 class AutoCompletePanel(bpy.types.Panel):

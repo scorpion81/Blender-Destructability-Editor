@@ -248,7 +248,6 @@ class Declaration:
             pstr = parent.name + "." + self.name
             
         if isinstance(self, Class) and isinstance(self.parent, Class):
-            print("PSTR", pstr)
             #add to globals
             ret = opdata.compile(False, pstr)
             if ret == None:
@@ -257,30 +256,32 @@ class Declaration:
             opdata.globals[self.name] = ret 
             #print(opdata.activeScope)
             #store qualified name !
-            #self.name = self.name + "." + ret.__name__
+        #    self.name = ret.__name__
         else:
+            print("PSTR", pstr)
             self.name = pstr 
     
     @staticmethod
     def createDecl(name, typename, opdata):
-      
-        oldscope = opdata.activeScope
+        
+        #oldscope = opdata.activeScope
         #print("1", oldscope, opdata.activeScope)
         if "." in name:
             name = opdata.parseDotted(name)
             #name = name.split(".")[-1].strip()
         #print("2", oldscope, opdata.activeScope)
         
-        opdata.activeScope = oldscope    
+        #opdata.activeScope = oldscope    
         v = Declaration(name, typename)
         #active module -> open file ? (important later, when treating different modules too)
         print("INDENT", opdata.indent, opdata.activeScope.indent, opdata.isValid(name), opdata.activeScope)
         if opdata.indent >= opdata.activeScope.indent and opdata.isValid(name):
             print("SCOPE", opdata.activeScope)
-            opdata.activeScope.declare(v) 
            # self.activeScope = v #variables build no scope
-            v.qualify(opdata)
+            opdata.activeScope.declare(v)
             v.indent = opdata.indent
+            v.qualify(opdata)
+            
             opdata.identifiers[v.name] = v
             opdata.lhs = ""
             [print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
@@ -310,7 +311,11 @@ class Declaration:
         elif isinstance(name, str):
             Declaration.createDecl(name, typ, opdata)        
         
-        
+    def copy(self):
+        d = Declaration(self.name, self.type)
+        d.indent = self.indent
+        d.parent = self.parent
+        return d    
   
 class Scope(Declaration):
 
@@ -367,7 +372,26 @@ class Scope(Declaration):
             s.indent = opdata.indent + 4 
             opdata.activeScope = s
             print("scope created") 
+    
+    def copyContent(self, target):
+        for f in self.local_funcs.values():
+            target.local_funcs[f.name] = f.copy()
+        for v in self.local_vars.values():
+            print("VAR", v)
+            target.local_vars[v.name] = v.copy()
+        for c in self.local_classes.values():
+            target.local_classes[c.name] = c.copy()
+        for u in self.local_unnamed_scopes:
+            target.local_unnamed.scopes.append(u.copy())    
+            
         
+    
+    def copy(self):
+        s = Scope(self.name, self.type)
+        s.indent = self.indent
+        s.parent = self.parent
+        self.copyContent(s)
+        return s
 
 class Function(Scope):
     
@@ -387,13 +411,18 @@ class Function(Scope):
         if opdata.indent >= opdata.activeScope.indent and opdata.isValid(name):
             print("SCOPE", opdata.activeScope)
             opdata.activeScope.declare(f)
-            f.qualify(opdata)
             f.indent = opdata.indent + 4
+            f.qualify(opdata)
             opdata.activeScope = f
             opdata.identifiers[f.name] = f
             [print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
-            
-        
+    
+    def copy(self):
+        f = Function(self.name, self.paramlist)
+        f.indent = self.indent
+        f.parent = self.parent
+        self.copyContent(f)        
+        return f
  
 class Class(Scope):
         
@@ -413,28 +442,43 @@ class Class(Scope):
         if opdata.indent >= opdata.activeScope.indent and opdata.isValid(name):
             print("SCOPE", opdata.activeScope)
             opdata.activeScope.declare(c)
-            c.qualify(opdata)
             c.indent = opdata.indent + 4
+            c.qualify(opdata)
             opdata.activeScope = c
             opdata.identifiers[c.name] = c
             [print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
+    
+    def copy(self):
+        c =  Class(self.name, self.superclasses)
+        c.indent = self.indent
+        c.parent = self.parent
+        self.copyContent(c)
+        return c
 
 #list of that (imported) modules must be generated, and active module (__module__)
 class Module(Scope):
     
-    def __init__(self, name):
+    def __init__(self, name, submodules):
         super().__init__(name, "module")
         self.indent = 0
+        self.submodules = submodules
         #print("PRINT", self.indent, super().indent)
     
     def declare(self, declaration):
         if isinstance(declaration, Module):
-            submodules.append(declaration) # make dict ?
+            self.submodules.append(declaration) # make dict ?
         else:
             super().declare(declaration)
     
     def __str__(self):
         return super().__str__()
+    
+    def copy(self):
+        m = Module(self.name, self.submodules)
+        m.indent = self.indent
+        m.parent = self.parent
+        self.copyContent(m)
+        return m
             
 class SubstituteTextOperator(bpy.types.Operator):
     bl_idname = "text.substitute"
@@ -491,47 +535,45 @@ class AutoCompleteOperator(bpy.types.Operator):
     bl_idname = "text.autocomplete"
     bl_label = "Autocomplete"
     
-    identifiers = {'if': 'keyword', 
-                   'else': 'keyword'}
-                 #    ... 
-                 #   'str' : 'type' # more accurate: class, function, builtin
-                 #    ...}
-                 #    #varname : typename , WHICH class
-                    
-    typedChar = []
-    oldbuffer = ""
-    lastLookups = {} #?, backspace must delete sub-buffers, that is 2 indexes on (sorted) list
-    module = None
-    activeScope = None
-    lhs = ""
-    tempBuffer = ""
-    indent = 0
-    mouse_x = 0
-    mouse_y = 0
-    menu = None
-    caret_x = 0
-    caret_y = 0
-    globals = None
+#    identifiers = {'if': 'keyword', 
+#                   'else': 'keyword'}
+#                 #    ... 
+#                 #   'str' : 'type' # more accurate: class, function, builtin
+#                 #    ...}
+#                 #    #varname : typename , WHICH class
+#                    
+#    typedChar = []
+#    oldbuffer = ""
+#    lastLookups = {} #?, backspace must delete sub-buffers, that is 2 indexes on (sorted) list
+#    module = None
+#    activeScope = None
+#    lhs = ""
+#    tempBuffer = ""
+#    indent = 0
+#    mouse_x = 0
+#    mouse_y = 0
+#    menu = None
+#    caret_x = 0
+#    caret_y = 0
+#    globals = None
     
     def compile(self, all, expr):
         #code = bpy.context.edit_text.as_string()
         #compile only the code BEFORE the editing location
-        try:
-            
-            code = bpy.context.edit_text.as_string()
-            if not all:
-                lines = code.splitlines()
-                code = ""
-                line_index = bpy.context.edit_text.lines.values().index(bpy.context.edit_text.current_line)
-                for i in range(0, line_index-1):
-                    code += (lines[i] + "\n")             
-                           
-           # print("CODE", code)
-            exec(compile(code, '<string>', 'exec'))
-            ret = eval(expr)
-            return ret
-        except Exception:
-           pass
+         
+        code = bpy.context.edit_text.as_string()
+        if not all:
+            lines = code.splitlines()
+            code = ""
+            line_index = bpy.context.edit_text.lines.values().index(bpy.context.edit_text.current_line)
+            for i in range(0, line_index):
+                code += (lines[i] + "\n")             
+                       
+       # print("CODE", code)
+        exec(compile(code, '<string>', 'exec'))
+        ret = eval(expr)
+        return ret
+        
         
     
     def draw_popup_callback_px(self, context):
@@ -569,10 +611,20 @@ class AutoCompleteOperator(bpy.types.Operator):
         
     
     def parseCode(self, codetxt):
-        for l in codetxt.lines:
-            self.parseLine(l.body)
-    
-    
+        
+        try:
+            for l in codetxt.lines:
+                self.parseLine(l.body)
+                
+            return {'RUNNING_MODAL'}
+        except Exception as e:
+            print("Exception:", e)
+            self.cleanup() # maybe to finally ?
+            self.report({'ERROR'}, "Autocompleter stopped because of exception: " + str(e))
+            print("... autocompleter stopped")
+            return {'CANCELLED'}
+            #raise
+            
     def parseClass(self, line):
         beforeColon = line.split(":")
         name = beforeColon[0].split(' ')[1]
@@ -636,7 +688,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             Scope.create(self)
     
     def parseDotted(self, buffer):
-        
+             
         ri = buffer.rindex(".")
         dotted = buffer[:ri]
         
@@ -650,12 +702,21 @@ class AutoCompleteOperator(bpy.types.Operator):
         typename = type(ret).__name__
         print("TYPENAME", typename)
         buffer = buffer[ri+1:]
-        buffer = typename + "." + buffer
         
-        
+        if typename == "type":
+            buffer = dotted + "." + buffer
+            check = dotted
+        else:    
+            buffer = typename + "." + buffer
+            check = typename
+            
+        print("BUF", buffer)
         for val in self.identifiers.values():
-            if isinstance(val, Declaration) and val.name == dotted:
+            if isinstance(val, Scope) and val.name == check:
                 self.activeScope = val
+                break
+            elif isinstance(val, Declaration) and val.name == check:
+                self.activeScope = val.parent
                 break
         print("DOTTED", dotted, self.activeScope.name)
         return buffer
@@ -687,9 +748,11 @@ class AutoCompleteOperator(bpy.types.Operator):
         
         if self.activeScope != None:
             if isinstance(self.activeScope, Scope):
-                return declaration.name in self.activeScope.local_funcs or \
-                       declaration.name in self.activeScope.local_vars or \
-                       declaration.name in self.activeScope.local_classes
+                print("KEYS", self.activeScope.local_vars.keys())
+                name = self.last(declaration.name)
+                return name in self.activeScope.local_funcs or \
+                       name in self.activeScope.local_vars or \
+                       name in self.activeScope.local_classes
             else:
                 return True
         else:
@@ -740,12 +803,20 @@ class AutoCompleteOperator(bpy.types.Operator):
         buffer = buffer.lstrip()
         print("lookupbuf", buffer)
         
+        if char == " ":
+            return
+        
      #   l1 = len(bpy.context.edit_text.buffer)
     #    l2 = len(buffer)
         
         if "," in buffer and self.lhs == "":
             sp = buffer.split(",")
             buffer = sp[-1]
+        
+        if "=" in buffer:
+            i = buffer.index("=")
+            buffer = buffer[i+1:].strip()
+            
         if "." in buffer: #and self.lhs == "":
             buffer = self.parseDotted(buffer)
             print("BUFR", buffer)     
@@ -791,6 +862,11 @@ class AutoCompleteOperator(bpy.types.Operator):
         #print("TEMP", self.tempBuffer)
         
         buffer = bpy.context.edit_text.buffer
+        
+        if "=" in buffer:
+            i = buffer.index("=")
+            buffer = buffer[i+1:].strip()
+        
         if "." in buffer:
             buffer = self.parseDotted(buffer)
             print("BUFR2", buffer)
@@ -896,6 +972,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 
                 self.parseIdentifier()
                 self.indent = 0
+                self.lhs = ""
                 
             elif event.type == 'ESC':
                 
@@ -910,7 +987,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 context.edit_text.buffer += event.unicode 
                 lhs, rhs = self.parseDeclaration(context.edit_text.buffer)
                 self.lhs = lhs
-                context.edit_text.buffer = ""
+               # context.edit_text.buffer = ""
                     
             #do lookups here
             elif event.type == 'PERIOD' and event.value == 'PRESS' and not event.shift:
@@ -942,8 +1019,8 @@ class AutoCompleteOperator(bpy.types.Operator):
                     
                 #self.lookupIdentifier()
                 #if event.type in ('BACK_SPACE', 'LEFT_ARROW', 'RIGHT_ARROW'): 
-                    self.indent = 0
-                    self.menu = None
+                self.indent = 0
+                self.menu = None
                 
                 #refill the buffer, IF ARROW UP take prev line, ARROW DOWN next (because this event is caught before)
                 context.edit_text.buffer = context.edit_text.current_line.body
@@ -991,28 +1068,45 @@ class AutoCompleteOperator(bpy.types.Operator):
         
         except Exception as e:
             # clean up after error
-            print("Exception", e)
+            print("Exception:", e)
             self.cleanup() # maybe to finally ?
             self.report({'ERROR'}, "Autocompleter stopped because of exception: " + str(e))
+            print("... autocompleter stopped")
             return {'CANCELLED'}
+            #raise
             
     
     def invoke(self, context, event):
         
         text = context.edit_text
-        self.module = Module(text.name.split(".")[0]) #better: filepath, if external
+        self.module = Module(text.name.split(".")[0], []) #better: filepath, if external
         print(self.module.name, self.module.indent)
         self.activeScope = self.module
         context.window_manager.modal_handler_add(self)
         self._handle = context.region.callback_add(self.draw_popup_callback_px, (context,), 'POST_PIXEL')
         self.globals = globals()
+        self.identifiers = {'if': 'keyword', 
+                            'else': 'keyword'}
+
+        self.typedChar = []
+        #self.oldbuffer = ""
+        #    self.lastLookups = {} #?, backspace must delete sub-buffers, that is 2 indexes on (sorted) list
+
+        self.lhs = ""   
+        self.tempBuffer = ""
+        self.indent = 0
+        self.mouse_x = 0
+        self.mouse_y = 0
+        self.menu = None
+        self.caret_x = 0
+        self.caret_y = 0
+        
         
         #do not automatically parse own code (throws registration errors)
-        if text.name != "auto_complete.py": 
-            self.parseCode(text)
-            
         print("autocompleter started...")
-     
+        
+        if text.name != "auto_complete.py": 
+            return self.parseCode(text)
         return {'RUNNING_MODAL'}
 
 class AutoCompletePanel(bpy.types.Panel):

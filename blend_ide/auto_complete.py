@@ -16,10 +16,10 @@
 #    press SHIFT+CTRL to load existing code and create autocomplete datastructures
 
 #TODO 
-#     make addon out of this (partially done)
+#     make addon out of this (done)
 
 #     integrate nicely: create datastructures automatically (on text open), enable/disable via checkbox (maybe
-#     then load datastructures), end modal operator with other operator/gui event ?
+#     then load datastructures), end modal operator with other operator/gui event ? (partially done)
 
 #     make menu disappear when i continue typing (change focus) (done)
 
@@ -31,14 +31,14 @@
 
 #     handle imports, fill datastructure with all imported scopes (classes, functions, modules and vars visible, local vars relevant 
 #     for own code only - need to parse imports AND importable stuff (module handling, parse dir for that ?), importable as new
-#     datastructure
+#     datastructure (partially done)
 
 #     test unnamed scopes, maybe do not store them (unnecessary, maybe active scope only? for indentation bookkeeping) (partially done)
 
 #     make autocomplete info persisent, maybe pickle it, so it can be re-applied to the file (watch versions, 
-#     if file has been changed (not necessary, will be parsed in dynamically, but maybe for big files ?)
+#     if file has been changed (not necessary, will be parsed in dynamically, but maybe for big files ?) (*done*)
 
-#     externally, continue using or discard or rebuild(!) by parsing the existing code (partially done) automate this
+#     externally, continue using or discard or rebuild(!) by parsing the existing code,  automate this (done)
 
 #     fix buffer behavior, must be cleared correctly, some state errors still (partially done)
 
@@ -51,7 +51,7 @@
 #     if any keyword before variable, same line, do not accept declaration with = (would be wrong in python at all)
 #     hmm are those keyword scopes ?, no unnamed... and type = scope
 
-#     parse existing code line by line after loading(all) or backspace (current line) (partially done)
+#     parse existing code line by line after loading(all) or backspace (current line) (partially done, check state machine)
 
 #    BIG todo: make usable for any type of text / code   
 
@@ -462,10 +462,10 @@ class Class(Scope):
 #list of that (imported) modules must be generated, and active module (__module__)
 class Module(Scope):
     
-    def __init__(self, name, submodules):
+    def __init__(self, name):
         super().__init__(name, "module")
         self.indent = 0
-        self.submodules = submodules
+        self.submodules = []
         #print("PRINT", self.indent, super().indent)
     
     def declare(self, declaration):
@@ -477,8 +477,22 @@ class Module(Scope):
     def __str__(self):
         return super().__str__()
     
+    @staticmethod
+    def create(name, opdata):
+        m = Module(name)
+        if isinstance(opdata.activeScope, Module):
+            opdata.activeScope.declare(m)
+            m.qualify(opdata)
+            opdata.activeScope = m
+            opdata.identifiers[m.name] = m
+            print(m.name, m)
+    
+    def copyContent(self, target):
+        super().copyContent(target)
+        target.submodules = self.submodules
+    
     def copy(self):
-        m = Module(self.name, self.submodules)
+        m = Module(self.name)
         m.indent = self.indent
         m.parent = self.parent
         self.copyContent(m)
@@ -634,8 +648,8 @@ class AutoCompleteOperator(bpy.types.Operator):
     def parseModule(self, e):
         
         #ignore indents completely here 
-        self.indent = -1
-        self.activeScope.indent = -1
+        self.indent = 0
+        self.activeScope.indent = 0
       #  self.trackScope()
              
         try:
@@ -702,16 +716,22 @@ class AutoCompleteOperator(bpy.types.Operator):
     def parseCode(self, codetxt):
         
         try:
+            
+            self.identifiers = dict(self.builtinId)
+            self.module = self.builtins.copy() 
+            self.activeScope = self.module
+                            
             for l in codetxt.lines:
                 self.parseLine(l.body)
                 
             return {'RUNNING_MODAL'}
         except Exception as e:
             print("Exception:", e)
-            self.cleanup() # maybe to finally ?
-            self.report({'ERROR'}, "Autocompleter stopped because of exception: " + str(e))
-            print("... autocompleter stopped")
-            return {'CANCELLED'}
+           # self.cleanup() # maybe to finally ?
+            #self.report({'ERROR'}, "Autocompleter stopped because of exception: " + str(e))
+            #print("... autocompleter stopped")
+            #return {'CANCELLED'}
+            return {'RUNNING_MODAL'}
             #raise
             
     def parseClass(self, line):
@@ -828,6 +848,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         
         #go to parent scope if new indent is smaller, "unindent"
         #indent = bpy.context.edit_text.current_character
+        self.parseCode(bpy.context.edit_text) # make sure removed variables are gone, but not very performant
         self.parseLine(bpy.context.edit_text.buffer)
         
         bpy.context.edit_text.buffer = ""
@@ -1046,14 +1067,14 @@ class AutoCompleteOperator(bpy.types.Operator):
                 print("SHIFT")
             
             #hack, trigger parse manually, must be done with bpy.app. handler somehow (on change of text block)
-            if event.shift and event.ctrl:
+            #if event.shift and event.ctrl:
                 #parse existing code to buildup data structure, what to do when code has syntax errors (it is execed to get types)
                 #maybe avoid unnecessary compile steps
-                print("Reading file...")
-                self.parseCode(context.edit_text)
-                print("... file read")
+            #    print("Reading file...")
+            #    self.parseCode(context.edit_text)
+            #    print("... file read")
             
-            elif event.type == 'RET' and event.value == 'PRESS':
+            if event.type == 'RET' and event.value == 'PRESS':
                 if self.menu != None:
                     self.menu.pickItem()
                     self.menu = None
@@ -1132,6 +1153,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 #obviously this is called BEFORE the text editor receives the event. so we need to store the typed char too.
                 #self.indent = 0
                 self.menu = None
+                print(event.unicode)
                 self.typedChar.append(event.unicode)
             
                 #watch copy and paste ! must add all pasted chars to buffer and separate by space TODO
@@ -1158,17 +1180,17 @@ class AutoCompleteOperator(bpy.types.Operator):
         except Exception as e:
             # clean up after error
             print("Exception:", e)
-            self.cleanup() # maybe to finally ?
-            self.report({'ERROR'}, "Autocompleter stopped because of exception: " + str(e))
-            print("... autocompleter stopped")
-            return {'CANCELLED'}
+            #self.cleanup() # maybe to finally ?
+            #self.report({'ERROR'}, "Autocompleter stopped because of exception: " + str(e))
+            #print("... autocompleter stopped")
+            #return {'CANCELLED'}
             #raise
             
     
     def invoke(self, context, event):
         
         text = context.edit_text
-        self.module = Module(text.name.split(".")[0], []) #better: filepath, if external
+        self.module = Module(text.name.split(".")[0]) #better: filepath, if external
         print(self.module.name, self.module.indent)
         self.activeScope = self.module
         self.globals = globals()
@@ -1190,6 +1212,8 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.globals['__builtins__'] = builtins
         try:
             self.parseModule("builtins")
+            self.builtins = self.module
+            self.builtinId = self.identifiers
         except Exception as e:
             print("Exception(parseModule)", e)
             raise

@@ -51,7 +51,7 @@
 #     if any keyword before variable, same line, do not accept declaration with = (would be wrong in python at all)
 #     hmm are those keyword scopes ?, no unnamed... and type = scope
 
-#     parse existing code line by line after loading(all) or backspace (current line) (partially done, check state machine)
+#     parse existing code line by line after loading(all) or backspace (current line) (done, check state machine)
 
 #    BIG todo: make usable for any type of text / code   
 
@@ -301,16 +301,19 @@ class Declaration:
         
         #print("LOCALS", l)
         
-        if ret == None:
+        if ret == None and typename != "member":
             return 
-              
-        typ = type(ret).__name__
+        
+        if typename != "member":      
+            typ = type(ret).__name__
+        else:
+            typ = typename
         print("TYPE", typ)
         
         if typ == "tuple" and isinstance(name, list):
             for i in range(0, len(name)): #name list can be shorter, might not be interested in all ret vals
                 Declaration.createDecl(name[i].strip(), type(ret[i]).__name__, opdata)
-        elif isinstance(name, str):
+        elif isinstance(name, str): 
             Declaration.createDecl(name, typ, opdata)        
         
     def copy(self):
@@ -379,7 +382,7 @@ class Scope(Declaration):
         for f in self.local_funcs.values():
             target.local_funcs[f.name] = f.copy()
         for v in self.local_vars.values():
-            print("VAR", v)
+            #print("VAR", v)
             target.local_vars[v.name] = v.copy()
         for c in self.local_classes.values():
             target.local_classes[c.name] = c.copy()
@@ -505,36 +508,65 @@ class SubstituteTextOperator(bpy.types.Operator):
     choice = bpy.props.StringProperty(name = "choice")
    # type = bpy.props.StringProperty(name = "type")
    # indent = bpy.props.IntProperty(name = "indent")
+   
+    def index(self, buffer):
+        ind1 = -1
+        ind2 = -1
+        
+        if "." in buffer:
+            ind1 = buffer.index(".")
+        if " " in buffer:
+            ind2 = buffer.index(" ")
+        
+        if ind1 != -1 and ind1 < ind2:
+            return ind1
+        elif ind2 != -1 and ind2 < ind1:
+            return ind2
+        else:
+            return -1
     
+    def rindex(self, buffer):
+        
+        ind1 = -1
+        ind2 = -1
+        
+        if "." in buffer:
+            ind1 = buffer.rindex(".")
+        if " " in buffer:
+            ind2 = buffer.rindex(" ")
+        
+        if ind1 != -1 and ind1 > ind2:
+            return ind1
+        elif ind2 != -1 and ind2 > ind1:
+            return ind2
+        else:
+            return -1
+            
+        
     def execute(self, context):
         #easy(?) way to delete entered word, but watch this for classes and functions (only select back to period), maybe this is done
         #already...
         
-        isObject = False
         line = context.edit_text.current_line
-        pos = context.edit_text.current_character
-        print("LINEPOS", line, pos)
+        buffer = line.body #context.edit_text.buffer
+        ind = self.rindex(buffer)
         
-        char = line.body[pos-1]
-        if char not in (".", " "): #do not remove variable before . when choosing member after entering .
-           bpy.ops.text.select_word()    
-           #bpy.ops.text.cut()
-           line = context.edit_text.current_line
-           pos = context.edit_text.current_character
-           char = line.body[pos]
-           if char in (".", " "):
-               isObject = True
-           
-       # context.edit_text.bufferReset = True
-        
-        if isObject:
-            insert = char + self.choice 
+        bpy.ops.text.select_line()
+        if ind != -1:
+            ind += 1
+            pre = buffer[:ind]
+            post = buffer[ind+1:]
+            ind = self.index(post)
+            post = post[ind:]
+            
+            print("PREPOST", pre, post)
+            
+            text = pre + self.choice + post
         else:
-            insert = self.choice
+            text = self.choice
         
-        context.edit_text.buffer += insert
-               
-        bpy.ops.text.insert(text = insert)
+        bpy.ops.text.insert(text = text)
+        
         return {'FINISHED'}    
         
         
@@ -552,28 +584,6 @@ class SubstituteTextOperator(bpy.types.Operator):
 class AutoCompleteOperator(bpy.types.Operator):
     bl_idname = "text.autocomplete"
     bl_label = "Autocomplete"
-    
-#    identifiers = {'if': 'keyword', 
-#                   'else': 'keyword'}
-#                 #    ... 
-#                 #   'str' : 'type' # more accurate: class, function, builtin
-#                 #    ...}
-#                 #    #varname : typename , WHICH class
-#                    
-#    typedChar = []
-#    oldbuffer = ""
-#    lastLookups = {} #?, backspace must delete sub-buffers, that is 2 indexes on (sorted) list
-#    module = None
-#    activeScope = None
-#    lhs = ""
-#    tempBuffer = ""
-#    indent = 0
-#    mouse_x = 0
-#    mouse_y = 0
-#    menu = None
-#    caret_x = 0
-#    caret_y = 0
-#    globals = None
     
     def compile(self, all, expr):
         #code = bpy.context.edit_text.as_string()
@@ -595,8 +605,6 @@ class AutoCompleteOperator(bpy.types.Operator):
         except Exception as ex:
             print(ex)
         
-        
-    
     def draw_popup_callback_px(self, context):
         
         if self.menu != None:
@@ -673,7 +681,23 @@ class AutoCompleteOperator(bpy.types.Operator):
         if act == None:
             return
         
-        if ("function" in typ or "method" in typ):
+        #unknown member types ??? or of same type as class ?
+        if ("member" in typ):
+            print("MEMBER", e)
+            if self.last(e) in act:
+                Declaration.create(self.last(e), "member", self) #get paramlist length and elems/types ?
+            else:
+                self.activeScope = self.module
+                act = self.list()
+                if self.last(e) in act:
+                    Declaration.create(self.last(e), "member", self)
+                 
+            filter = [n for n in names if not n.startswith("_")]
+          
+            if self.activeScope == None:
+                self.activeScope = self.module
+        
+        elif ("function" in typ or "method" in typ):
             if self.last(e) in act:
                 Function.create(self.last(e), [], self) #get paramlist length and elems/types ?
             else:
@@ -1103,6 +1127,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             elif event.type == 'PERIOD' and event.value == 'PRESS' and not event.shift:
                 #look up all members of class/module of variable, depending on chars
                 self.typedChar.append(event.unicode) # . is part of name
+                context.edit_text.buffer = context.edit_text.current_line.body
                 if event.unicode == ".":
                     self.indent += 4
                     
@@ -1185,6 +1210,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             #print("... autocompleter stopped")
             #return {'CANCELLED'}
             #raise
+            return {'PASS_THROUGH'}
             
     
     def invoke(self, context, event):
@@ -1216,7 +1242,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             self.builtinId = self.identifiers
         except Exception as e:
             print("Exception(parseModule)", e)
-            raise
+            #raise
             
         #do not automatically parse own code (throws registration errors)
         print("autocompleter started...")

@@ -56,7 +56,7 @@
 #    BIG todo: make usable for any type of text / code   
 
 #    parseLine benutzen dort wird der indent gemessen! evtl bei parseIdentifier keinen buffer benutzen sondern die Zeile
-#    buffer nur für den Lookup benutzen !! auch nicht indent auf -1 setzen und dann current char ermitteln... (done)
+#    buffer nur fuer den Lookup benutzen !! auch nicht indent auf -1 setzen und dann current char ermitteln... (done)
  
 #    scope parsing: check for \ as last char in previous lines, if there, prepend it to buffer !!!
 #    substitution, preserve whitespaces before inserted text 
@@ -242,13 +242,13 @@ class Declaration:
     
     def qualify(self, opdata):
         #cant support classes in unnamed scopes and functions this way (makes this sense?)
-        parent = self
         pstr = self.name
-        if parent.parent != None and isinstance(parent.parent, Class):
-            parent = parent.parent
-            pstr = parent.name + "." + self.name
+        if self.parent != None and (isinstance(self.parent, Class) or 
+        isinstance(self, Class) and isinstance(self.parent, Module)):
+            pstr = self.parent.name + "." + self.name
             
-        if isinstance(self, Class) and isinstance(self.parent, Class):
+        if isinstance(self, Class) and isinstance(self.parent, Class) or \
+        isinstance(self.parent, Module):
             #add to globals
             ret = opdata.compile(False, pstr)
             if ret == None:
@@ -637,8 +637,14 @@ class AutoCompleteOperator(bpy.types.Operator):
     
     def list(self):
         try:
-            print("ACTIVESCOPE", self.activeScope)
-            return dir(eval(self.activeScope.name))
+            print("ACTIVESCOPE", self.activeScope.name)
+            name = bpy.context.edit_text.name
+            if "." in name:
+                name = name.split(".")[0]
+            if self.activeScope.name != name:
+                ret = self.compile(True, self.activeScope.name)
+                return dir(ret)
+            return dir(builtins)
         except Exception as ex:
             print(ex)
             return dir(builtins)
@@ -648,7 +654,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         ret1 = None
         ret2 = None
         try:
-            ret1 = type(eval(b)).__name__
+            ret1 = type(self.compile(True, b)).__name__
             
         except Exception as ex:
             print(ex)
@@ -657,7 +663,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             return a
         
         try:
-            ret2 = type(eval(b + "." + a)).__name__
+            ret2 = type(self.compile(True, b + "." + a)).__name__
                 
         except Exception as ex:
             print(ex)
@@ -691,7 +697,7 @@ class AutoCompleteOperator(bpy.types.Operator):
       #  self.trackScope(
              
         try:
-            ret = eval(e)
+            ret = self.compile(True, e)
         except NameError as ex:
             print(ex)
             #self.indent = 0
@@ -761,12 +767,14 @@ class AutoCompleteOperator(bpy.types.Operator):
             #if isinstance(self.activeScope, Module) and self.activeScope != self.module:
             #    act = self.activeScope.submodules
        
-            print("MODULE2", e)
+            
             if e != "builtins":
                 if (self.last(e) in act):
+                    print("MODULE", e)
                     Module.create(e, filter, self)
                        
                 else:
+                    print("MODULE2", e)
                     self.activeScope = self.module
                     #act = self.list()
                     #if (self.last(e) in act):
@@ -874,10 +882,12 @@ class AutoCompleteOperator(bpy.types.Operator):
             Class.create(name, params, self)
         
         elif line.startswith("import"):# or line.startswith("from"): for alias only, declaring a module variable
+            
+            exec(line)
             modname = line.split("import")[1].strip()
-            print("MODNAME", modname, self.identifiers.keys())
+            print("MODNAME", modname)
             if modname not in self.identifiers:
-                self.parseModule(modname, False)
+                self.parseModule(modname, modname != "bpy")
             #print(self.identifiers)    
             self.builtinId = self.identifiers
             self.builtins = self.module
@@ -958,7 +968,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                        name in self.activeScope.local_classes or \
                        name in self.activeScope.submodules
                        
-            if isinstance(self.activeScope, Scope):
+            elif isinstance(self.activeScope, Scope):
                 print("KEYS", self.activeScope.local_vars.keys(), declaration.name)
                 name = self.last(declaration.name)
                 return name in self.activeScope.local_funcs or \

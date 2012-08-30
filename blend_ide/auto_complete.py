@@ -240,27 +240,27 @@ class Declaration:
     def __str__(self):
         return self.type
     
-    def qualify(self, opdata):
-        #cant support classes in unnamed scopes and functions this way (makes this sense?)
-        pstr = self.name
-        if self.parent != None and (isinstance(self.parent, Class) or 
-        isinstance(self, Class) and isinstance(self.parent, Module)):
-            pstr = self.parent.name + "." + self.name
-            
-        if isinstance(self, Class) and isinstance(self.parent, Class) or \
-        isinstance(self.parent, Module):
-            #add to globals
-            ret = opdata.compile(False, pstr)
-            if ret == None:
-                return
-                 
-            opdata.globals[self.name] = ret 
-            #print(opdata.activeScope)
-            #store qualified name !
-        #    self.name = ret.__name__
-        else:
-            print("PSTR", pstr)
-            self.name = pstr 
+#    def qualify(self, opdata):
+#        #cant support classes in unnamed scopes and functions this way (makes this sense?)
+#        pstr = self.name
+#        if self.parent != None and (isinstance(self.parent, Class) or 
+#        isinstance(self, Class) and isinstance(self.parent, Module)):
+#            pstr = self.parent.name + "." + self.name
+#            
+#        if isinstance(self, Class) and isinstance(self.parent, Class) or \
+#        isinstance(self.parent, Module):
+#            #add to globals
+#            ret = opdata.compile(False, pstr)
+#            if ret == None:
+#                return
+#                 
+#            opdata.globals[self.name] = ret 
+#            #print(opdata.activeScope)
+#            #store qualified name !
+#        #    self.name = ret.__name__
+#        else:
+#            print("PSTR", pstr)
+#            self.name = pstr 
     
     @staticmethod
     def createDecl(name, typename, opdata):
@@ -281,7 +281,7 @@ class Declaration:
            # self.activeScope = v #variables build no scope
             opdata.activeScope.declare(v)
             v.indent = opdata.indent
-            v.qualify(opdata)
+           # v.qualify(opdata)
             
             opdata.identifiers[v.name] = v
             print(v.name, v)
@@ -338,6 +338,14 @@ class Scope(Declaration):
         # if its a scope, add to scopes
         
         declaration.parent = self
+        name = bpy.context.edit_text.name
+        if "." in name:
+            name = name.split(".")[0]
+        
+        #prepend module names
+        if name != self.name and (not isinstance(declaration, Module) or not "." in declaration.name):
+            declaration.name = self.name + "." + declaration.name
+             
         #declaration.indent = self.indent + 4
         #handle pseudo modules from imports somehow...
         if isinstance(declaration, Module):
@@ -419,7 +427,7 @@ class Function(Scope):
             print("SCOPE", opdata.activeScope)
             opdata.activeScope.declare(f)
             f.indent = opdata.indent + 4
-            f.qualify(opdata)
+          #  f.qualify(opdata)
             opdata.activeScope = f
             opdata.identifiers[f.name] = f
             print(f.name, f)
@@ -451,7 +459,7 @@ class Class(Scope):
             print("SCOPE", opdata.activeScope)
             opdata.activeScope.declare(c)
             c.indent = opdata.indent + 4
-            c.qualify(opdata)
+          #  c.qualify(opdata)
             opdata.activeScope = c
             opdata.identifiers[c.name] = c
             print(c.name, c)
@@ -725,8 +733,9 @@ class AutoCompleteOperator(bpy.types.Operator):
 #                return
                
         #filter = []
-        
-        if ("function" in typ or "method" in typ):
+         
+        if ("function" in typ or "method" in typ and "descriptor" not in typ):
+            
             print("FUNCTION", e)
             if self.last(e) in act:
                 Function.create(self.last(e), [], self) #get paramlist length and elems/types ?
@@ -755,18 +764,33 @@ class AutoCompleteOperator(bpy.types.Operator):
                     Class.create(self.last(e), [], self) 
                 
             filter = [self.recurseTest(n,e) for n in names if not n.startswith("_")]
+        
+        elif str(self.activeScope.name + "." + typ) in self.identifiers and "bpy" not in str(ret):        
+            #known types  
+            
+            if self.last(e) in act:
+                print("DECL", e)
+                Declaration.create(self.last(e), typ, self) 
+            else:
+                print("DECL2", e)
+                self.activeScope = self.module
+                act = self.list()
+                if (self.last(e) in act):
+                    Declaration.create(self.last(e), [], self) 
                 
-        #modules and module like classes (yuck...)        
+            filter = []
+            
+            self.activeScope = self.activeScope.parent
+            if self.activeScope == None:
+                self.activeScope = self.module
+            
         else:
+            #modules and module like classes and all the rest (yuck...)       
             print("MODULE", e,)
             if e != "builtins":
                 filter = [self.recurseTest(n, e) for n in names if not n.startswith("_")]  
             else:  
                 filter = [n for n in names if not n.startswith("_")]
-            
-            #if isinstance(self.activeScope, Module) and self.activeScope != self.module:
-            #    act = self.activeScope.submodules
-       
             
             if e != "builtins":
                 if (self.last(e) in act):
@@ -780,20 +804,6 @@ class AutoCompleteOperator(bpy.types.Operator):
                     #if (self.last(e) in act):
                     Module.create(e, filter, self)
                        
-#        else:
-#              #declarations ? when others dont match...    
-#            if self.last(e) in act:
-#                Declaration.create(self.last(e), typ, self) #get superclasses somehow ?
-#                filter = [self.recurseTest(e, e + "." + n) for n in names if not n.startswith("_")] 
-#            else:
-#                self.activeScope = self.module
-#                act = self.list()
-#                if (self.last(e) in act):
-#                    Declaration.create(self.last(e), typ, self)
-#                filter = [n for n in names if not n.startswith("_")]
-           
-        #fake correct indentation...
-        #self.indent = self.activeScope.indent
         
         print("FILTER", filter)
         
@@ -912,7 +922,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         print("TYPENAME", typename)
         buffer = buffer[ri+1:]
         
-        if typename in self.identifiers and typename != "type":    
+        if typename in self.identifiers and typename != "type" and "bpy" not in str(ret):    
             buffer = typename + "." + buffer
             check = typename
         else:

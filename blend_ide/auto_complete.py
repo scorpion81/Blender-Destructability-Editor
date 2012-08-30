@@ -244,7 +244,7 @@ class Declaration:
         #cant support classes in unnamed scopes and functions this way (makes this sense?)
         parent = self
         pstr = self.name
-        if (parent.parent != None and isinstance(parent.parent, Class)):
+        if parent.parent != None and isinstance(parent.parent, Class):
             parent = parent.parent
             pstr = parent.name + "." + self.name
             
@@ -339,8 +339,10 @@ class Scope(Declaration):
         
         declaration.parent = self
         #declaration.indent = self.indent + 4
-        
-        if isinstance(declaration, Class):
+        #handle pseudo modules from imports somehow...
+        if isinstance(declaration, Module):
+            self.local_vars[declaration.name] = declaration
+        elif isinstance(declaration, Class):
             self.local_classes[declaration.name] = declaration
         elif isinstance(declaration, Function):
             self.local_funcs[declaration.name] = declaration
@@ -465,37 +467,32 @@ class Class(Scope):
 #list of that (imported) modules must be generated, and active module (__module__)
 class Module(Scope):
     
-    def __init__(self, name):
+    def __init__(self, name, submodules):
         super().__init__(name, "module")
         self.indent = 0
-        self.submodules = []
-        #print("PRINT", self.indent, super().indent)
-    
+        self.submodules = submodules
+       
     def declare(self, declaration):
-        if isinstance(declaration, Module):
-            self.submodules.append(declaration) # make dict ?
-        else:
-            super().declare(declaration)
+        super().declare(declaration)
     
     def __str__(self):
         return super().__str__()
     
     @staticmethod
-    def create(name, opdata):
-        m = Module(name)
+    def create(name, submodules, opdata):
+        m = Module(name, submodules)
+        
+        opdata.activeScope.declare(m)
+        
         if isinstance(opdata.activeScope, Module):
-            opdata.activeScope.declare(m)
-            m.qualify(opdata)
+            print("SCOPE", opdata.activeScope, m)
             opdata.activeScope = m
-            opdata.identifiers[m.name] = m
-            print(m.name, m)
-    
-    def copyContent(self, target):
-        super().copyContent(target)
-        target.submodules = self.submodules
+        #    m.qualify(opdata)
+        opdata.identifiers[m.name] = m
+        print(m.name, m)
     
     def copy(self):
-        m = Module(self.name)
+        m = Module(self.name, self.submodules)
         m.indent = self.indent
         m.parent = self.parent
         self.copyContent(m)
@@ -640,25 +637,58 @@ class AutoCompleteOperator(bpy.types.Operator):
     
     def list(self):
         try:
-            if self.activeScope != self.module:
-                act = dir(eval(self.activeScope.name))
-            else:
-                act = dir(builtins)
-            return act
-        except NameError as ex:
+            print("ACTIVESCOPE", self.activeScope)
+            return dir(eval(self.activeScope.name))
+        except Exception as ex:
             print(ex)
-            return None
-        except AttributeError as ex:
-            print(ex)
-            return None
-        
+            return dir(builtins)
     
-    def parseModule(self, e):
+    def recurseTest(self, a, b):
+             
+        ret1 = None
+        ret2 = None
+        try:
+            ret1 = type(eval(b)).__name__
+            
+        except Exception as ex:
+            print(ex)
+        
+        if ret1 == None:
+            return a
+        
+        try:
+            ret2 = type(eval(b + "." + a)).__name__
+                
+        except Exception as ex:
+            print(ex)
+            
+        
+        if ret2 == None:
+            return a
+        
+        if ret1 == "type" and ret2 == "type":
+            if a == b:
+                return a
+            return b + "." + a
+        
+        if ret1 == ret2:
+            return a
+        
+        if "." in b:
+            ind = b.rindex(".")
+            l = b[ind+1:]
+            b = b[:ind]
+            return self.recurseTest(l + "." + a, b)
+        
+        return b + "." + a     
+            
+    
+    def parseModule(self, e, recursive):
         
         #ignore indents completely here 
         self.indent = 0
         self.activeScope.indent = 0
-      #  self.trackScope()
+      #  self.trackScope(
              
         try:
             ret = eval(e)
@@ -672,32 +702,26 @@ class AutoCompleteOperator(bpy.types.Operator):
             #self.indent = 0
             return
         
+        print(e)
         typ = type(ret).__name__
         print("TYPE", typ)
         names = dir(ret)
         act = self.list()
-        #print("ACT", act, self.last(e))
+       # print("ACT", act, self.last(e))
         
         if act == None:
             return
         
-        #unknown member types ??? or of same type as class ?
-        if ("member" in typ):
-            print("MEMBER", e)
-            if self.last(e) in act:
-                Declaration.create(self.last(e), "member", self) #get paramlist length and elems/types ?
-            else:
-                self.activeScope = self.module
-                act = self.list()
-                if self.last(e) in act:
-                    Declaration.create(self.last(e), "member", self)
-                 
-            filter = [n for n in names if not n.startswith("_")]
-          
-            if self.activeScope == None:
-                self.activeScope = self.module
+#        print("MODL", e)
+#        if hasattr(ret, "__module__"):
+#            print("MODL2", ret.__module__)    
+#            if ret.__module__ == "auto_complete":
+#                return
+               
+        #filter = []
         
-        elif ("function" in typ or "method" in typ):
+        if ("function" in typ or "method" in typ):
+            print("FUNCTION", e)
             if self.last(e) in act:
                 Function.create(self.last(e), [], self) #get paramlist length and elems/types ?
             else:
@@ -711,39 +735,71 @@ class AutoCompleteOperator(bpy.types.Operator):
             self.activeScope = self.activeScope.parent
             if self.activeScope == None:
                 self.activeScope = self.module
-             
-        elif ("class" in typ or "type" == typ or "bool" == typ or "list" == typ):
-            #special cases
-            if "bool" == typ or "list" == typ:
-                e = typ
-                
-            if (self.last(e) in act):
+                     
+        elif "type" == typ:
+            
+            if self.last(e) in act:
+                print("CLASS", e)
                 Class.create(self.last(e), [], self) #get superclasses somehow ?  
             else:
+                print("CLASS2", e)
                 self.activeScope = self.module
                 act = self.list()
                 if (self.last(e) in act):
-                    Class.create(self.last(e), [], self)
-                          
-            filter = [e + "." + n for n in names if not n.startswith("_")]
+                    Class.create(self.last(e), [], self) 
                 
+            filter = [self.recurseTest(n,e) for n in names if not n.startswith("_")]
+                
+        #modules and module like classes (yuck...)        
         else:
-            self.activeScope = self.module
-            filter = [n for n in names if not n.startswith("_")]
-        
+            print("MODULE", e,)
+            if e != "builtins":
+                filter = [self.recurseTest(n, e) for n in names if not n.startswith("_")]  
+            else:  
+                filter = [n for n in names if not n.startswith("_")]
+            
+            #if isinstance(self.activeScope, Module) and self.activeScope != self.module:
+            #    act = self.activeScope.submodules
+       
+            print("MODULE2", e)
+            if e != "builtins":
+                if (self.last(e) in act):
+                    Module.create(e, filter, self)
+                       
+                else:
+                    self.activeScope = self.module
+                    #act = self.list()
+                    #if (self.last(e) in act):
+                    Module.create(e, filter, self)
+                       
+#        else:
+#              #declarations ? when others dont match...    
+#            if self.last(e) in act:
+#                Declaration.create(self.last(e), typ, self) #get superclasses somehow ?
+#                filter = [self.recurseTest(e, e + "." + n) for n in names if not n.startswith("_")] 
+#            else:
+#                self.activeScope = self.module
+#                act = self.list()
+#                if (self.last(e) in act):
+#                    Declaration.create(self.last(e), typ, self)
+#                filter = [n for n in names if not n.startswith("_")]
+           
         #fake correct indentation...
         #self.indent = self.activeScope.indent
-          
-        for f in filter:
-            self.parseModule(f)  
+        
+        print("FILTER", filter)
+        
+        if recursive:
+            for f in filter:
+                self.parseModule(f, recursive)  
             
     def parseCode(self, codetxt):
         
         try:
             
             self.identifiers = dict(self.builtinId)
-            self.module = self.builtins.copy() 
             self.activeScope = self.module
+            self.module = self.builtins.copy() 
                             
             for l in codetxt.lines:
                 self.parseLine(l.body)
@@ -816,7 +872,17 @@ class AutoCompleteOperator(bpy.types.Operator):
                 name, params = self.parseFunction(line)
             
             Class.create(name, params, self)
-            
+        
+        elif line.startswith("import"):# or line.startswith("from"): for alias only, declaring a module variable
+            modname = line.split("import")[1].strip()
+            print("MODNAME", modname, self.identifiers.keys())
+            if modname not in self.identifiers:
+                self.parseModule(modname, False)
+            #print(self.identifiers)    
+            self.builtinId = self.identifiers
+            self.builtins = self.module
+            self.activeScope = self.module
+                
         elif line.endswith(":"):
             Scope.create(self)
     
@@ -836,16 +902,19 @@ class AutoCompleteOperator(bpy.types.Operator):
         print("TYPENAME", typename)
         buffer = buffer[ri+1:]
         
-        if typename == "type":
-            buffer = dotted + "." + buffer
-            check = dotted
-        else:    
+        if typename in self.identifiers and typename != "type":    
             buffer = typename + "." + buffer
             check = typename
+        else:
+            buffer = dotted + "." + buffer
+            check = dotted
             
         print("BUF", buffer)
         for val in self.identifiers.values():
-            if isinstance(val, Scope) and val.name == check:
+            if isinstance(val, Module) and val.name == check:
+                self.activeScope = val
+                break
+            elif isinstance(val, Scope) and val.name == check:
                 self.activeScope = val
                 break
             elif isinstance(val, Declaration) and val.name == check:
@@ -881,8 +950,16 @@ class AutoCompleteOperator(bpy.types.Operator):
         print("TESTSCOPE", self.activeScope.name, declaration.name)
         
         if self.activeScope != None:
+            if isinstance(self.activeScope, Module):
+                print("MKEYS", self.activeScope.submodules)
+                name = declaration.name
+                return name in self.activeScope.local_funcs or \
+                       name in self.activeScope.local_vars or \
+                       name in self.activeScope.local_classes or \
+                       name in self.activeScope.submodules
+                       
             if isinstance(self.activeScope, Scope):
-                print("KEYS", self.activeScope.local_vars.keys())
+                print("KEYS", self.activeScope.local_vars.keys(), declaration.name)
                 name = self.last(declaration.name)
                 return name in self.activeScope.local_funcs or \
                        name in self.activeScope.local_vars or \
@@ -967,6 +1044,20 @@ class AutoCompleteOperator(bpy.types.Operator):
             #    words = [it for it in lastWords if it.startswith(bpy.context.edit_text.buffer)]
             #else:
             lastWords = self.identifiers
+            
+            found1 = False
+            for k in self.identifiers.keys():
+                if k.startswith(buffer):
+                    found1 = True
+                    break 
+                
+            found2 = False
+            for k in self.builtinId.keys():
+                if k.startswith(buffer):
+                    found2 = True
+                    break     
+                   
+            print("LOOKUP", found1, found2)
             words = [self.last(it[0]) for it in lastWords.items() if it[0].startswith(buffer) and \
                     (it[1] == 'keyword' or self.testIndent(it[1])) and it[0] != buffer]
         else:
@@ -984,7 +1075,7 @@ class AutoCompleteOperator(bpy.types.Operator):
 #        self.indent = l1-l2
 #        self.trackScope()
     
-    def last(self, buffer):
+    def last(self, buffer): 
         if "." in buffer:
             index = buffer.rindex(".")
             return buffer[index+1:]
@@ -1005,22 +1096,34 @@ class AutoCompleteOperator(bpy.types.Operator):
             buffer = self.parseDotted(buffer)
             print("BUFR2", buffer)
         
-        if buffer in self.identifiers:
+        
+        print("BUFFR2", buffer)
+        if buffer in self.identifiers:  
             cl = self.identifiers[buffer]
-            if isinstance(cl, Class):
+            if isinstance(cl, Module):
+                [words.append(self.last(v)) for v in cl.submodules]
+                
+                #parse on demand, recursive is too long
+                [self.parseModule(v, False) for v in cl.submodules if not v in self.identifiers]
+                self.builtins = self.module
+                self.builtinId = self.identifiers
+                self.activeScope = self.module
+                
+                [words.append(self.last(v)) for v in cl.local_vars]
+                [words.append(self.last(v)) for v in cl.local_funcs]
+                [words.append(self.last(v)) for v in cl.local_classes]
+            elif isinstance(cl, Class):
                 [words.append(self.last(v)) for v in cl.local_vars]
                 [words.append(self.last(v)) for v in cl.local_funcs]
                 [words.append(self.last(v)) for v in cl.local_classes]
             elif isinstance(cl, Declaration):
                 typ = cl.type
                 cl = self.identifiers[typ]
-                [words.append(self.last(v)) for v in cl.local_vars]
+                [words.append(self.last(v)) for v in cl.local_vars] #pseudo modules appear here
                 [words.append(self.last(v)) for v in cl.local_funcs]
                 [words.append(self.last(v)) for v in cl.local_classes]
-                    
-        #bpy.context.edit_text.buffer = ""
-        #self.buflist = [] 
-        
+            
+          
         print("MEMBERZ", words)           
         return words   
                     
@@ -1216,7 +1319,7 @@ class AutoCompleteOperator(bpy.types.Operator):
     def invoke(self, context, event):
         
         text = context.edit_text
-        self.module = Module(text.name.split(".")[0]) #better: filepath, if external
+        self.module = Module(text.name.split(".")[0], []) #better: filepath, if external
         print(self.module.name, self.module.indent)
         self.activeScope = self.module
         self.globals = globals()
@@ -1235,14 +1338,18 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.caret_x = 0
         self.caret_y = 0
         
-        self.globals['__builtins__'] = builtins
+       # self.globals['__builtins__'] = builtins
         try:
-            self.parseModule("builtins")
+            self.parseModule("builtins", True)
             self.builtins = self.module
             self.builtinId = self.identifiers
+           # print(self.identifiers.keys())
+          #  print(globals())
+        #    print(dir(builtins))
+           
         except Exception as e:
             print("Exception(parseModule)", e)
-            #raise
+            raise
             
         #do not automatically parse own code (throws registration errors)
         print("autocompleter started...")
@@ -1251,8 +1358,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         self._handle = context.region.callback_add(self.draw_popup_callback_px, (context,), 'POST_PIXEL')
    
         if text.name != "auto_complete.py": 
-            return self.parseCode(text)
-         
+            return self.parseCode(text) 
         return {'RUNNING_MODAL'}
 
 class AutoCompletePanel(bpy.types.Panel):

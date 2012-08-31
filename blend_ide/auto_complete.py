@@ -127,6 +127,7 @@ class Menu:
     highlighted = ""
     shift = int(margin / 2)
     index = -1
+    wrapCount = 30
     
     def __init__(self, items):
         self.items = items
@@ -173,21 +174,29 @@ class Menu:
         #store rect of each item    
         if len(self.itemRects) == 0:
             self.max = 0
-            i = 0
+           
             for it in self.items:
                 if len(it) > self.max:
                     self.max = len(it)
             
             width = self.max * self.width
             
+            #i = 0
+            j = 0
             for it in self.items:
-                rect_x = x - self.margin
-                rect_y = y - i * (self.height + self.margin) 
+                rx = 0
+                j = self.items.index(it) + 1
+                while j > self.wrapCount:
+                    j -= self.wrapCount
+                    rx += (width + self.margin)
+                    
+                rect_x = x + rx - self.margin
+                rect_y = y - j * (self.height + self.margin) 
                      
                 self.itemRects[it] = (rect_x, rect_y, 
-                                      rect_x + width + 2*self.margin, 
+                                      rect_x + width + self.margin, 
                                       rect_y + self.height + self.margin)
-                i += 1
+                #i += 1
             
         self.open(self.pos_x, self.pos_y)     
     
@@ -200,8 +209,20 @@ class Menu:
         
         #menu background
         bgl.glColor4f(self.color[0], self.color[1], self.color[2], self.color[3])
-        bgl.glRecti(x - self.margin, y - (self.height + self.margin) * (len(self.items)-1) - self.margin , 
-                    x + width + self.margin, y + self.height + self.margin - self.shift)
+        
+        
+        items = len(self.items)
+        rects = int(items / self.wrapCount) + 1
+        for i in range(0, rects):
+            
+            d = items/self.wrapCount
+            if d > 1:
+                d = 1
+            h = int(d * self.wrapCount)   
+            bgl.glRecti(x + i * (width + self.margin) - self.margin, y - (self.height + self.margin) * h - self.margin , 
+                    x + (i+1) *(width + self.margin), y  - self.shift) #+ self.height + self.margin)
+            if items > self.wrapCount:
+                items -= self.wrapCount
         
         if self.highlighted != "":
             ir = self.itemRects[self.highlighted]    
@@ -657,8 +678,11 @@ class AutoCompleteOperator(bpy.types.Operator):
             print(ex)
             return dir(builtins)
     
-    def recurseTest(self, a, b):
-             
+    def recurseTest(self, a, b, r):
+        
+        if not r:
+            return b + "." + a 
+            
         ret1 = None
         ret2 = None
         try:
@@ -692,7 +716,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             ind = b.rindex(".")
             l = b[ind+1:]
             b = b[:ind]
-            return self.recurseTest(l + "." + a, b)
+            return self.recurseTest(l + "." + a, b, r)
         
         return b + "." + a     
             
@@ -762,9 +786,10 @@ class AutoCompleteOperator(bpy.types.Operator):
                 act = self.list()
                 if (self.last(e) in act):
                     Class.create(self.last(e), [], self) 
-                
-            filter = [self.recurseTest(n,e) for n in names if not n.startswith("_")]
-        
+            
+            #recursive = True    
+            filter = [self.recurseTest(n,e, recursive) for n in names if not n.startswith("_")]
+            
         elif str(self.activeScope.name + "." + typ) in self.identifiers and "bpy" not in str(ret):        
             #known types  
             
@@ -788,7 +813,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             #modules and module like classes and all the rest (yuck...)       
             print("MODULE", e,)
             if e != "builtins":
-                filter = [self.recurseTest(n, e) for n in names if not n.startswith("_")]  
+                filter = [self.recurseTest(n, e, recursive) for n in names if not n.startswith("_")]  
             else:  
                 filter = [n for n in names if not n.startswith("_")]
             
@@ -802,6 +827,11 @@ class AutoCompleteOperator(bpy.types.Operator):
                     self.activeScope = self.module
                     #act = self.list()
                     #if (self.last(e) in act):
+                    
+                   # self.activeScope = self.activeScope.parent
+                    #if self.activeScope == None:
+                    #    self.activeScope = self.module
+                    
                     Module.create(e, filter, self)
                        
         
@@ -921,6 +951,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         typename = type(ret).__name__
         print("TYPENAME", typename)
         buffer = buffer[ri+1:]
+        #tmpBuf = buffer
         
         if typename in self.identifiers and typename != "type" and "bpy" not in str(ret):    
             buffer = typename + "." + buffer
@@ -970,7 +1001,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         print("TESTSCOPE", self.activeScope.name, declaration.name)
         
         if self.activeScope != None:
-            if isinstance(self.activeScope, Module):
+            if isinstance(self.activeScope, Module) and self.activeScope.name != self.module.name:
                 print("MKEYS", self.activeScope.submodules)
                 name = declaration.name
                 return name in self.activeScope.local_funcs or \
@@ -980,11 +1011,14 @@ class AutoCompleteOperator(bpy.types.Operator):
                        
             elif isinstance(self.activeScope, Scope):
                 print("KEYS", self.activeScope.local_vars.keys(), declaration.name)
-                name = self.last(declaration.name)
+                #print(self.module.name)
+                #name = self.last(declaration.name)
+                name = declaration.name
                 return name in self.activeScope.local_funcs or \
                        name in self.activeScope.local_vars or \
                        name in self.activeScope.local_classes
             else:
+                #print(self.module.name)
                 return True
         else:
             return False    
@@ -994,12 +1028,23 @@ class AutoCompleteOperator(bpy.types.Operator):
         if isinstance(declaration, Function) or isinstance(declaration, Class) or \
         isinstance(declaration, Scope):
             print("TESTINDENT", self.indent, declaration.indent)
-            return self.indent >= (declaration.indent - 4) and self.testScope(declaration)# the "outer" indent
+            t = self.testScope(declaration)
+            print(t, declaration.name)
+            return self.indent >= (declaration.indent - 4) and t # the "outer" indent
         elif isinstance(declaration, Declaration): 
-            print("TESTINDENT", self.indent, declaration.indent)   
-            return self.indent >= declaration.indent and self.testScope(declaration)
+            print("TESTINDENT", self.indent, declaration.indent)
+            t = self.testScope(declaration)
+            print(t, declaration.name)   
+            return self.indent >= declaration.indent and t
         else:
             return False
+        
+#    def testModule(self, buffer, item):
+#        if isinstance(item, Scope) and self.module.name != item.name:
+#            print("SC", item.name, buffer)
+#            return item.name in buffer
+#        #return item.name.startswith(buffer)
+#        return True
                     
     def lookupIdentifier(self, lastWords = None):
         
@@ -1078,8 +1123,8 @@ class AutoCompleteOperator(bpy.types.Operator):
                     break     
                    
             print("LOOKUP", found1, found2)
-            words = [self.last(it[0]) for it in lastWords.items() if it[0].startswith(buffer) and \
-                    (it[1] == 'keyword' or self.testIndent(it[1])) and it[0] != buffer]
+            words = [self.last(it[0], buffer) for it in lastWords.items() if it[0].startswith(buffer) and \
+                    (it[1] == 'keyword' or self.testIndent(it[1])) and it[0] != buffer and self.last(it[0], buffer) != None]
         else:
             #print("OKKK")
             #words = [it for it in lastWords if it.startswith(bpy.context.edit_text.buffer)]
@@ -1095,11 +1140,15 @@ class AutoCompleteOperator(bpy.types.Operator):
 #        self.indent = l1-l2
 #        self.trackScope()
     
-    def last(self, buffer): 
-        if "." in buffer:
-            index = buffer.rindex(".")
-            return buffer[index+1:]
-        return buffer
+    def last(self, item, buffer = None): 
+        if "." in item:
+            index = item.rindex(".")
+            item = item[index+1:]
+            if buffer != None:
+                if buffer.startswith(self.activeScope.name):
+                    return item #invalid choice e.g. b -> bpy.app.background instead of bpy only
+                return None
+        return item
         
     def lookupMembers(self):
         words = []
@@ -1116,12 +1165,14 @@ class AutoCompleteOperator(bpy.types.Operator):
             buffer = self.parseDotted(buffer)
             print("BUFR2", buffer)
         
+#        if self.activeScope.name not in self.identifiers and self.activeScope != self.module:
+#            self.parseModule(self.activeScope.name, False)
         
         print("BUFFR2", buffer)
         if buffer in self.identifiers:  
             cl = self.identifiers[buffer]
             if isinstance(cl, Module):
-                [words.append(self.last(v)) for v in cl.submodules]
+                [words.append(self.last(v)) for v in cl.submodules if self.last(v) != None]
                 
                 #parse on demand, recursive is too long
                 [self.parseModule(v, False) for v in cl.submodules if not v in self.identifiers]
@@ -1129,19 +1180,19 @@ class AutoCompleteOperator(bpy.types.Operator):
                 self.builtinId = self.identifiers
                 self.activeScope = self.module
                 
-                [words.append(self.last(v)) for v in cl.local_vars]
-                [words.append(self.last(v)) for v in cl.local_funcs]
-                [words.append(self.last(v)) for v in cl.local_classes]
+                [words.append(self.last(v)) for v in cl.local_vars if self.last(v) != None]
+                [words.append(self.last(v)) for v in cl.local_funcs if self.last(v) != None]
+                [words.append(self.last(v)) for v in cl.local_classes if self.last(v) != None]
             elif isinstance(cl, Class):
-                [words.append(self.last(v)) for v in cl.local_vars]
-                [words.append(self.last(v)) for v in cl.local_funcs]
-                [words.append(self.last(v)) for v in cl.local_classes]
+                [words.append(self.last(v)) for v in cl.local_vars if self.last(v) != None]
+                [words.append(self.last(v)) for v in cl.local_funcs if self.last(v) != None]
+                [words.append(self.last(v)) for v in cl.local_classes if self.last(v) != None]
             elif isinstance(cl, Declaration):
                 typ = cl.type
                 cl = self.identifiers[typ]
-                [words.append(self.last(v)) for v in cl.local_vars] #pseudo modules appear here
-                [words.append(self.last(v)) for v in cl.local_funcs]
-                [words.append(self.last(v)) for v in cl.local_classes]
+                [words.append(self.last(v)) for v in cl.local_vars if self.last(v) != None] #pseudo modules appear here
+                [words.append(self.last(v)) for v in cl.local_funcs if self.last(v) != None]
+                [words.append(self.last(v)) for v in cl.local_classes if self.last(v) != None]
             
           
         print("MEMBERZ", words)           
@@ -1242,6 +1293,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 
                 print("ASSIGN")
                 context.edit_text.buffer += event.unicode 
+                self.lookupIdentifier(self.lookupMembers())
                 lhs, rhs = self.parseDeclaration(context.edit_text.buffer)
                 self.lhs = lhs
                # context.edit_text.buffer = ""

@@ -1,96 +1,99 @@
-# simple autocomplete:
-#
-# 1) run this file via runscript
-# 
-# 2) type code in another empty text
-# 
-# 3) try declaring variables, classes, functions
-#
-# 4) during typing, if you retype parts of known identifiers, a popup should open
-#
-# 5) choose option and it will be inserted into text
-#
-# 6) after object variables, enter . and member popup should open
-# 
-# 7) its all very alpha, in case of error: rerun auto_complete.py and in text to edited, 
-#    press SHIFT+CTRL to load existing code and create autocomplete datastructures
+"""\
+simple autocomplete:
 
-#TODO 
-#     make addon out of this (done)
+1) run this file via runscript
+2) type code in another empty text
+3) try declaring variables, classes, functions
+4) during typing, if you retype parts of known identifiers, a popup should open
+5) choose option and it will be inserted into text
+6) after object variables, enter . and member popup should open
+7) its all very alpha, in case of error: rerun auto_complete.py and in text to 
+   edited, press SHIFT+CTRL to load existing code and create autocomplete 
+   datastructures
 
-#     integrate nicely: create datastructures automatically (on text open), enable/disable via checkbox (maybe
-#     then load datastructures), end modal operator with other operator/gui event ? (partially done)
+TODO: [x] = done, [-] = partially done, [ ] = not done
 
-#     make menu disappear when i continue typing (change focus) (done)
+[x] make addon out of this
+[-] ntegrate nicely: create datastructures automatically (on text open), 
+    enable/disable via checkbox (maybe then load datastructures), end modal 
+    operator with other operator/gui event ?
+[x] make menu disappear when i continue typing (change focus)
+[-] correctly replace previously typed text by suggestion
+[x] handle class member display correctly after pushing "PERIOD"
+[ ] categorize items: Class, Function, Variable at least
+[-] handle imports, fill datastructure with all imported scopes (classes, 
+    functions, modules and vars visible, local vars relevant for own code only -
+    need to parse imports AND importable stuff (module handling, parse dir for 
+    that ?), importable as new datastructure
+    
+[-] test unnamed scopes, maybe do not store them (unnecessary, maybe active 
+    scope only? for indentation bookkeeping) (partially done)
+[x] make autocomplete info persisent, maybe pickle it, so it can be re-applied 
+    to the file (watch versions, if file has been changed (not necessary, will 
+    be parsed in dynamically, but maybe for big files ?)
+[x] externally, continue using or discard or rebuild(!) by parsing the existing 
+    code,  automate this 
+[-] fix buffer behavior, must be cleared correctly, some state errors still
+[x] substitute operator, or function in autocomplete ? buffer is in op, hmm, 
+    shared between ops or via text.buffer stringprop delete buffer content from 
+    text(select word, cut selected ?) and buffer itself and replace buffer 
+    content and insert into text
 
-#     correctly replace previously typed text by suggestion (partially done)
+[ ] make new lookups on smaller buffers, on each time on initial buffer
+[ ] if any keyword before variable, same line, do not accept declaration with = 
+    (would be wrong in python at all) are those keyword scopes ?, no unnamed... 
+    and type = scope
+[x] parse existing code line by line after loading(all) or backspace (current 
+    line) (done, check state machine)
+[ ] BIG todo: make usable for any type of text / code   
+[x] parseLine benutzen dort wird der indent gemessen! evtl bei parseIdentifier 
+    keinen buffer benutzen sondern die Zeile buffer nur fuer den Lookup benutzen !!
+    auch nicht indent auf -1 setzen und dann current char ermitteln.
+[ ] scope parsing: check for \ as last char in previous lines, if there, prepend
+    it to buffer !!! substitution, preserve whitespaces before inserted text 
 
-#     handle class member display correctly after pushing "PERIOD" (done)
+[ ] scope, special cases: 
+    - higher class, function(?) names not usable as lhs! only rhs 
+    (usable both!)
+    - higher declaration: if isinstance(parent, Class) prepend self in choice ! 
+    (or check for it)
+    - or if startswith(__) static vars, usable with className only 
+    (check both lhs and rhs)
 
-#     categorize items: Class, Function, Variable at least
+[ ] evaluate self, and dotted stuff, or simply create entry for it ?, dot -> 
+    if available, find object
+[ ] exclude those entries from suggestions, which match completely with the 
+    buffer entry. watch for comma separated assignments, those are multiple 
+    identifiers, which need to be assigned separately !!
 
-#     handle imports, fill datastructure with all imported scopes (classes, functions, modules and vars visible, local vars relevant 
-#     for own code only - need to parse imports AND importable stuff (module handling, parse dir for that ?), importable as new
-#     datastructure (partially done)
+[ ] if only one matching entry in autocomplete suggestions, then substitute 
+    automatically !! 
+[-] first restore menu functionality  with self drawn menu!!
+[ ] lookup with dots, commas: always get the last element in sequence only after
+    detecting . or , (when typing) when parsing, evaluate dotted or take last 
+    part always (or leave it as is ?) and with comma watch whether ret type 
+    count types match and assign one after other
 
-#     test unnamed scopes, maybe do not store them (unnecessary, maybe active scope only? for indentation bookkeeping) (partially done)
+[ ] take special care with lambdas, generators, list comps.? or  eval them
 
-#     make autocomplete info persisent, maybe pickle it, so it can be re-applied to the file (watch versions, 
-#     if file has been changed (not necessary, will be parsed in dynamically, but maybe for big files ?) (*done*)
+[ ] parenthesis: open parameter sequences in menu, and close sucessively entered
+    params (highlight them separately, do similar with brackets ([]), eval 
+    indexing or show possible keys (dicts) or range of indexes (list)
 
-#     externally, continue using or discard or rebuild(!) by parsing the existing code,  automate this (done)
+[ ] caution with re-setting/deleting(!!) variables, exec / eval must re-parse 
+    the variables too, and delete identifier list before
 
-#     fix buffer behavior, must be cleared correctly, some state errors still (partially done)
+[ ] manage fully qualified variable names internally, but cut all off whats 
+    already before the last dot do not let fully qualified names pop up, prepend 
+    dotted types in internal rep, and at lookup check activeScope.type as well, 
+    if . occurs
 
-#     substitute operator, or function in autocomplete ? buffer is in op, hmm, shared between ops or via text.buffer stringprop
-#     delete buffer content from text(select word, cut selected ?) and buffer itself and replace buffer content and insert into 
-#     text (done)
+[ ] if name xyz is a known class name (or part of), do not look for type, use 
+    class name itself.
 
-#     make new lookups on smaller buffers, on each time on initial buffer
-
-#     if any keyword before variable, same line, do not accept declaration with = (would be wrong in python at all)
-#     hmm are those keyword scopes ?, no unnamed... and type = scope
-
-#     parse existing code line by line after loading(all) or backspace (current line) (done, check state machine)
-
-#    BIG todo: make usable for any type of text / code   
-
-#    parseLine benutzen dort wird der indent gemessen! evtl bei parseIdentifier keinen buffer benutzen sondern die Zeile
-#    buffer nur fuer den Lookup benutzen !! auch nicht indent auf -1 setzen und dann current char ermitteln... (done)
- 
-#    scope parsing: check for \ as last char in previous lines, if there, prepend it to buffer !!!
-#    substitution, preserve whitespaces before inserted text 
-
-#    scope, special cases: higher class, function(?) names not usable as lhs ! only rhs (its usable both!)
-#                          higher declaration: if isinstance(parent, Class) prepend self in choice ! (or check for it)
-#                          or if startswith(__) static vars, usable with className only (check it, both lhs and rhs)
-#    evaluate self, and dotted stuff, or simply create entry for it ?, dot -> if available, find object
-
-#    exclude those entries from suggestions, which match completely with the buffer entry. 
-#    watch for comma separated assignments, those are multiple identifiers, which need to be assigned separately !!
-
-#    if only one matching entry in autocomplete suggestions, then substitute automatically !!
-#    first restore menu functionality  with self drawn menu!! (done)  
-#    lookup with dots, commas: always get the last element in sequence only after detecting . or , (when typing)
-#    when parsing, evaluate dotted or take last part always (or leave it as is ?) and with comma watch whether ret type count
-#    types match and assign one after other
-
-#    take special care with lambdas, generators, list comprehensions ? or simply eval them
-
-#    parenthesis: open parameter sequences in menu, and close sucessively entered params (highlight them separately,
-#    do similar with brackets ([]), eval indexing or show possible keys (dicts) or range of indexes (list)
-
-#    caution with re-setting/deleting(!!) variables, exec / eval must re-parse the variables too, and delete identifier
-#    list before
-
-#    manage fully qualified variable names internally, but cut all off whats already before the last dot
-#    do not let fully qualified names pop up, prepend dotted types in internal rep, and at lookup check 
-#    activeScope.type as well, if . occurs
-
-#    if name xyz is a known class name (or part of), do not look for type, use class name itself.
-
-#    if compile returns None, this means something went wrong. Maybe the code string isnt correctly assembled.
-
+[ ] if compile returns None, this means something went wrong. Maybe the code 
+    string isnt correctly assembled.
+"""
 
 bl_info = {
     "name": "Python Editor Autocomplete",
@@ -209,7 +212,7 @@ class Menu:
         width = self.max * self.width        
         
         #menu background
-        bgl.glColor4f(self.color[0], self.color[1], self.color[2], self.color[3])
+        bgl.glColor4f(*self.color)
         
         
         items = len(self.items)
@@ -227,12 +230,12 @@ class Menu:
         
         if self.highlighted != "":
             ir = self.itemRects[self.highlighted]    
-            bgl.glColor4f(self.hColor[0], self.hColor[1], self.hColor[2], self.hColor[3])
+            bgl.glColor4f(*self.hColor)
             bgl.glRecti(ir[0], ir[1] - self.shift, ir[2], ir[3] - 2 * self.shift)
             #bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
         
         font_id = 0  # XXX, need to find out how best to get this.        
-        bgl.glColor4f(self.textColor[0], self.textColor[1], self.textColor[2], self.textColor[3])
+        bgl.glColor4f(*self.textColor)
         
         for it in self.items:
             rect = self.itemRects[it]

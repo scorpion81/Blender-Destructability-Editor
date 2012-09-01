@@ -1,15 +1,16 @@
 """\
 simple autocomplete:
 
-1) run this file via runscript
+1) activate addon and press Enable in Autocomplete tab or run this file via 
+   runscript
 2) type code in another empty text
 3) try declaring variables, classes, functions
 4) during typing, if you retype parts of known identifiers, a popup should open
 5) choose option and it will be inserted into text
 6) after object variables, enter . and member popup should open
-7) its all very alpha, in case of error: rerun auto_complete.py and in text to 
-   edited, press SHIFT+CTRL to load existing code and create autocomplete 
-   datastructures
+7) its all very alpha, in case of error: try pressing ENTER on an empty line or 
+   press ESC and Enable again (in target file) 
+   to load existing code and create autocomplete datastructures
 
 TODO: [x] = done, [-] = partially done, [ ] = not done
 
@@ -18,7 +19,7 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
     enable/disable via checkbox (maybe then load datastructures), end modal 
     operator with other operator/gui event ?
 [x] make menu disappear when i continue typing (change focus)
-[-] correctly replace previously typed text by suggestion
+[x] correctly replace previously typed text by suggestion
 [x] handle class member display correctly after pushing "PERIOD"
 [ ] categorize items: Class, Function, Variable at least
 [-] handle imports, fill datastructure with all imported scopes (classes, 
@@ -68,7 +69,7 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
 
 [ ] if only one matching entry in autocomplete suggestions, then substitute 
     automatically !! 
-[-] first restore menu functionality  with self drawn menu!!
+[x] first restore menu functionality  with self drawn menu!!
 [-] lookup with dots, commas: always get the last element in sequence only after
     detecting . or , (when typing) when parsing, evaluate dotted or take last 
     part always (or leave it as is ?) and with comma watch whether ret type 
@@ -93,6 +94,9 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
 
 [x] if compile returns None, this means something went wrong. Maybe the code 
     string isnt correctly assembled.
+    
+[ ] add support for non-accessible module bge (only accessible from game engine,
+    need offline raw data for this
 """
 
 bl_info = {
@@ -268,19 +272,23 @@ class Declaration:
     def qualify(self, opdata):
         #cant support classes in unnamed scopes and functions this way (makes this sense?)
         pstr = self.name
-        #if self.parent != None and (isinstance(self.parent, Class) or 
-        #isinstance(self, Class) and isinstance(self.parent, Module)):
-        #    pstr = self.parent.name + "." + self.name
+        if self.parent != None and (isinstance(self.parent, Class) or \
+        isinstance(self, Class) and isinstance(self.parent, Module)) and \
+        self.parent.name != opdata.module.name:
+            pstr = self.parent.name + "." + self.name
             
-        if isinstance(self, Class) and isinstance(self.parent, Class) or \
-        isinstance(self.parent, Module):
+        if ((isinstance(self, Class) and (isinstance(self.parent, Class) or isinstance(self.parent, Module))) or \
+        (isinstance(self, Module) and isinstance(self.parent, Module))):
             #add to globals
             print("PSTR", pstr)
-            ret = opdata.compile(False, pstr)
+            ret = opdata.compile(True, pstr)
             if ret == None:
                 return
             
-            p = opdata.last(pstr)
+            p = pstr
+            if isinstance(self.parent, Class):# or self.parent.name == opdata.module.name:
+                p = opdata.last(pstr)
+            
             print("Setting", p, pstr)     
             opdata.globals[p] = ret 
 #            #print(opdata.activeScope)
@@ -300,7 +308,7 @@ class Declaration:
             #name = name.split(".")[-1].strip()
         #print("2", oldscope, opdata.activeScope)
         
-        #opdata.activeScope = oldscope    
+        #opdata.activeScope = oldscope   
         v = Declaration(name, typename)
         #active module -> open file ? (important later, when treating different modules too)
         print("INDENT", opdata.indent, opdata.activeScope.indent, opdata.isValid(name), opdata.activeScope)
@@ -329,13 +337,18 @@ class Declaration:
         
         #print("LOCALS", l)
         
-        if ret == None and typename != "member":
+        if ret == None:# and typename != "member":
             return 
         
-        if typename != "member":      
-            typ = type(ret).__name__
-        else:
-            typ = typename
+    #    if typename != "member":      
+        typ = type(ret).__name__
+        builtin = dir(builtins)
+        if typ not in builtin:
+            if "(" in typename:
+                typ = typename.split("(")[0]
+            else:
+                typ = typename
+                
         print("TYPE", typ)
         
         if typ == "tuple" and isinstance(name, list):
@@ -472,9 +485,9 @@ class Function(Scope):
  
 class Class(Scope):
         
-    def __init__(self, name, superclasses):
+    def __init__(self, name, to_parse):
         super().__init__(name, "class")
-        self.superclasses = superclasses
+        self.to_parse = to_parse
     
     def declare(self, declaration):
         super().declare(declaration)
@@ -483,8 +496,8 @@ class Class(Scope):
         return super().__str__()
     
     @staticmethod
-    def create(name, superclasses, opdata):
-        c = Class(name, superclasses)
+    def create(name, to_parse, opdata):
+        c = Class(name, to_parse)
         if opdata.indent >= opdata.activeScope.indent and opdata.isValid(name):
             print("SCOPE", opdata.activeScope)
             opdata.activeScope.declare(c)
@@ -496,7 +509,7 @@ class Class(Scope):
             #[print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
     
     def copy(self):
-        c =  Class(self.name, self.superclasses)
+        c =  Class(self.name, self.to_parse)
         c.indent = self.indent
         c.parent = self.parent
         self.copyContent(c)
@@ -525,7 +538,7 @@ class Module(Scope):
         #if isinstance(opdata.activeScope, Module):
         print("SCOPE", opdata.activeScope.name, m.name)
         opdata.activeScope = m
-        #    m.qualify(opdata)
+        m.qualify(opdata)
         opdata.identifiers[m.name] = m
         print(m.name, m)
     
@@ -798,11 +811,13 @@ class AutoCompleteOperator(bpy.types.Operator):
             if self.activeScope == None:
                 self.activeScope = self.module
                      
-        elif "type" == typ:
+        elif "type" == typ and not "bpy" in e:
+            
+            filter = [self.recurseTest(n,e, recursive) for n in names if not n.startswith("_")]
             
             if self.last(e) in act:
                 print("CLASS", e)
-                Class.create(self.last(e), [], self) #get superclasses somehow ?  
+                Class.create(e, filter, self) #get superclasses somehow ?  
             else:
                 print("CLASS2", e)
                 #self.activeScope = self.module
@@ -812,17 +827,17 @@ class AutoCompleteOperator(bpy.types.Operator):
                     act = self.list()
                     #print("ACT(C)", act, self.activeScope.name, e)
                     if (self.last(e) in act):
-                        Class.create(self.last(e), [], self)
+                        Class.create(e, filter, self)
                         break 
                     
                     self.activeScope = self.activeScope.parent
                     if self.activeScope == None:
                         self.activeScope = self.module
-                        Class.create(e, [], self)
+                        Class.create(e, filter, self)
                         break
             
             #recursive = True    
-            filter = [self.recurseTest(n,e, recursive) for n in names if not n.startswith("_")]
+            #filter = [self.recurseTest(n,e, recursive) for n in names if not n.startswith("_")]
             
         elif (str(self.activeScope.name + "." + typ) in self.identifiers and "RNA" not in typ and \
         "bpy" not in str(ret) and "bpy" not in typ):#  or "descriptor" in typ:     
@@ -845,9 +860,13 @@ class AutoCompleteOperator(bpy.types.Operator):
          #       self.activeScope = self.module
             
         else:
+            
             #modules and module like classes and all the rest (yuck...)       
             print("MODULE", e,)
             if e != "builtins":
+                #if not isinstance(self.activeScope, Module):
+                #    filter = []
+                #else:
                 filter = [self.recurseTest(n, e, recursive) for n in names if not n.startswith("_")]  
             else:  
                 filter = [n for n in names if not n.startswith("_")]
@@ -976,7 +995,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             modname = line.split("import")[1].strip()
             print("MODNAME", modname)
             if modname not in self.identifiers:
-                self.parseModule(modname, modname != "bpy")
+                self.parseModule(modname, False)
             #print(self.identifiers)    
             self.builtinId = self.identifiers
             self.builtins = self.module
@@ -1001,6 +1020,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         print("TYPENAME", typename)
         buffer = buffer[ri+1:]
         #tmpBuf = buffer
+        #qual = dotted + "." + typename
         
         if typename in self.identifiers and typename != "type" and "bpy" not in str(ret) and "RNA" not in typename:    
             buffer = typename + "." + buffer
@@ -1057,12 +1077,19 @@ class AutoCompleteOperator(bpy.types.Operator):
                        name in self.activeScope.local_vars or \
                        name in self.activeScope.local_classes or \
                        name in self.activeScope.submodules
-                       
-            elif isinstance(self.activeScope, Scope):
-               # print("KEYS", self.activeScope.local_vars.keys(), declaration.name)
-                #print(self.module.name)
-                #name = self.last(declaration.name)
+            
+            elif isinstance(self.activeScope, Class):
                 name = declaration.name
+                return name in self.activeScope.local_funcs or \
+                       name in self.activeScope.local_vars or \
+                       name in self.activeScope.local_classes or \
+                       name in self.activeScope.to_parse
+                                  
+            elif isinstance(self.activeScope, Scope):
+                #print("KEYS", self.activeScope.local_vars.keys(), declaration.name)
+                #print(self.module.name)
+                name = self.last(declaration.name)
+                #name = declaration.name
                 return name in self.activeScope.local_funcs or \
                        name in self.activeScope.local_vars or \
                        name in self.activeScope.local_classes
@@ -1235,15 +1262,31 @@ class AutoCompleteOperator(bpy.types.Operator):
                 [words.append(self.last(v)) for v in cl.local_funcs if self.last(v) != None]
                 [words.append(self.last(v)) for v in cl.local_classes if self.last(v) != None]
             elif isinstance(cl, Class):
+                
+                [self.parseModule(v, False) for v in cl.to_parse if not v in self.identifiers]
+                self.builtins = self.module
+                self.builtinId = self.identifiers
+                self.activeScope = self.module
+                
                 [words.append(self.last(v)) for v in cl.local_vars if self.last(v) != None]
                 [words.append(self.last(v)) for v in cl.local_funcs if self.last(v) != None]
                 [words.append(self.last(v)) for v in cl.local_classes if self.last(v) != None]
+                
             elif isinstance(cl, Declaration):
                 typ = cl.type
+                if typ not in self.identifiers:
+                    self.parseModule(typ, False)
+                    self.builtins = self.module
+                    self.builtinId = self.identifiers
+                    self.activeScope = self.module
+                    
                 cl = self.identifiers[typ]
                 [words.append(self.last(v)) for v in cl.local_vars if self.last(v) != None] #pseudo modules appear here
                 [words.append(self.last(v)) for v in cl.local_funcs if self.last(v) != None]
                 [words.append(self.last(v)) for v in cl.local_classes if self.last(v) != None]
+                
+                [words.append(self.last(v)) for v in cl.to_parse if self.last(v) != None and not v in cl.local_vars and
+                not v in cl.local_funcs and not v in cl.local_classes] 
             
           
         print("MEMBERZ", words)           

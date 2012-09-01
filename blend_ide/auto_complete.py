@@ -14,7 +14,7 @@ simple autocomplete:
 TODO: [x] = done, [-] = partially done, [ ] = not done
 
 [x] make addon out of this
-[-] ntegrate nicely: create datastructures automatically (on text open), 
+[-] integrate nicely: create datastructures automatically (on text open), 
     enable/disable via checkbox (maybe then load datastructures), end modal 
     operator with other operator/gui event ?
 [x] make menu disappear when i continue typing (change focus)
@@ -33,7 +33,7 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
     be parsed in dynamically, but maybe for big files ?)
 [x] externally, continue using or discard or rebuild(!) by parsing the existing 
     code,  automate this 
-[-] fix buffer behavior, must be cleared correctly, some state errors still
+[x] fix buffer behavior, must be cleared correctly, some state errors still
 [x] substitute operator, or function in autocomplete ? buffer is in op, hmm, 
     shared between ops or via text.buffer stringprop delete buffer content from 
     text(select word, cut selected ?) and buffer itself and replace buffer 
@@ -62,14 +62,14 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
 
 [ ] evaluate self, and dotted stuff, or simply create entry for it ?, dot -> 
     if available, find object
-[ ] exclude those entries from suggestions, which match completely with the 
+[-] exclude those entries from suggestions, which match completely with the 
     buffer entry. watch for comma separated assignments, those are multiple 
     identifiers, which need to be assigned separately !!
 
 [ ] if only one matching entry in autocomplete suggestions, then substitute 
     automatically !! 
 [-] first restore menu functionality  with self drawn menu!!
-[ ] lookup with dots, commas: always get the last element in sequence only after
+[-] lookup with dots, commas: always get the last element in sequence only after
     detecting . or , (when typing) when parsing, evaluate dotted or take last 
     part always (or leave it as is ?) and with comma watch whether ret type 
     count types match and assign one after other
@@ -80,18 +80,18 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
     params (highlight them separately, do similar with brackets ([]), eval 
     indexing or show possible keys (dicts) or range of indexes (list)
 
-[ ] caution with re-setting/deleting(!!) variables, exec / eval must re-parse 
+[x] caution with re-setting/deleting(!!) variables, exec / eval must re-parse 
     the variables too, and delete identifier list before
 
-[ ] manage fully qualified variable names internally, but cut all off whats 
+[x] manage fully qualified variable names internally, but cut all off whats 
     already before the last dot do not let fully qualified names pop up, prepend 
     dotted types in internal rep, and at lookup check activeScope.type as well, 
     if . occurs
 
-[ ] if name xyz is a known class name (or part of), do not look for type, use 
+[x] if name xyz is a known class name (or part of), do not look for type, use 
     class name itself.
 
-[ ] if compile returns None, this means something went wrong. Maybe the code 
+[x] if compile returns None, this means something went wrong. Maybe the code 
     string isnt correctly assembled.
 """
 

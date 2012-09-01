@@ -95,7 +95,7 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
 [x] if compile returns None, this means something went wrong. Maybe the code 
     string isnt correctly assembled.
     
-[ ] add support for non-accessible module bge (only accessible from game engine,
+[-] add support for non-accessible module bge (only accessible from game engine,
     need offline raw data for this
 """
 
@@ -118,7 +118,44 @@ import blf
 import builtins
 import math
 
-
+#fallback method for bge module, but when its in the import list/code string, do not compile !
+#best thing would be RST files for everything, no need for evaluation at all ! maybe generate for all available python modules
+class RSTParser:
+    
+    token_list = ["class", "function", "method", "type", "module", "attribute", "rtype", "args"]
+  
+    def parseToken(line, opdata, t):
+        tok = ".. " + t + "::"
+        if line.startswith(tok):
+            ind = line.index(tok)
+            line = line[ind+1:]
+            v = line.strip()
+            if t == "module":
+                Module.create(v, [], opdata)
+            if t == "class":
+                Class.create(v, [], opdata)
+            if t in ("function", "method"):
+                Function.create(v, [], opdata)
+            if t in ("data", "attribute"):
+                if t == "data": # assume ints for constants, or strings ? who knows... if no type is given
+                    typ = RSTParser.parse(line, opdata, "type")
+                    if typ == None:
+                        typ = "int"
+                                                
+                    Declaration.create(v, typ, opdata)
+                    
+            if t == "type":
+                return v         
+        return None
+    
+    def parseLine(line, opdata):
+        [RSTParser.parseToken(line, opdata, t) for t in RSTParser.token_list] 
+    
+    def parse(filename, opdata):
+        file = open(filename, "r")
+        for l in file.lines:
+            RSTParser.parseLine(l, opdata)
+        
 #encapsulate drawing and functionality of a menu
 #select callback with parameter tuple
 class Menu:
@@ -744,14 +781,17 @@ class AutoCompleteOperator(bpy.types.Operator):
             return self.recurseTest(l + "." + a, b, r)
         
         return b + "." + a     
-            
     
+         
     def parseModule(self, e, recursive):
         
         #ignore indents completely here 
         self.indent = 0
         self.activeScope.indent = 0
       #  self.trackScope(
+        
+        if e.startswith("bge.") and e not in self.identifiers:
+            RSTParser.parse(e + ".rst", self)
              
         try:
             ret = self.compile(True, e)
@@ -1285,8 +1325,9 @@ class AutoCompleteOperator(bpy.types.Operator):
                 [words.append(self.last(v)) for v in cl.local_funcs if self.last(v) != None]
                 [words.append(self.last(v)) for v in cl.local_classes if self.last(v) != None]
                 
-                [words.append(self.last(v)) for v in cl.to_parse if self.last(v) != None and not v in cl.local_vars and
-                not v in cl.local_funcs and not v in cl.local_classes] 
+                if isinstance(cl, Class):
+                    [words.append(self.last(v)) for v in cl.to_parse if self.last(v) != None and not v in cl.local_vars and
+                    not v in cl.local_funcs and not v in cl.local_classes] 
             
           
         print("MEMBERZ", words)           
@@ -1492,9 +1533,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         print(self.module.name, self.module.indent)
         self.activeScope = self.module
         self.globals = globals()
-        self.identifiers = {'if': 'keyword', 
-                            'else': 'keyword'}
-
+         
         self.typedChar = []
         #self.oldbuffer = ""
         #    self.lastLookups = {} #?, backspace must delete sub-buffers, that is 2 indexes on (sorted) list
@@ -1506,6 +1545,12 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.menu = None
         self.caret_x = 0
         self.caret_y = 0
+        
+        self.identifiers = {'if': 'keyword', 
+                            'else': 'keyword'}
+                             
+      #  self.identifiers['bge'] = Module.create("bge", ["bge.types", "bge.logic", 
+    #                                "bge.render", "bge.texture", "bge.events", "bge.constraints"], self)
         
        # self.globals['__builtins__'] = builtins
         try:

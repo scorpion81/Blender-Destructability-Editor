@@ -367,7 +367,7 @@ class Declaration:
         
         #exec/compile: necessary to "create" live objects from source ?
         #code = bpy.types.Text.as_string(bpy.context.edit_text)
-        ret = opdata.compile(False, typename)
+        ret = opdata.compile(True, typename)
         
         #g = globals()
         #l = locals()
@@ -426,8 +426,8 @@ class Scope(Declaration):
              
         #declaration.indent = self.indent + 4
         #handle pseudo modules from imports somehow...
-        if "Xnor" in self.name or "Xnor" in declaration.name:
-            print("DECLARE", self, declaration)
+       # if "Xnor" in self.name or "Xnor" in declaration.name:
+    #        print("DECLARE", self, declaration)
         if isinstance(declaration, Module):
             self.local_vars[declaration.name] = declaration
         elif isinstance(declaration, Class):
@@ -1045,9 +1045,16 @@ class AutoCompleteOperator(bpy.types.Operator):
             Scope.create(self)
     
     def parseDotted(self, buffer):
-             
-        ri = buffer.rindex(".")
-        dotted = buffer[:ri]
+        
+        parenthesis = "(" in buffer and ")" in buffer
+        if parenthesis:
+            ri = buffer.rindex("(")
+            #dotted = buffer[:ri]
+            #ri = buffer.rindex(")")
+            dotted = buffer
+        else:# buffer.endswith("."):     
+            ri = buffer.rindex(".")
+            dotted = buffer[:ri]
         
         ret = self.compile(False, dotted)
         
@@ -1058,15 +1065,34 @@ class AutoCompleteOperator(bpy.types.Operator):
             #print("GLOBALS", globals())    
         typename = type(ret).__name__
         print("TYPENAME", typename)
-        buffer = buffer[ri+1:]
-        #tmpBuf = buffer
-        #qual = dotted + "." + typename
-        
+        if not parenthesis:
+            buffer = buffer[ri+1:]
+                      
         if typename in self.identifiers and typename != "type" and "bpy" not in str(ret) and "RNA" not in typename:    
             buffer = typename + "." + buffer
             check = typename
+        elif typename != "type":
+            #typename = ret.__name__
+            found = False
+            for k in self.identifiers:
+                if k.endswith(typename):
+                    check = k
+                    buffer = k #+ "." + buffer
+                    found = True
+                    print(found)
+                    break
+                
+            if not found and not parenthesis:
+                buffer = dotted + "." + buffer
+                check = dotted
+            elif not found:
+                check = dotted
+                
         else:
-            buffer = dotted + "." + buffer
+            if not parenthesis:
+                buffer = dotted + "." + buffer
+            else:
+                buffer = buffer[:ri]
             check = dotted
             
         print("BUF", buffer)
@@ -1209,7 +1235,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             i = buffer.index("=")
             buffer = buffer[i+1:].strip()
             
-        if "." in buffer: #and self.lhs == "":
+        if "." in buffer and "(" not in buffer and ")" not in buffer:#and self.lhs == "":
             buffer = self.parseDotted(buffer)
             print("BUFR", buffer)     
             #if char == ".":
@@ -1280,6 +1306,9 @@ class AutoCompleteOperator(bpy.types.Operator):
         
         if "." in buffer:
             buffer = self.parseDotted(buffer)
+            if buffer.endswith("."):
+                ind = buffer.rindex(".")
+                buffer = buffer[:ind]
             print("BUFR2", buffer)
         
 #        if self.activeScope.name not in self.identifiers and self.activeScope != self.module:

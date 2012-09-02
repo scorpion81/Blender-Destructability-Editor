@@ -97,6 +97,18 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
     
 [-] add support for non-accessible module bge (only accessible from game engine,
     need offline raw data for this
+
+[ ] change to static evaluation for all modules for which rst files are detected
+
+[ ] dump rst files from python docstrings, maybe rst exists already ?
+
+[ ] nested parenthesis evaluation (static and dynamic)
+
+[ ] use sphinx to collect info from docstrings for static evaluation raw data (so
+    only currently typed code without doc needs to be evaled dynamically
+    goal is to create rst for standard python modules (if not existing) in the same
+    format the bpy rsts are
+
 """
 
 bl_info = {
@@ -242,6 +254,11 @@ class Menu:
                                       rect_x + width + self.margin, 
                                       rect_y + self.height + self.margin)
                 #i += 1
+        
+        #auto highlight if only one entry, to be able to press enter and done
+        if len(self.items) == 1:
+            self.highlighted = self.items[0]
+            self.index = 0
             
         self.open(self.pos_x, self.pos_y)     
     
@@ -1046,16 +1063,24 @@ class AutoCompleteOperator(bpy.types.Operator):
     
     def parseDotted(self, buffer):
         
-        parenthesis = "(" in buffer and ")" in buffer
+        op = buffer.count("(")
+        cl = buffer.count(")")
+        parenthesis = op > 0 and op == cl
         if parenthesis:
             ri = buffer.rindex("(")
             #dotted = buffer[:ri]
-            #ri = buffer.rindex(")")
-            dotted = buffer
+            ind = buffer.rindex(")")
+            print("IND )", ind, len(buffer))
+            if ind < len(buffer)-1:
+                dotted = buffer[:ri]
+            else:
+                dotted = buffer
+            post = buffer[ind+1:]
         else:# buffer.endswith("."):     
             ri = buffer.rindex(".")
             dotted = buffer[:ri]
-        
+            
+        print("TOEVAL", dotted)
         ret = self.compile(False, dotted)
         
         if ret == None:
@@ -1065,9 +1090,15 @@ class AutoCompleteOperator(bpy.types.Operator):
             #print("GLOBALS", globals())    
         typename = type(ret).__name__
         print("TYPENAME", typename)
-        if not parenthesis:
+        if not parenthesis:# or "." in buffer:
             buffer = buffer[ri+1:]
-                      
+        else:
+            if "." in post:
+                sp = post.split(".")
+                if len(sp) > 1:
+                    post = sp[1]
+            buffer = post
+                     
         if typename in self.identifiers and typename != "type" and "bpy" not in str(ret) and "RNA" not in typename:    
             buffer = typename + "." + buffer
             check = typename
@@ -1077,7 +1108,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             for k in self.identifiers:
                 if k.endswith(typename):
                     check = k
-                    buffer = k #+ "." + buffer
+                    buffer = k + "." + buffer
                     found = True
                     print(found)
                     break
@@ -1089,10 +1120,10 @@ class AutoCompleteOperator(bpy.types.Operator):
                 check = dotted
                 
         else:
-            if not parenthesis:
-                buffer = dotted + "." + buffer
-            else:
-                buffer = buffer[:ri]
+            #if not parenthesis:
+            buffer = dotted + "." + buffer
+            #else:
+            #    buffer = buffer[:ri]
             check = dotted
             
         print("BUF", buffer)
@@ -1151,14 +1182,14 @@ class AutoCompleteOperator(bpy.types.Operator):
                        name in self.activeScope.local_classes or \
                        name in self.activeScope.to_parse
                                   
-            elif isinstance(self.activeScope, Scope):
+            elif isinstance(self.activeScope, Function):
                 #print("KEYS", self.activeScope.local_vars.keys(), declaration.name)
                 #print(self.module.name)
                 name = self.last(declaration.name)
                 #name = declaration.name
-                return name in self.activeScope.local_funcs or \
-                       name in self.activeScope.local_vars or \
-                       name in self.activeScope.local_classes
+                return name in self.activeScope.parent.local_funcs or \
+                       name in self.activeScope.parent.local_vars or \
+                       name in self.activeScope.parent.local_classes
             else:
                 #print(self.module.name)
                 return True
@@ -1234,8 +1265,20 @@ class AutoCompleteOperator(bpy.types.Operator):
         if "=" in buffer:
             i = buffer.index("=")
             buffer = buffer[i+1:].strip()
-            
-        if "." in buffer and "(" not in buffer and ")" not in buffer:#and self.lhs == "":
+        
+        op = buffer.count("(")
+        cl = buffer.count(")") 
+        
+        
+        do_parse = True
+        
+        if op > 1:
+            do_parse = op == cl
+        
+        if op == cl and op > 1:
+            do_parse = op == cl and op > 1 and "." == char and buffer.rindex(")") == len(buffer)-2
+               
+        if "." in buffer and do_parse:#and self.lhs == "":
             buffer = self.parseDotted(buffer)
             print("BUFR", buffer)     
             #if char == ".":
@@ -1282,6 +1325,7 @@ class AutoCompleteOperator(bpy.types.Operator):
 #        self.indent = l1-l2
 #        self.trackScope()
         lastWords = None
+        self.activeScope = self.module
     
     def last(self, item, buffer = None): 
         if "." in item:

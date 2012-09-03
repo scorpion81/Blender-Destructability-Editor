@@ -357,8 +357,8 @@ class Declaration:
         
         #oldscope = opdata.activeScope
         #print("1", oldscope, opdata.activeScope)
-        if "." in name:
-            name = opdata.parseDotted(name)
+    #    if "." in name:
+    #        name = opdata.parseDotted(name)
             #name = name.split(".")[-1].strip()
         #print("2", oldscope, opdata.activeScope)
         
@@ -384,26 +384,25 @@ class Declaration:
         
         #exec/compile: necessary to "create" live objects from source ?
         #code = bpy.types.Text.as_string(bpy.context.edit_text)
-        ret = opdata.compile(True, typename)
+#        ret = opdata.compile(True, typename)
+#        if ret == None:
+#            return 
+#             
+#        typ = type(ret).__name__
+#        builtin = dir(builtins)
+#        if typ not in builtin:
+#            if "(" in typename:
+#                typ = typename.split("(")[0]
+#            else:
+#                typ = typename
         
-        #g = globals()
-        #l = locals()
         
-        #print("LOCALS", l)
+        if "." in name:
+            name = opdata.parseDotted(name)
         
-        if ret == None:# and typename != "member":
-            return 
-        
-    #    if typename != "member":      
-        typ = type(ret).__name__
-        builtin = dir(builtins)
-        if typ not in builtin:
-            if "(" in typename:
-                typ = typename.split("(")[0]
-            else:
-                typ = typename
+        typ = opdata.parseDotted(typename, True) 
                 
-        print("TYPE", typ)
+        print("NAME/TYPE", name, typ)
         
         if typ == "tuple" and isinstance(name, list):
             for i in range(0, len(name)): #name list can be shorter, might not be interested in all ret vals
@@ -1061,7 +1060,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         elif line.endswith(":"):
             Scope.create(self)
     
-    def parseDotted(self, buffer):
+    def parseDotted(self, buffer, isRhs = False):
         
         op = buffer.count("(")
         cl = buffer.count(")")
@@ -1071,15 +1070,18 @@ class AutoCompleteOperator(bpy.types.Operator):
             #dotted = buffer[:ri]
             ind = buffer.rindex(")")
             print("IND )", ind, len(buffer))
-            if ind < len(buffer)-1:
-                dotted = buffer[:ri]
-            else:
-                dotted = buffer
-            post = buffer[ind+1:]
-        else:# buffer.endswith("."):     
+            #if ind < len(buffer)-1:
+            #    dotted = buffer[:ri]
+            #else:
+            dotted = buffer[:ind+1]
+            post = buffer[ind+2:]
+        elif "." in buffer:     
             ri = buffer.rindex(".")
             dotted = buffer[:ri]
-            
+        else:
+            ri = -1
+            dotted = buffer
+                
         print("TOEVAL", dotted)
         ret = self.compile(False, dotted)
         
@@ -1091,7 +1093,10 @@ class AutoCompleteOperator(bpy.types.Operator):
         typename = type(ret).__name__
         print("TYPENAME", typename)
         if not parenthesis:# or "." in buffer:
-            buffer = buffer[ri+1:]
+            if ri != -1:
+                buffer = buffer[ri+1:]
+            else:
+                buffer = ""
         else:
             if "." in post:
                 sp = post.split(".")
@@ -1127,6 +1132,10 @@ class AutoCompleteOperator(bpy.types.Operator):
             check = dotted
             
         print("BUF", buffer)
+        
+        if isRhs:
+            scope = self.activeScope.copy()
+        
         for val in self.identifiers.values():
             if isinstance(val, Module) and val.name == check:
                 self.activeScope = val
@@ -1137,6 +1146,10 @@ class AutoCompleteOperator(bpy.types.Operator):
             elif isinstance(val, Declaration) and val.name == check:
                 self.activeScope = val.parent
                 break
+        if isRhs:
+            buffer = self.activeScope.name
+            self.activeScope = scope
+            
         print("DOTTED", dotted, self.activeScope.name)
         return buffer
             
@@ -1269,14 +1282,10 @@ class AutoCompleteOperator(bpy.types.Operator):
         op = buffer.count("(")
         cl = buffer.count(")") 
         
-        
-        do_parse = True
-        
-        if op > 1:
-            do_parse = op == cl
-        
-        if op == cl and op > 1:
-            do_parse = op == cl and op > 1 and "." == char and buffer.rindex(")") == len(buffer)-2
+        if op == cl and op > 0:
+            do_parse = op == cl and op > 0 and ( "." == char and buffer.rindex(")") == len(buffer)-2) or char != "."
+        else:
+            do_parse = True
                
         if "." in buffer and do_parse:#and self.lhs == "":
             buffer = self.parseDotted(buffer)
@@ -1362,7 +1371,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         if buffer in self.identifiers:  
             cl = self.identifiers[buffer]
             if isinstance(cl, Module):
-                [words.append(self.last(v)) for v in cl.submodules if self.last(v) != None and not v in cl.local_vars and
+                [words.append(self.last(v)) for v in cl.submodules if self.last(v) != None and not v in cl.local_vars and \
                 not v in cl.local_funcs and not v in cl.local_classes] 
                 
                 #parse on demand, recursive is too long
@@ -1375,6 +1384,9 @@ class AutoCompleteOperator(bpy.types.Operator):
                 [words.append(self.last(v)) for v in cl.local_funcs if self.last(v) != None]
                 [words.append(self.last(v)) for v in cl.local_classes if self.last(v) != None]
             elif isinstance(cl, Class):
+                #print("TO_PARSE", cl.name, cl.to_parse)
+                [words.append(self.last(v)) for v in cl.to_parse if self.last(v) != None and not v in cl.local_vars and \
+                not v in cl.local_funcs and not v in cl.local_classes]
                 
                 [self.parseModule(v, False) for v in cl.to_parse if not v in self.identifiers]
                 self.builtins = self.module

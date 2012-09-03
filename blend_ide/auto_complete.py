@@ -129,6 +129,7 @@ import bgl
 import blf
 import builtins
 import math
+import keyword
 
 #fallback method for bge module, but when its in the import list/code string, do not compile !
 #best thing would be RST files for everything, no need for evaluation at all ! maybe generate for all available python modules
@@ -350,10 +351,10 @@ class Declaration:
     def qualify(self, opdata):
         #cant support classes in unnamed scopes and functions this way (makes this sense?)
         pstr = self.name
-        if self.parent != None and (isinstance(self.parent, Class) or \
-        isinstance(self, Class) and isinstance(self.parent, Module)) and \
-        self.parent.name != opdata.module.name:
-            pstr = self.parent.name + "." + self.name
+        #if self.parent != None and (isinstance(self.parent, Class) or \
+       # isinstance(self, Class) and isinstance(self.parent, Module)) and \
+        #self.parent.name != opdata.module.name:
+        #    pstr = self.parent.name + "." + self.name
             
         if ((isinstance(self, Class) and (isinstance(self.parent, Class) or isinstance(self.parent, Module))) or \
         (isinstance(self, Module) and isinstance(self.parent, Module))):
@@ -443,7 +444,9 @@ class Declaration:
         if "." in name:
             name = opdata.parseDotted(name)
         
-        typ = opdata.parseDotted(typename, True) 
+        typ = typename
+        if "." in typename or "(" in typename:
+            typ = opdata.parseDotted(typename, True) 
                 
         print("NAME/TYPE", name, typ)
         
@@ -531,12 +534,13 @@ class Scope(Declaration):
         for f in self.local_funcs.values():
             target.local_funcs[f.name] = f.copy()
         for v in self.local_vars.values():
-            #print("VAR", v)
+            #print("VAR", v.name)
+            #if v.name != self.name:
             target.local_vars[v.name] = v.copy()
         for c in self.local_classes.values():
             target.local_classes[c.name] = c.copy()
         for u in self.local_unnamed_scopes:
-            target.local_unnamed.scopes.append(u.copy())    
+            target.local_unnamed_scopes.append(u.copy())    
             
         
     
@@ -627,10 +631,10 @@ class Module(Scope):
     
     @staticmethod
     def create(name, submodules, opdata):
+        
         m = Module(name, submodules)
-        
         opdata.activeScope.declare(m)
-        
+    
         #if isinstance(opdata.activeScope, Module):
         print("SCOPE", opdata.activeScope.name, m.name)
         opdata.activeScope = m
@@ -777,7 +781,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         bpy.context.region.callback_remove(self._handle)
     
     def trackScope(self):
-        print("TRACKSCOPE", self.indent, self.activeScope.indent)
+       # print("TRACKSCOPE", self.indent, self.activeScope.indent)
         while self.indent < self.activeScope.indent:
             if self.activeScope.parent != None:
                 self.activeScope = self.activeScope.parent
@@ -989,21 +993,10 @@ class AutoCompleteOperator(bpy.types.Operator):
                             self.activeScope = self.module
                             Module.create(e, filter, self)
                             break
-                     
-#                    print("MODULE2", e)
-#                    #self.activeScope = self.module
-#                    #act = self.list()
-#                    #if (self.last(e) in act):
-#                    
-#                   # self.activeScope = self.activeScope.parent
-#                    #if self.activeScope == None:
-#                    #    self.activeScope = self.module
-#                    
-#                    Module.create(e, filter, self)
-                       
-        
-      #  print("FILTER", filter)
-        
+            #else:
+            #    for f in filter:
+            #        self.parseModule(f, False)
+                            
         if recursive:
             for f in filter:
                 self.parseModule(f, recursive)  
@@ -1071,9 +1064,15 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.indent = spaces
         self.trackScope()
         
-        print(line, self.activeScope, self.indent, self.activeScope.indent)
+       # print(line, self.activeScope, self.indent, self.activeScope.indent)
           
         if "=" in line:
+            found = False
+            for k in keyword.kwlist:
+                if line.startswith(k):
+                    found = True
+            #if not found:
+                # dont support local vars ??, way too slow when reading code files...
             lhs, rhs = self.parseDeclaration(line)
             Declaration.create(lhs, rhs, self)
         elif line.startswith("def"):
@@ -1221,7 +1220,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         bpy.context.edit_text.buffer = ""
     
     def testScope(self, declaration):
-        print("TESTSCOPE", self.activeScope.name, declaration.name)
+       # print("TESTSCOPE", self.activeScope.name, declaration.name)
         
         if self.activeScope != None:
             if isinstance(self.activeScope, Module) and self.activeScope.name != self.module.name:
@@ -1686,8 +1685,8 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.caret_x = 0
         self.caret_y = 0
         
-        self.identifiers = {'if': 'keyword', 
-                            'else': 'keyword'}
+        self.identifiers = {} #'if': 'keyword', 
+                            #'else': 'keyword'}
                              
       #  self.identifiers['bge'] = Module.create("bge", ["bge.types", "bge.logic", 
     #                                "bge.render", "bge.texture", "bge.events", "bge.constraints"], self)
@@ -1758,7 +1757,8 @@ def unregister():
     del bpy.types.Text.autocomplete_enabled 
 
 if __name__ == "__main__":
-    register()
+    #register()
     #started by run script...
-    bpy.ops.text.autocomplete('INVOKE_DEFAULT')
+   # bpy.ops.text.autocomplete('INVOKE_DEFAULT')
+   pass
     

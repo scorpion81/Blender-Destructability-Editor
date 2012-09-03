@@ -396,6 +396,25 @@ class Declaration:
 #            else:
 #                typ = typename
         
+        if name not in opdata.identifiers and "." in name:
+            tempname = name
+            if "(" in tempname:
+                ind = tempname.rindex(".") # skip the functions, try evalling the classes first
+                tempname = tempname[:ind]
+            opdata.parseModule(tempname, False)
+            opdata.builtins = opdata.module
+            opdata.builtinId = opdata.identifiers
+            opdata.activeScope = opdata.module
+        
+        if typename not in opdata.identifiers and "." in typename:
+            tempname = typename
+            if "(" in tempname:
+                ind = tempname.rindex(".") # skip the functions, try evalling the classes first
+                tempname = tempname[:ind]
+            opdata.parseModule(tempname, False)
+            opdata.builtins = opdata.module
+            opdata.builtinId = opdata.identifiers
+            opdata.activeScope = opdata.module
         
         if "." in name:
             name = opdata.parseDotted(name)
@@ -1059,6 +1078,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 
         elif line.endswith(":"):
             Scope.create(self)
+            
     
     def parseDotted(self, buffer, isRhs = False):
         
@@ -1385,8 +1405,8 @@ class AutoCompleteOperator(bpy.types.Operator):
                 [words.append(self.last(v)) for v in cl.local_classes if self.last(v) != None]
             elif isinstance(cl, Class):
                 #print("TO_PARSE", cl.name, cl.to_parse)
-                [words.append(self.last(v)) for v in cl.to_parse if self.last(v) != None and not v in cl.local_vars and \
-                not v in cl.local_funcs and not v in cl.local_classes]
+               # [words.append(self.last(v)) for v in cl.to_parse if self.last(v) != None and not v in cl.local_vars and \
+                #not v in cl.local_funcs and not v in cl.local_classes]
                 
                 [self.parseModule(v, False) for v in cl.to_parse if not v in self.identifiers]
                 self.builtins = self.module

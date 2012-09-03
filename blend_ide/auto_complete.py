@@ -207,17 +207,41 @@ class Menu:
         
         if self.highlighted != "":
             bpy.ops.text.substitute(choice = self.highlighted)
+    
+    def nextWrap(self):
+        if self.index + self.wrapCount <= len(self.items) - 1:
+            self.index += self.wrapCount
+        else:
+            while self.index - self.wrapCount >= 0:
+                self.index -= self.wrapCount
+        
+        self.highlighted = self.items[self.index]
+                
+    def previousWrap(self):
+        if self.index - self.wrapCount >= 0:
+            self.index -= self.wrapCount
+        else:
+            while self.index + self.wrapCount <= len(self.items) - 1:
+                self.index += self.wrapCount
+        
+        self.highlighted = self.items[self.index]
             
     def previousItem(self):
         if self.index > 0:
             self.index -= 1
-            self.highlighted = self.items[self.index]
+        else: 
+            self.index = len(self.items) - 1
+          
+        self.highlighted = self.items[self.index]
     
     def nextItem(self):
         
         if self.index < len(self.items) - 1:
-            self.index += 1
-            self.highlighted = self.items[self.index]
+            self.index += 1 
+        else:
+            self.index = 0
+            
+        self.highlighted = self.items[self.index]
        
     def draw(self, x, y):
          
@@ -1124,10 +1148,10 @@ class AutoCompleteOperator(bpy.types.Operator):
                     post = sp[1]
             buffer = post
                      
-        if typename in self.identifiers and typename != "type" and "bpy" not in str(ret) and "RNA" not in typename:    
+        if typename in self.identifiers and typename != "type" and typename != "module" and "bpy" not in str(ret) and "RNA" not in typename:    
             buffer = typename + "." + buffer
             check = typename
-        elif typename != "type":
+        elif typename != "type" and typename != "module":
             #typename = ret.__name__
             found = False
             for k in self.identifiers:
@@ -1494,7 +1518,18 @@ class AutoCompleteOperator(bpy.types.Operator):
             if event.type == 'UP_ARROW' and event.value == 'PRESS':
                 if self.menu != None:
                     self.menu.previousItem()
-                    return {'RUNNING_MODAL'}        
+                    return {'RUNNING_MODAL'}   
+                
+            if event.type == 'RIGHT_ARROW' and event.value == 'PRESS':
+                if self.menu != None:
+                    self.menu.nextWrap()
+                    return {'RUNNING_MODAL'}
+                    
+            
+            if event.type == 'LEFT_ARROW' and event.value == 'PRESS':
+                if self.menu != None:
+                    self.menu.previousWrap()
+                    return {'RUNNING_MODAL'}       
                 
             #add new entry to identifier list
             if 'MOUSE' not in event.type and event.value == 'PRESS':

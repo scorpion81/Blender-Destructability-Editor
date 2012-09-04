@@ -721,6 +721,9 @@ class SubstituteTextOperator(bpy.types.Operator):
         if ind != -1:
             ind += 1
             pre = buffer[:ind]
+            lbuf = line.body
+            lbuf = lbuf.split(pre)[0]
+            pre = lbuf + pre
             post = buffer[ind+1:]
             ind = self.index(post)
             if ind == -1:
@@ -1166,7 +1169,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         if "context" in dotted and not ".context" in dotted:
             if self.activeScope.type == "function":
                 self.activeScope = self.activeScope.parent
-            typ = self.identifiers[self.activeScope.name].name # the function name
+            typ = "bpy.context" # the function name
             dotted = dotted.replace("context", typ)
             isContext = True
         
@@ -1771,7 +1774,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         
        # self.globals['__builtins__'] = builtins
         try:
-            self.parseModule("builtins", False)
+            self.parseModule("builtins", True)
             self.builtins = self.module
             self.builtinId = self.identifiers
            # print(self.identifiers.keys())

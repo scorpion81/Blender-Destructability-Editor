@@ -1255,12 +1255,16 @@ class AutoCompleteOperator(bpy.types.Operator):
             
         if isRhs:
             if not equal:
-                buffer = self.activeScope.name
-                self.activeScope = scope
+                if not buffer.startswith(self.activeScope.name): # somehow separate simple from complex assignments
+                    buffer = dotted
+                else:
+                    buffer = self.activeScope.name
+                    self.activeScope = scope
             else:
                 if buffer.count(".") > 0:
-                   ind = buffer.index(".")
-                   buffer = buffer[ind+1:] # cut first name off otherwise its class.class.var instead class.var
+                    ind = buffer.index(".")
+                    buffer = buffer[ind+1:] # cut first name off otherwise its class.class.var instead class.var
+                   
             print("RHS", buffer, self.activeScope)
         
         if equal and not isRhs:
@@ -1298,7 +1302,10 @@ class AutoCompleteOperator(bpy.types.Operator):
        # print("TESTSCOPE", self.activeScope.name, declaration.name)
         
         if self.activeScope != None:
-            if isinstance(self.activeScope, Module) and self.activeScope.name != self.module.name:
+            if self.indent > self.activeScope.indent:
+                return True
+            
+            elif isinstance(self.activeScope, Module) and self.activeScope.name != self.module.name:
                 #print("MKEYS", self.activeScope.submodules)
                 name = declaration.name
                 return name in self.activeScope.local_funcs or \

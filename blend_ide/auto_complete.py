@@ -1,8 +1,7 @@
 """\
 simple autocomplete:
 
-1) activate addon and press Enable in Autocomplete tab or run this file via 
-   runscript
+1) activate addon and press Enable in Autocomplete tab
 2) type code in another empty text
 3) try declaring variables, classes, functions
 4) during typing, if you retype parts of known identifiers, a popup should open
@@ -108,6 +107,11 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
     only currently typed code without doc needs to be evaled dynamically
     goal is to create rst for standard python modules (if not existing) in the same
     format the bpy rsts are
+
+[ ] enrich function definitions by type info (per Hand) and use that info for auto
+    completion, parse in docstrings in RST format, otherwise parameters cant be auto
+    completed, for self assume own class, for context assume bpy.context, but otherwise
+    youre on your own...
 
 """
 
@@ -360,16 +364,16 @@ class Declaration:
         (isinstance(self, Module) and isinstance(self.parent, Module))):
             #add to globals
             print("PSTR", pstr)
-            ret = opdata.compile(True, pstr)
+            ret = opdata.compile(False, pstr)
             if ret == None:
                 return
             
             p = pstr
             if isinstance(self.parent, Class):# or self.parent.name == opdata.module.name:
                 p = opdata.last(pstr)
-            
-            print("Setting", p, pstr)     
-            opdata.globals[p] = ret 
+            if "." in pstr:
+                print("Setting", p, pstr)     
+                opdata.globals[p] = ret 
 #            #print(opdata.activeScope)
 #            #store qualified name !
 #        #    self.name = ret.__name__
@@ -399,7 +403,7 @@ class Declaration:
             v.qualify(opdata)
             
             opdata.identifiers[v.name] = v
-            print(v.name, v)
+            print("DECL",name, v.name, v)
             opdata.lhs = ""
             #[print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
         
@@ -421,7 +425,10 @@ class Declaration:
 #            else:
 #                typ = typename
         
-        if name not in opdata.identifiers and "." in name:
+        typ = typename
+        
+        if name not in opdata.identifiers and "." in name and \
+        "self" not in name and "context" not in name: 
             tempname = name
             if "(" in tempname:
                 ind = tempname.rindex(".") # skip the functions, try evalling the classes first
@@ -431,7 +438,8 @@ class Declaration:
             opdata.builtinId = opdata.identifiers
             opdata.activeScope = opdata.module
         
-        if typename not in opdata.identifiers and "." in typename:
+        if typename not in opdata.identifiers and "." in typename and \
+        not typename.startswith('"') and "self" not in typename and "context" not in typename:
             tempname = typename
             if "(" in tempname:
                 ind = tempname.rindex(".") # skip the functions, try evalling the classes first
@@ -444,8 +452,8 @@ class Declaration:
         if "." in name:
             name = opdata.parseDotted(name)
         
-        typ = typename
-        if "." in typename or "(" in typename:
+        
+        if "." in typename or "(" in typename or typename.startswith('"'):
             typ = opdata.parseDotted(typename, True) 
                 
         print("NAME/TYPE", name, typ)
@@ -567,13 +575,23 @@ class Function(Scope):
     def create(name, params, opdata):
         f = Function(name, params)
         if opdata.indent >= opdata.activeScope.indent and opdata.isValid(name):
-            print("SCOPE", opdata.activeScope)
+            print("SCOPE", opdata.activeScope.name)
             opdata.activeScope.declare(f)
             f.indent = opdata.indent + 4
             f.qualify(opdata)
             opdata.activeScope = f
             opdata.identifiers[f.name] = f
             print(f.name, f)
+            
+            print("SCOPE1", opdata.activeScope.name)
+            for p in params:
+                if p == "self":
+                    Declaration.create(f.name + ".self", opdata.activeScope.parent.name, opdata)
+                    print("SCOPE2", opdata.activeScope.name)
+                if p == "context":
+                    Declaration.create(f.name + ".context", "bpy.context", opdata)
+                    print("SCOPE3", opdata.activeScope.name)
+                    
            # [print(it[0], ":", it[1]) for it in opdata.identifiers.items()]
     
     def copy(self):
@@ -755,6 +773,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             return ret
         except Exception as ex:
             print(ex)
+            #raise
         
     def draw_popup_callback_px(self, context):
         
@@ -776,12 +795,12 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.globals = None
         
         #TODO remove this from context
-        bpy.context.edit_text.suggestions.clear()
+       # bpy.context.edit_text.suggestions.clear()
         bpy.context.edit_text.buffer = ""
         bpy.context.region.callback_remove(self._handle)
     
     def trackScope(self):
-       # print("TRACKSCOPE", self.indent, self.activeScope.indent)
+        print("TRACKSCOPE", self.indent, self.activeScope.indent)
         while self.indent < self.activeScope.indent:
             if self.activeScope.parent != None:
                 self.activeScope = self.activeScope.parent
@@ -796,7 +815,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             if "." in name:
                 name = name.split(".")[0]
             if self.activeScope.name != name:
-                ret = self.compile(True, self.activeScope.name)
+                ret = self.compile(False, self.activeScope.name)
                 return dir(ret)
             return dir(builtins)
         except Exception as ex:
@@ -1054,8 +1073,8 @@ class AutoCompleteOperator(bpy.types.Operator):
         # ignore comments, do that at typing too!!
         self.indent = 0 
         
-        if "#" in line:
-            line = line.split("#")[0]
+        if len(line) == 0:
+            return
         
         l1 = len(line)
         line = line.lstrip()
@@ -1063,6 +1082,12 @@ class AutoCompleteOperator(bpy.types.Operator):
         spaces = l1-l2
         self.indent = spaces
         self.trackScope()
+        
+        if "#" in line:
+            line = line.split("#")[0]
+        
+        if '"""' in line:
+            line = line.split('"""')[0]
         
        # print(line, self.activeScope, self.indent, self.activeScope.indent)
           
@@ -1118,12 +1143,26 @@ class AutoCompleteOperator(bpy.types.Operator):
             #else:
             dotted = buffer[:ind+1]
             post = buffer[ind+2:]
-        elif "." in buffer:     
+        elif "." in buffer and not buffer.startswith('"'):    
             ri = buffer.rindex(".")
             dotted = buffer[:ri]
         else:
             ri = -1
             dotted = buffer
+            
+        if "self" in dotted and not ".self" in dotted:
+            
+            typ = self.identifiers[self.activeScope.parent.name].name
+            dotted = dotted.replace("self", typ)
+            
+        #a bpy specific assumption:
+        if "context" in dotted and not ".context" in dotted:
+            typ = self.identifiers[self.activeScope.parent.name].name # the function name
+            dotted = dotted.replace("context", typ)
+        
+        #otherwise replace param by its type, if specified by user
+        #like .. args :: argname
+        #     .. type :: typename, TODO
                 
         print("TOEVAL", dotted)
         ret = self.compile(False, dotted)
@@ -1147,10 +1186,12 @@ class AutoCompleteOperator(bpy.types.Operator):
                     post = sp[1]
             buffer = post
                      
-        if typename in self.identifiers and typename != "type" and typename != "module" and "bpy" not in str(ret) and "RNA" not in typename:    
+        if typename in self.identifiers and typename != "type" and \
+        typename != "module" and typename != "function" and \
+        "bpy" not in str(ret) and "RNA" not in typename:    
             buffer = typename + "." + buffer
             check = typename
-        elif typename != "type" and typename != "module":
+        elif typename != "type" and typename != "module" and typename != "function":
             #typename = ret.__name__
             found = False
             for k in self.identifiers:
@@ -1179,19 +1220,36 @@ class AutoCompleteOperator(bpy.types.Operator):
         if isRhs:
             scope = self.activeScope.copy()
         
+        equal = False
         for val in self.identifiers.values():
             if isinstance(val, Module) and val.name == check:
                 self.activeScope = val
                 break
             elif isinstance(val, Scope) and val.name == check:
+                print("SKOPE", self.activeScope.name, val.name)
+                if self.activeScope.parent.name == val.name:
+                    print("Equal.")
+                    equal = True   
                 self.activeScope = val
                 break
             elif isinstance(val, Declaration) and val.name == check:
+                #print("BUHF", buffer, self.activeScope.name)
+                #if buffer.endswith("self") or buffer.endswith("context"):
+                #    self.activeScope = val
+                #else:
                 self.activeScope = val.parent
                 break
+            
         if isRhs:
             buffer = self.activeScope.name
             self.activeScope = scope
+        
+        if equal:
+            if "." in dotted:
+                ind = dotted.index(".")
+                buffer = dotted[ind+1:] # cut first name off otherwise its class.class.var instead class.var
+            else:
+                buffer = dotted
             
         print("DOTTED", dotted, self.activeScope.name)
         return buffer
@@ -1285,14 +1343,16 @@ class AutoCompleteOperator(bpy.types.Operator):
             char = ""
         
         bpy.context.edit_text.buffer = bpy.context.edit_text.current_line.body
-        #if self.lhs == "" and "." not in bpy.context.edit_text.buffer and "." != char:    
-        #    bpy.context.edit_text.buffer = bpy.context.edit_text.current_line.body
-        #   l1 = len(bpy.context.edit_text.buffer)
-        #   bpy.context.edit_text.buffer = bpy.context.edit_text.buffer.lstrip()
-        #    l2 = len(bpy.context.edit_text.buffer)
-        #   self.indent = l1-l2
-        #    print("INDENT SET", self.indent, self.lhs, bpy.context.edit_text.buffer)
-        
+        if self.lhs == "":# and "." not in bpy.context.edit_text.buffer and "." != char:    
+            bpy.context.edit_text.buffer = bpy.context.edit_text.current_line.body
+            l1 = len(bpy.context.edit_text.buffer)
+            bpy.context.edit_text.buffer = bpy.context.edit_text.buffer.lstrip()
+            l2 = len(bpy.context.edit_text.buffer)
+            self.indent = l1-l2
+            print("INDENT SET", self.indent, self.activeScope.indent, self.activeScope.name, self.lhs, bpy.context.edit_text.buffer)
+            self.trackScope()
+            print("ACTIVE SCOPE", self.activeScope.name)
+            
         #add char later...
         #if char != ".":
         bpy.context.edit_text.buffer += char
@@ -1377,7 +1437,7 @@ class AutoCompleteOperator(bpy.types.Operator):
 #        self.indent = l1-l2
 #        self.trackScope()
         lastWords = None
-        self.activeScope = self.module
+    #    self.activeScope = self.module
     
     def last(self, item, buffer = None): 
         if "." in item:
@@ -1400,7 +1460,7 @@ class AutoCompleteOperator(bpy.types.Operator):
             i = buffer.index("=")
             buffer = buffer[i+1:].strip()
         
-        if "." in buffer:
+        if "." in buffer or "self" in buffer or "context" in buffer:
             buffer = self.parseDotted(buffer)
             if buffer.endswith("."):
                 ind = buffer.rindex(".")
@@ -1636,10 +1696,10 @@ class AutoCompleteOperator(bpy.types.Operator):
                 #watch copy and paste ! must add all pasted chars to buffer and separate by space TODO
                 #via MOUSE events and is_dirty/is_modified
                 
-                if context.edit_text.bufferReset:
+             #   if context.edit_text.bufferReset:
                     #self.typedChar.pop()
-                    self.tempBuffer += context.edit_text.buffer
-                    context.edit_text.bufferReset = False
+              #      self.tempBuffer += context.edit_text.buffer
+               #     context.edit_text.bufferReset = False
                 #self.buflist.append(char)
                 
                 #also do word lookup, maybe triggered by a special key for now... 
@@ -1693,7 +1753,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         
        # self.globals['__builtins__'] = builtins
         try:
-            self.parseModule("builtins", True)
+            self.parseModule("builtins", False)
             self.builtins = self.module
             self.builtinId = self.identifiers
            # print(self.identifiers.keys())
@@ -1702,7 +1762,7 @@ class AutoCompleteOperator(bpy.types.Operator):
            
         except Exception as e:
             print("Exception(parseModule)", e)
-            raise
+            #raise
             
         #do not automatically parse own code (throws registration errors)
         print("autocompleter started...")
@@ -1735,12 +1795,12 @@ def register():
     #bpy.utils.register_class(AutoCompletePopup)
     bpy.utils.register_class(AutoCompleteOperator)
     
-    bpy.types.Text.suggestions = bpy.props.CollectionProperty(
-                            type = bpy.types.PropertyGroup, 
-                            name = "suggestions")
+   # bpy.types.Text.suggestions = bpy.props.CollectionProperty(
+    #                        type = bpy.types.PropertyGroup, 
+    #                        name = "suggestions")
     bpy.types.Text.buffer = bpy.props.StringProperty(name = "buffer")
-    bpy.types.Text.bufferReset = bpy.props.BoolProperty(name = "bufferReset")
-    bpy.types.Text.autocomplete_enabled = bpy.props.BoolProperty(name = "autocomplete_enabled")
+    #bpy.types.Text.bufferReset = bpy.props.BoolProperty(name = "bufferReset")
+    #bpy.types.Text.autocomplete_enabled = bpy.props.BoolProperty(name = "autocomplete_enabled")
     
     bpy.utils.register_class(AutoCompletePanel)
 
@@ -1751,10 +1811,10 @@ def unregister():
    # bpy.utils.unregister_class(AutoCompletePopup)
     bpy.utils.unregister_class(SubstituteTextOperator)
     
-    del bpy.types.Text.suggestions
+    #del bpy.types.Text.suggestions
     del bpy.types.Text.buffer
-    del bpy.types.Text.bufferReset
-    del bpy.types.Text.autocomplete_enabled 
+    #del bpy.types.Text.bufferReset
+    #del bpy.types.Text.autocomplete_enabled 
 
 if __name__ == "__main__":
     #register()

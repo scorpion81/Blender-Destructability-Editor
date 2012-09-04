@@ -115,19 +115,6 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
 
 """
 
-bl_info = {
-    "name": "Python Editor Autocomplete",
-    "author": "scorpion81",
-    "version": (0, 1),
-    "blender": (2, 6, 3),
-    "api": 50083,
-    "location": "Text Editor > Left Panel > Autocomplete",
-    "description": "Simple autocompletion for Blender Text Editor (for Python only currently)",
-    "warning": "",
-    "wiki_url": "",
-    "tracker_url": "",
-    "category": "Development" } 
-
 import bpy
 import bgl
 import blf
@@ -168,7 +155,9 @@ class RSTParser:
     def parseLine(line, opdata):
         [RSTParser.parseToken(line, opdata, t) for t in RSTParser.token_list] 
     
-    def parse(filename, opdata):
+    def parse(name, opdata):
+        currentDir = path.abspath(os.path.split(__file__)[0])
+        filename = currentDir + "\\static_data\\" + name + ".rst"
         file = open(filename, "r")
         for l in file.lines:
             RSTParser.parseLine(l, opdata)
@@ -1776,8 +1765,8 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.identifiers = {} #'if': 'keyword', 
                             #'else': 'keyword'}
                              
-      #  self.identifiers['bge'] = Module.create("bge", ["bge.types", "bge.logic", 
-    #                                "bge.render", "bge.texture", "bge.events", "bge.constraints"], self)
+        #self.identifiers['bge'] = Module.create("bge", ["bge.types", "bge.logic", 
+        #                            "bge.render", "bge.texture", "bge.events", "bge.constraints"], self)
         
        # self.globals['__builtins__'] = builtins
         try:
@@ -1808,6 +1797,12 @@ class AutoCompletePanel(bpy.types.Panel):
     bl_space_type = 'TEXT_EDITOR'
     bl_region_type = 'UI'
     
+    def register():
+        bpy.types.Text.buffer = bpy.props.StringProperty(name = "buffer")
+    
+    def unregister():
+        del bpy.types.Text.buffer 
+        
     def draw(self, context):
         layout = self.layout
        # layout.prop(context.edit_text, "autocomplete_enabled", text = "Enabled",  event = True)
@@ -1821,15 +1816,7 @@ def enablerUpdate(self, context):
 def register():
     bpy.utils.register_class(SubstituteTextOperator)
     #bpy.utils.register_class(AutoCompletePopup)
-    bpy.utils.register_class(AutoCompleteOperator)
-    
-   # bpy.types.Text.suggestions = bpy.props.CollectionProperty(
-    #                        type = bpy.types.PropertyGroup, 
-    #                        name = "suggestions")
-    bpy.types.Text.buffer = bpy.props.StringProperty(name = "buffer")
-    #bpy.types.Text.bufferReset = bpy.props.BoolProperty(name = "bufferReset")
-    #bpy.types.Text.autocomplete_enabled = bpy.props.BoolProperty(name = "autocomplete_enabled")
-    
+    bpy.utils.register_class(AutoCompleteOperator) 
     bpy.utils.register_class(AutoCompletePanel)
 
 
@@ -1838,15 +1825,4 @@ def unregister():
     bpy.utils.unregister_class(AutoCompleteOperator)
    # bpy.utils.unregister_class(AutoCompletePopup)
     bpy.utils.unregister_class(SubstituteTextOperator)
-    
-    #del bpy.types.Text.suggestions
-    del bpy.types.Text.buffer
-    #del bpy.types.Text.bufferReset
-    #del bpy.types.Text.autocomplete_enabled 
-
-if __name__ == "__main__":
-    #register()
-    #started by run script...
-   # bpy.ops.text.autocomplete('INVOKE_DEFAULT')
-   pass
     

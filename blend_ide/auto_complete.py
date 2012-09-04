@@ -450,7 +450,7 @@ class Declaration:
             opdata.activeScope = opdata.module
         
         if "." in name:
-            name = opdata.parseDotted(name)
+            name = opdata.parseDotted(name, "self" in name or "context" in name)
         
         
         if "." in typename or "(" in typename or typename.startswith('"'):
@@ -1060,15 +1060,15 @@ class AutoCompleteOperator(bpy.types.Operator):
         return name, params
     
     def parseDeclaration(self, line):
-        
+           
         index = line.index("=")
         lhs = line[:index-1].strip()
         if "," in lhs:
             lhs = line.split(",")
-            
+        
         rhs = line[index+1:].strip()
-        return lhs, rhs    
-    
+        return lhs, rhs
+     
     def parseLine(self, line):
         # ignore comments, do that at typing too!!
         self.indent = 0 
@@ -1143,27 +1143,37 @@ class AutoCompleteOperator(bpy.types.Operator):
             #else:
             dotted = buffer[:ind+1]
             post = buffer[ind+2:]
+                  
         elif "." in buffer and not buffer.startswith('"'):    
             ri = buffer.rindex(".")
             dotted = buffer[:ri]
+            post = buffer[ri+1:]
         else:
             ri = -1
             dotted = buffer
-            
+            post = ""
+        
+        isSelf = False    
         if "self" in dotted and not ".self" in dotted:
-            
-            typ = self.identifiers[self.activeScope.parent.name].name
+            if self.activeScope.type == "function":
+                self.activeScope = self.activeScope.parent
+            typ = self.identifiers[self.activeScope.name].name
             dotted = dotted.replace("self", typ)
+            isSelf = True
             
         #a bpy specific assumption:
+        isContext = False
         if "context" in dotted and not ".context" in dotted:
-            typ = self.identifiers[self.activeScope.parent.name].name # the function name
+            if self.activeScope.type == "function":
+                self.activeScope = self.activeScope.parent
+            typ = self.identifiers[self.activeScope.name].name # the function name
             dotted = dotted.replace("context", typ)
+            isContext = True
         
         #otherwise replace param by its type, if specified by user
         #like .. args :: argname
         #     .. type :: typename, TODO
-                
+        dotted = dotted.strip()        
         print("TOEVAL", dotted)
         ret = self.compile(False, dotted)
         
@@ -1174,12 +1184,12 @@ class AutoCompleteOperator(bpy.types.Operator):
             #print("GLOBALS", globals())    
         typename = type(ret).__name__
         print("TYPENAME", typename)
-        if not parenthesis:# or "." in buffer:
+        if not parenthesis and not isSelf and not isContext:
             if ri != -1:
                 buffer = buffer[ri+1:]
             else:
-                buffer = ""
-        else:
+                buffer = post
+        elif parenthesis or isSelf or isContext:
             if "." in post:
                 sp = post.split(".")
                 if len(sp) > 1:
@@ -1227,7 +1237,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 break
             elif isinstance(val, Scope) and val.name == check:
                 print("SKOPE", self.activeScope.name, val.name)
-                if self.activeScope.parent.name == val.name:
+                if self.activeScope.name == val.name:
                     print("Equal.")
                     equal = True   
                 self.activeScope = val
@@ -1241,18 +1251,22 @@ class AutoCompleteOperator(bpy.types.Operator):
                 break
             
         if isRhs:
-            buffer = self.activeScope.name
-            self.activeScope = scope
-        
-        if equal:
-            if "." in dotted:
-                ind = dotted.index(".")
-                buffer = dotted[ind+1:] # cut first name off otherwise its class.class.var instead class.var
+            if not equal:
+                buffer = self.activeScope.name
+                self.activeScope = scope
             else:
-                buffer = dotted
+                if buffer.count(".") > 0:
+                   ind = buffer.index(".")
+                   buffer = buffer[ind+1:] # cut first name off otherwise its class.class.var instead class.var
+            print("RHS", buffer, self.activeScope)
+        
+        if equal and not isRhs:
+            if buffer.count(".") > 1:
+                ind = buffer.index(".")
+                buffer = buffer[ind+1:] # cut first name off otherwise its class.class.var instead class.var
             
-        print("DOTTED", dotted, self.activeScope.name)
-        return buffer
+        print("DOTTED", dotted, self.activeScope.name, buffer)
+        return buffer.strip()
             
     def handleImport(self):
         #add all types of import to identifiers...
@@ -1373,34 +1387,37 @@ class AutoCompleteOperator(bpy.types.Operator):
         
      #   l1 = len(bpy.context.edit_text.buffer)
     #    l2 = len(buffer)
+    
+        words = []
+        if lastWords == None or lastWords == []:
         
-        if "," in buffer and self.lhs == "":
-            sp = buffer.split(",")
-            buffer = sp[-1]
-        
-        if "=" in buffer:
-            i = buffer.index("=")
-            buffer = buffer[i+1:].strip()
-        
-        op = buffer.count("(")
-        cl = buffer.count(")") 
-        
-        if op == cl and op > 0:
-            do_parse = op == cl and op > 0 and ( "." == char and buffer.rindex(")") == len(buffer)-2) or char != "."
-        else:
-            do_parse = True
-               
-        if "." in buffer and do_parse:#and self.lhs == "":
-            buffer = self.parseDotted(buffer)
-            print("BUFR", buffer)     
-            #if char == ".":
-            #    bpy.context.edit_text.buffer += char
-                #buffer += char
+            if "," in buffer and self.lhs == "":
+                sp = buffer.split(",")
+                buffer = sp[-1]
+            
+            if "=" in buffer:
+                i = buffer.index("=")
+                buffer = buffer[i+1:].strip()
+            
+            op = buffer.count("(")
+            cl = buffer.count(")") 
+            
+            if op == cl and op > 0:
+                do_parse = op == cl and op > 0 and ( "." == char and buffer.rindex(")") == len(buffer)-2) or char != "."
+            else:
+                do_parse = True
+                   
+            if "." in buffer and do_parse:#and self.lhs == "":
+                buffer = self.parseDotted(buffer)
+                print("BUFR", buffer)     
+                #if char == ".":
+                #    bpy.context.edit_text.buffer += char
+                    #buffer += char
             
         #only the NEW string compared to the last buffer is relevant
         #to look it up inside a subset/subdict of items
-        words = []
-        if lastWords == None or lastWords == []:
+        #words = []
+        #if lastWords == None or lastWords == []:
             #if self.oldbuffer in self.lastLookups:
             #    lastWords = self.lastLookups[self.oldbuffer] #its a list only
             #    words = [it for it in lastWords if it.startswith(bpy.context.edit_text.buffer)]
@@ -1470,6 +1487,7 @@ class AutoCompleteOperator(bpy.types.Operator):
 #        if self.activeScope.name not in self.identifiers and self.activeScope != self.module:
 #            self.parseModule(self.activeScope.name, False)
         
+        scope = self.activeScope.copy()
         print("BUFFR2", buffer)
         if buffer in self.identifiers:  
             cl = self.identifiers[buffer]
@@ -1481,7 +1499,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 [self.parseModule(v, False) for v in cl.submodules if not v in self.identifiers]
                 self.builtins = self.module
                 self.builtinId = self.identifiers
-                self.activeScope = self.module
+                self.activeScope = scope
                 
                 [words.append(self.last(v)) for v in cl.local_vars if self.last(v) != None]
                 [words.append(self.last(v)) for v in cl.local_funcs if self.last(v) != None]
@@ -1494,7 +1512,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 [self.parseModule(v, False) for v in cl.to_parse if not v in self.identifiers]
                 self.builtins = self.module
                 self.builtinId = self.identifiers
-                self.activeScope = self.module
+                self.activeScope = scope
                 
                 [words.append(self.last(v)) for v in cl.local_vars if self.last(v) != None]
                 [words.append(self.last(v)) for v in cl.local_funcs if self.last(v) != None]
@@ -1506,7 +1524,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                     self.parseModule(typ, False)
                     self.builtins = self.module
                     self.builtinId = self.identifiers
-                    self.activeScope = self.module
+                    self.activeScope = scope
                     
                 cl = self.identifiers[typ]
                 [words.append(self.last(v)) for v in cl.local_vars if self.last(v) != None] #pseudo modules appear here

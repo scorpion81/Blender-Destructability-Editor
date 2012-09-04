@@ -121,34 +121,45 @@ import blf
 import builtins
 import math
 import keyword
+import os
 
 #fallback method for bge module, but when its in the import list/code string, do not compile !
 #best thing would be RST files for everything, no need for evaluation at all ! maybe generate for all available python modules
 class RSTParser:
     
-    token_list = ["class", "function", "method", "type", "module", "attribute", "rtype", "args"]
+    token_list = ["class", "function", "method", "type", "module", "attribute", "rtype", "args", "data"]
   
     def parseToken(line, opdata, t):
+        #print("line", line)
+        
+        opdata.indent = 0
         tok = ".. " + t + "::"
         if line.startswith(tok):
-            ind = line.index(tok)
-            line = line[ind+1:]
+            line = line.split(tok)[1]
             v = line.strip()
             if t == "module":
                 Module.create(v, [], opdata)
-            if t == "class":
+            elif t == "class":
+                
+                if "(" in v:
+                    ind = v.index("(")
+                    v = v[:ind]
                 Class.create(v, [], opdata)
-            if t in ("function", "method"):
+            elif t in ("function", "method"):
+                
+                if "(" in v:
+                    ind = v.index("(")
+                    v = v[:ind]
                 Function.create(v, [], opdata)
-            if t in ("data", "attribute"):
+            elif t in ("data", "attribute"):
                 if t == "data": # assume ints for constants, or strings ? who knows... if no type is given
-                    typ = RSTParser.parse(line, opdata, "type")
+                    typ = RSTParser.parseToken(v, "type", opdata)
                     if typ == None:
                         typ = "int"
                                                 
                     Declaration.create(v, typ, opdata)
                     
-            if t == "type":
+            elif t == "type":
                 return v         
         return None
     
@@ -156,11 +167,15 @@ class RSTParser:
         [RSTParser.parseToken(line, opdata, t) for t in RSTParser.token_list] 
     
     def parse(name, opdata):
-        currentDir = path.abspath(os.path.split(__file__)[0])
-        filename = currentDir + "\\static_data\\" + name + ".rst"
-        file = open(filename, "r")
-        for l in file.lines:
-            RSTParser.parseLine(l, opdata)
+        
+        try:
+            filename = os.path.abspath(os.path.dirname(__file__) + "//static_data//" + name + ".rst")
+            file = open(filename, "r")
+            for line in file:
+                RSTParser.parseLine(line, opdata)
+        except Exception as ex:
+            print(ex)
+        
         
 #encapsulate drawing and functionality of a menu
 #select callback with parameter tuple
@@ -353,6 +368,9 @@ class Declaration:
         (isinstance(self, Module) and isinstance(self.parent, Module))):
             #add to globals
             print("PSTR", pstr)
+            if "bge" in pstr:
+                return 
+            
             ret = opdata.compile(False, pstr)
             if ret == None:
                 return
@@ -752,16 +770,28 @@ class AutoCompleteOperator(bpy.types.Operator):
         try:
              
             code = bpy.context.edit_text.as_string()
-            if not all:
-                lines = code.splitlines()
-                code = ""
-                line_index = bpy.context.edit_text.lines.values().index(bpy.context.edit_text.current_line)
-                for i in range(0, line_index):
-                    code += (lines[i] + "\n")             
-                           
-           # print("CODE", code)
-            exec(compile(code, '<string>', 'exec'))
-            ret = eval(expr)
+            
+            code = code.replace("import bge", "")
+            
+            if not "bge" in code: #TODO watch other names containing bge....
+                if not all:
+                    lines = code.splitlines()
+                    code = ""
+                    line_index = bpy.context.edit_text.lines.values().index(bpy.context.edit_text.current_line)
+                    for i in range(0, line_index):
+                        code += (lines[i] + "\n")             
+                               
+               # print("CODE", code)
+                exec(compile(code, '<string>', 'exec'))
+                ret = eval(expr)
+            else:
+               # expr = self.identifiers[expr]
+                print("EXPR", expr)
+                #if not "bge." in expr:
+                #    ret = self.compile(all, expr)
+                #else:
+                ret = expr
+                    
             return ret
         except Exception as ex:
             print(ex)
@@ -865,7 +895,10 @@ class AutoCompleteOperator(bpy.types.Operator):
       #  self.trackScope(
         
         if e.startswith("bge.") and e not in self.identifiers:
-            RSTParser.parse(e + ".rst", self)
+            RSTParser.parse(e, self)
+        
+        if e in self.identifiers:
+            return
              
         try:
             ret = self.compile(True, e)
@@ -882,8 +915,16 @@ class AutoCompleteOperator(bpy.types.Operator):
         print(e)
         typ = type(ret).__name__
         print("TYPE", typ)
+        
+       # if typ != "list":
         names = dir(ret)
         act = self.list()
+        #else:
+        #    names = []
+        #    act = []
+        #    for r in ret:
+        #        names.append(self.last(r))
+        #        act.append(self.last(r))
        # print("ACT", act, self.last(e))
         
         if act == None:
@@ -1165,6 +1206,8 @@ class AutoCompleteOperator(bpy.types.Operator):
         #otherwise replace param by its type, if specified by user
         #like .. args :: argname
         #     .. type :: typename, TODO
+        
+      
         dotted = dotted.strip()        
         print("TOEVAL", dotted)
         ret = self.compile(False, dotted)
@@ -1173,8 +1216,11 @@ class AutoCompleteOperator(bpy.types.Operator):
             return buffer 
          
             #print("LOCALS", locals()) 
-            #print("GLOBALS", globals())    
-        typename = type(ret).__name__
+            #print("GLOBALS", globals())
+        if "bge" in ret:
+            typename = ret
+        else:    
+            typename = type(ret).__name__
         print("TYPENAME", typename)
         if not parenthesis and not isSelf and not isContext:
             if ri != -1:
@@ -1765,8 +1811,8 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.identifiers = {} #'if': 'keyword', 
                             #'else': 'keyword'}
                              
-        #self.identifiers['bge'] = Module.create("bge", ["bge.types", "bge.logic", 
-        #                            "bge.render", "bge.texture", "bge.events", "bge.constraints"], self)
+        Module.create("bge", ["bge.types", "bge.logic", 
+                              "bge.render", "bge.texture", "bge.events", "bge.constraints"], self)
         
        # self.globals['__builtins__'] = builtins
         try:

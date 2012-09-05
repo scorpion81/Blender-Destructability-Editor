@@ -129,21 +129,32 @@ class RSTParser:
     
     token_list = ["class", "function", "method", "type", "module", "attribute", "rtype", "args", "data"]
   
-    def parseToken(line, opdata, t):
-        #print("line", line)
+    def parseToken(line, t, opdata):
+        #print("line", line, t)
         
+        #ignore indents completely here in API
         opdata.indent = 0
+        opdata.activeScope.indent = 0
+        
         tok = ".. " + t + "::"
+        line = line.lstrip()
         if line.startswith(tok):
             line = line.split(tok)[1]
             v = line.strip()
             if t == "module":
+                if opdata.activeScope.type == "class":
+                    opdata.activeScope = opdata.activeScope.parent
                 Module.create(v, [], opdata)
             elif t == "class":
                 
                 if "(" in v:
                     ind = v.index("(")
                     v = v[:ind]
+                    
+               
+                if opdata.activeScope.type == "class": #and opdata.activeScope.type != "module":
+                    opdata.activeScope = opdata.activeScope.parent
+          
                 Class.create(v, [], opdata)
             elif t in ("function", "method"):
                 
@@ -151,20 +162,25 @@ class RSTParser:
                     ind = v.index("(")
                     v = v[:ind]
                 Function.create(v, [], opdata)
+                opdata.activeScope = opdata.activeScope.parent
+                
             elif t in ("data", "attribute"):
-                if t == "data": # assume ints for constants, or strings ? who knows... if no type is given
-                    typ = RSTParser.parseToken(v, "type", opdata)
-                    if typ == None:
-                        typ = "int"
-                                                
-                    Declaration.create(v, typ, opdata)
+                #if t == "data": # assume ints for constants, or strings ? who knows... if no type is given
+                
+                print("DATA1", v)
+                typ = RSTParser.parseToken(v, "type", opdata)
+                if typ == None:
+                    typ = "int"
+                
+                print("DATA2", v, typ)                                
+                Declaration.create(v, typ, opdata)
                     
             elif t == "type":
                 return v         
         return None
     
     def parseLine(line, opdata):
-        [RSTParser.parseToken(line, opdata, t) for t in RSTParser.token_list] 
+        [RSTParser.parseToken(line, t, opdata) for t in RSTParser.token_list] 
     
     def parse(name, opdata):
         
@@ -773,13 +789,15 @@ class AutoCompleteOperator(bpy.types.Operator):
             
             code = code.replace("import bge", "")
             
-            if not "bge" in code: #TODO watch other names containing bge....
-                if not all:
-                    lines = code.splitlines()
-                    code = ""
-                    line_index = bpy.context.edit_text.lines.values().index(bpy.context.edit_text.current_line)
-                    for i in range(0, line_index):
-                        code += (lines[i] + "\n")             
+            
+            if not all:
+                lines = code.splitlines()
+                code = ""
+                line_index = bpy.context.edit_text.lines.values().index(bpy.context.edit_text.current_line)
+                for i in range(0, line_index):
+                    code += (lines[i] + "\n")
+                
+            if not "bge" in code: #TODO watch other names containing bge....                 
                                
                # print("CODE", code)
                 exec(compile(code, '<string>', 'exec'))
@@ -894,7 +912,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.activeScope.indent = 0
       #  self.trackScope(
         
-        if e.startswith("bge.") and e not in self.identifiers:
+        if e.startswith("bge") and e not in self.identifiers:
             RSTParser.parse(e, self)
         
         if e in self.identifiers:
@@ -915,6 +933,10 @@ class AutoCompleteOperator(bpy.types.Operator):
         print(e)
         typ = type(ret).__name__
         print("TYPE", typ)
+        
+        if typ == "str":
+            return
+            
         
        # if typ != "list":
         names = dir(ret)
@@ -1217,10 +1239,11 @@ class AutoCompleteOperator(bpy.types.Operator):
          
             #print("LOCALS", locals()) 
             #print("GLOBALS", globals())
-        if "bge" in ret:
+      
+        typename = type(ret).__name__
+        if typename == "str" and "bge" in typename:
             typename = ret
-        else:    
-            typename = type(ret).__name__
+            
         print("TYPENAME", typename)
         if not parenthesis and not isSelf and not isContext:
             if ri != -1:

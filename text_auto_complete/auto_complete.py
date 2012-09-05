@@ -797,7 +797,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 for i in range(0, line_index):
                     code += (lines[i] + "\n")
                 
-            if not "bge" in code: #TODO watch other names containing bge....                 
+            if not "bge" in code and not "bge" in expr:  #TODO watch other names containing bge....                 
                                
                # print("CODE", code)
                 exec(compile(code, '<string>', 'exec'))
@@ -808,7 +808,12 @@ class AutoCompleteOperator(bpy.types.Operator):
                 #if not "bge." in expr:
                 #    ret = self.compile(all, expr)
                 #else:
-                ret = expr
+                e = self.identifiers[expr]
+                if e.type == "module":
+                    ret = "#" + e.name
+                else:
+                   ret = "#" + e.type
+                    
                     
             return ret
         except Exception as ex:
@@ -934,7 +939,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         typ = type(ret).__name__
         print("TYPE", typ)
         
-        if typ == "str":
+        if typ == "str" and "#" in ret:
             return
             
         
@@ -1172,6 +1177,11 @@ class AutoCompleteOperator(bpy.types.Operator):
             #exec(line)
             modname = line.split("import")[1].strip()
             print("MODNAME", modname)
+            
+            if modname == "bge" and "bge" not in self.identifiers:
+                Module.create("bge", ["bge.types", "bge.logic", 
+                              "bge.render", "bge.texture", "bge.events", "bge.constraints"], self)
+            
             if modname not in self.identifiers:
                 self.parseModule(modname, False)
             #print(self.identifiers)    
@@ -1241,8 +1251,15 @@ class AutoCompleteOperator(bpy.types.Operator):
             #print("GLOBALS", globals())
       
         typename = type(ret).__name__
-        if typename == "str" and "bge" in typename:
-            typename = ret
+        
+        isStatic = False
+        # '#' marks static evaluation result
+        if typename == "str" and "#" in ret:
+            typename = ret.split("#")[1]
+            isStatic = True
+        
+        if "(" in typename:
+            typename = typename.split("(")[0]
             
         print("TYPENAME", typename)
         if not parenthesis and not isSelf and not isContext:
@@ -1319,13 +1336,13 @@ class AutoCompleteOperator(bpy.types.Operator):
                     buffer = self.activeScope.name
                     self.activeScope = scope
             else:
-                if buffer.count(".") > 0:
+                if buffer.count(".") > 0 and not isStatic:
                     ind = buffer.index(".")
                     buffer = buffer[ind+1:] # cut first name off otherwise its class.class.var instead class.var
                    
             print("RHS", buffer, self.activeScope)
         
-        if equal and not isRhs:
+        if equal and not isRhs and not isStatic:
             if buffer.count(".") > 1:
                 ind = buffer.index(".")
                 buffer = buffer[ind+1:] # cut first name off otherwise its class.class.var instead class.var
@@ -1833,9 +1850,9 @@ class AutoCompleteOperator(bpy.types.Operator):
         
         self.identifiers = {} #'if': 'keyword', 
                             #'else': 'keyword'}
+        for k in keyword.kwlist:
+            self.identifiers[k] = 'keyword'
                              
-        Module.create("bge", ["bge.types", "bge.logic", 
-                              "bge.render", "bge.texture", "bge.events", "bge.constraints"], self)
         
        # self.globals['__builtins__'] = builtins
         try:

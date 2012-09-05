@@ -123,6 +123,7 @@ import math
 import keyword
 import os
 
+
 #fallback method for bge module, but when its in the import list/code string, do not compile !
 #best thing would be RST files for everything, no need for evaluation at all ! maybe generate for all available python modules
 class RSTParser:
@@ -296,8 +297,8 @@ class Menu:
                     j -= self.wrapCount
                     rx += (width + self.margin)
                     
-                rect_x = x + rx - self.margin
-                rect_y = y - j * (self.height + self.margin) 
+                rect_x = self.pos_x + rx - self.margin
+                rect_y = self.pos_y - j * (self.height + self.margin) 
                      
                 self.itemRects[it] = (rect_x, rect_y, 
                                       rect_x + width + self.margin, 
@@ -823,7 +824,7 @@ class AutoCompleteOperator(bpy.types.Operator):
     def draw_popup_callback_px(self, context):
         
         if self.menu != None:
-            self.menu.draw(self.mouse_x, self.mouse_y)
+            self.menu.draw(self.caret_x, self.caret_y)
         
     def cleanup(self):
         self.typedChar = []
@@ -832,8 +833,6 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.lhs = ""
         self.identifiers = {}
         self.indent = 0
-        self.mouse_x = 0
-        self.mouse_y = 0
         self.menu = None
         self.caret_x = 0
         self.caret_y = 0
@@ -1643,23 +1642,48 @@ class AutoCompleteOperator(bpy.types.Operator):
                 
            # bpy.ops.wm.call_menu(name = "text.popup")
     
+    def caretPosition(self, event):
+        area = None
+        for a in bpy.context.screen.areas:
+            if a.type == 'TEXT_EDITOR':
+                area = a
+                
+#                region = None
+#                for r in area.regions:
+#                    if r.type == 'WINDOW':
+#                        region = r
+                
+                try:
+                    #raise Exception
+                    space = None
+                    for s in area.spaces:
+                        if s.type == 'TEXT_EDITOR':
+                            space = s
+                            loc = space.cursor_location
+                            x = int(loc[0] + 20)
+                            y = int(loc[1] - 40)
+                            # print("XY", x, y)
+                            return x, y
+                except Exception:
+                    return event.mouse_region_x, event.mouse_region_y
+            
+    
                  
     def modal(self, context, event):
         
         try:
             
             context.area.tag_redraw()
-            self.mouse_x = event.mouse_region_x
-            self.mouse_y = event.mouse_region_y
             
-            #doesnt work because i cant find out which line is the topmost in the display
-            #line_index = context.edit_text.lines.values().index(context.edit_text.current_line)
-            #self.caret_x = context.region.x + context.edit_text.current_character * 6
-            #self.caret_y = context.region.y + line_index * 11
+            #works with caretxy.patch applied ONLY.
+            self.caret_x, self.caret_y = self.caretPosition(event)
             
+            mouse_x = event.mouse_region_x
+            mouse_y = event.mouse_region_y
+               
             if event.type == 'MOUSEMOVE':
                 if self.menu != None:
-                    self.menu.highlightItem(self.mouse_x, self.mouse_y)
+                    self.menu.highlightItem(mouse_x, mouse_y)
             
             if event.type == 'RIGHTMOUSE' and event.value == 'PRESS':
                 self.menu = None
@@ -1842,8 +1866,6 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.lhs = ""   
         self.tempBuffer = ""
         self.indent = 0
-        self.mouse_x = 0
-        self.mouse_y = 0
         self.menu = None
         self.caret_x = 0
         self.caret_y = 0

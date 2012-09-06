@@ -122,7 +122,9 @@ import builtins
 import math
 import keyword
 import os
+from bpy.app.handlers import persistent
 
+running = False
 
 #fallback method for bge module, but when its in the import list/code string, do not compile !
 #best thing would be RST files for everything, no need for evaluation at all ! maybe generate for all available python modules
@@ -838,10 +840,10 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.caret_y = 0
         self.globals = None
         
-        #TODO remove this from context
-       # bpy.context.edit_text.suggestions.clear()
-        bpy.context.edit_text.buffer = ""
-        bpy.context.region.callback_remove(self._handle)
+        try:
+            bpy.context.region.callback_remove(self._handle)
+        except Exception:
+            pass
     
     def trackScope(self):
         print("TRACKSCOPE", self.indent, self.activeScope.indent)
@@ -1675,6 +1677,19 @@ class AutoCompleteOperator(bpy.types.Operator):
             
             context.area.tag_redraw()
             
+            if not context.edit_text:
+                self.cleanup()
+                print("... autocompleter stopped")
+                return {'CANCELLED'}
+            
+            global running
+            if not running:
+                self.cleanup()
+                context.edit_text.buffer = ""
+                print("... autocompleter stopped(modal)")
+                return {'CANCELLED'}
+                
+            
             #works with caretxy.patch applied ONLY.
             self.caret_x, self.caret_y = self.caretPosition(event)
             
@@ -1685,7 +1700,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 if self.menu != None:
                     self.menu.highlightItem(mouse_x, mouse_y)
             
-            if event.type == 'RIGHTMOUSE' and event.value == 'PRESS':
+            if (event.type == 'RIGHTMOUSE' or event.type =='ESC') and event.value == 'PRESS':
                 self.menu = None
                 return {'RUNNING_MODAL'}
                 
@@ -1741,14 +1756,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 
                 self.parseIdentifier()
                 self.indent = 0
-                self.lhs = ""
-                
-            elif event.type == 'ESC':
-                
-                self.cleanup()
-                
-                print("... autocompleter stopped")
-                return {'CANCELLED'}
+                self.lhs = ""     
             
             elif event.unicode == "=" and self.lhs == "" and event.value == 'PRESS':
                 
@@ -1854,15 +1862,28 @@ class AutoCompleteOperator(bpy.types.Operator):
     
     def invoke(self, context, event):
         
-        text = context.edit_text
+        global running
+        if running:
+            running = False
+            self.cleanup()
+            print("... autocompleter stopped(invoke)")
+            return {'CANCELLED'}
+        
+        try:
+            text = context.edit_text
+        except Exception:
+            return {'CANCELLED'}
+        
+        if not text:
+            return {'CANCELLED'}
+        
         self.module = Module(text.name.split(".")[0], []) #better: filepath, if external
         print(self.module.name, self.module.indent)
         self.activeScope = self.module
         self.globals = globals()
          
         self.typedChar = []
-        #self.oldbuffer = ""
-        #    self.lastLookups = {} #?, backspace must delete sub-buffers, that is 2 indexes on (sorted) list
+        
         self.lhs = ""   
         self.tempBuffer = ""
         self.indent = 0
@@ -1870,20 +1891,16 @@ class AutoCompleteOperator(bpy.types.Operator):
         self.caret_x = 0
         self.caret_y = 0
         
-        self.identifiers = {} #'if': 'keyword', 
-                            #'else': 'keyword'}
+        self.identifiers = {}
+        
         for k in keyword.kwlist:
             self.identifiers[k] = 'keyword'
                              
         
-       # self.globals['__builtins__'] = builtins
         try:
             self.parseModule("builtins", True)
             self.builtins = self.module
             self.builtinId = self.identifiers
-           # print(self.identifiers.keys())
-          #  print(globals())
-        #    print(dir(builtins))
            
         except Exception as e:
             print("Exception(parseModule)", e)
@@ -1895,6 +1912,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         context.window_manager.modal_handler_add(self)
         self._handle = context.region.callback_add(self.draw_popup_callback_px, (context,), 'POST_PIXEL')
    
+        running = True
         if text.name != "auto_complete.py": 
             return self.parseCode(text) 
         return {'RUNNING_MODAL'}
@@ -1907,30 +1925,30 @@ class AutoCompletePanel(bpy.types.Panel):
     
     def register():
         bpy.types.Text.buffer = bpy.props.StringProperty(name = "buffer")
+        bpy.app.handlers.load_pre.append(load_handler)
     
     def unregister():
-        del bpy.types.Text.buffer 
+        del bpy.types.Text.buffer
+        bpy.app.handlers.load_pre.remove(load_handler)
         
     def draw(self, context):
         layout = self.layout
        # layout.prop(context.edit_text, "autocomplete_enabled", text = "Enabled",  event = True)
-        layout.operator("text.autocomplete", text = "Enable")
-        layout.label("disable with ESC")
+        text = "Enable"
+        label = "Autocompleter stopped"
+        
+        global running
+        if context.edit_text and running:
+            text = "Disable"
+            label = "Autocompleter running"
+        layout.operator("text.autocomplete", text = text)
+        layout.label(label)
+        #layout.label("disable with ESC")
 
-def enablerUpdate(self, context):
-    pass
-               
-
-def register():
-    bpy.utils.register_class(SubstituteTextOperator)
-    #bpy.utils.register_class(AutoCompletePopup)
-    bpy.utils.register_class(AutoCompleteOperator) 
-    bpy.utils.register_class(AutoCompletePanel)
-
-
-def unregister():
-    bpy.utils.unregister_class(AutoCompletePanel)
-    bpy.utils.unregister_class(AutoCompleteOperator)
-   # bpy.utils.unregister_class(AutoCompletePopup)
-    bpy.utils.unregister_class(SubstituteTextOperator)
     
+@persistent   
+def load_handler(dummy):
+    global running 
+    if running:
+        print("Stopping autocompleter...")
+        bpy.ops.text.autocomplete('INVOKE_DEFAULT')

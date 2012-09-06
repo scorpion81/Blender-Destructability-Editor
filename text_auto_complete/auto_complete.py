@@ -8,26 +8,27 @@ simple autocomplete:
 5) choose option and it will be inserted into text
 6) after object variables, enter . and member popup should open
 7) its all very alpha, in case of error: try pressing ENTER on an empty line or 
-   press ESC and Enable again (in target file) 
+   press Disable and Enable again (in target file) 
    to load existing code and create autocomplete datastructures
 
 TODO: [x] = done, [-] = partially done, [ ] = not done
 
 [x] make addon out of this
-[-] integrate nicely: create datastructures automatically (on text open), 
+[x] integrate nicely: create datastructures automatically (on text open), 
     enable/disable via checkbox (maybe then load datastructures), end modal 
     operator with other operator/gui event ?
+[ ] prevent segfault when loading new file and autocompleter running
 [x] make menu disappear when i continue typing (change focus)
 [x] correctly replace previously typed text by suggestion
 [x] handle class member display correctly after pushing "PERIOD"
-[ ] categorize items: Class, Function, Variable at least
-[-] handle imports, fill datastructure with all imported scopes (classes, 
+[ ] categorize items: Class, Function, Variable at least ( by type, M modules, classes C, functions F and "(" )
+[x] handle imports, fill datastructure with all imported scopes (classes, 
     functions, modules and vars visible, local vars relevant for own code only -
     need to parse imports AND importable stuff (module handling, parse dir for 
     that ?), importable as new datastructure
     
 [-] test unnamed scopes, maybe do not store them (unnecessary, maybe active 
-    scope only? for indentation bookkeeping) (partially done)
+    scope only? for indentation bookkeeping)
 [x] make autocomplete info persisent, maybe pickle it, so it can be re-applied 
     to the file (watch versions, if file has been changed (not necessary, will 
     be parsed in dynamically, but maybe for big files ?)
@@ -39,7 +40,7 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
     text(select word, cut selected ?) and buffer itself and replace buffer 
     content and insert into text
 
-[ ] make new lookups on smaller buffers, on each time on initial buffer
+[ ] make new lookups on smaller buffers, on each time on initial buffer (unnecessary)
 [ ] if any keyword before variable, same line, do not accept declaration with = 
     (would be wrong in python at all) are those keyword scopes ?, no unnamed... 
     and type = scope
@@ -60,16 +61,16 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
     - or if startswith(__) static vars, usable with className only 
     (check both lhs and rhs)
 
-[ ] evaluate self, and dotted stuff, or simply create entry for it ?, dot -> 
+[-] evaluate self, and dotted stuff, or simply create entry for it ?, dot -> 
     if available, find object
 [-] exclude those entries from suggestions, which match completely with the 
     buffer entry. watch for comma separated assignments, those are multiple 
     identifiers, which need to be assigned separately !!
 
-[ ] if only one matching entry in autocomplete suggestions, then substitute 
-    automatically !! 
+[x] if only one matching entry in autocomplete suggestions, then substitute 
+    automatically !! (press enter for that)
 [x] first restore menu functionality  with self drawn menu!!
-[-] lookup with dots, commas: always get the last element in sequence only after
+[x] lookup with dots, commas: always get the last element in sequence only after
     detecting . or , (when typing) when parsing, evaluate dotted or take last 
     part always (or leave it as is ?) and with comma watch whether ret type 
     count types match and assign one after other
@@ -94,7 +95,7 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
 [x] if compile returns None, this means something went wrong. Maybe the code 
     string isnt correctly assembled.
     
-[-] add support for non-accessible module bge (only accessible from game engine,
+[x] add support for non-accessible module bge (only accessible from game engine,
     need offline raw data for this
 
 [ ] change to static evaluation for all modules for which rst files are detected
@@ -112,6 +113,10 @@ TODO: [x] = done, [-] = partially done, [ ] = not done
     completion, parse in docstrings in RST format, otherwise parameters cant be auto
     completed, for self assume own class, for context assume bpy.context, but otherwise
     youre on your own...
+
+[ ] handle aliased imports
+
+[ ] ignore docstrings during autocompletion parsing, only parse them where necessary!
 
 """
 
@@ -1675,8 +1680,7 @@ class AutoCompleteOperator(bpy.types.Operator):
         
         try:
             
-            context.area.tag_redraw()
-            
+           
             if not context.edit_text:
                 self.cleanup()
                 print("... autocompleter stopped")
@@ -1689,6 +1693,7 @@ class AutoCompleteOperator(bpy.types.Operator):
                 print("... autocompleter stopped(modal)")
                 return {'CANCELLED'}
                 
+            context.area.tag_redraw()
             
             #works with caretxy.patch applied ONLY.
             self.caret_x, self.caret_y = self.caretPosition(event)
@@ -1864,10 +1869,10 @@ class AutoCompleteOperator(bpy.types.Operator):
         
         global running
         if running:
-            running = False
-            self.cleanup()
-            print("... autocompleter stopped(invoke)")
-            return {'CANCELLED'}
+           running = False
+          #    self.cleanup()
+           print("Requesting Autocompleter stop....")
+           return {'RUNNING_MODAL'}
         
         try:
             text = context.edit_text
@@ -1951,4 +1956,6 @@ def load_handler(dummy):
     global running 
     if running:
         print("Stopping autocompleter...")
-        bpy.ops.text.autocomplete('INVOKE_DEFAULT')
+        running = False
+        #trigger an event somehow so that modal gets called or ended...
+        #bpy.ops.text.autocomplete('INVOKE_DEFAULT')

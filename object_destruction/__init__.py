@@ -21,6 +21,26 @@ if not __name__ in "__main__":
 
 import bpy
 
+from bpy.types import Context
+StructRNA = bpy.types.Struct.__bases__[0]
+
+def copy(self):
+    from types import BuiltinMethodType
+    new_context = {}
+    generic_attrs = (list(StructRNA.__dict__.keys()) +
+                     ["bl_rna", "rna_type", "copy"])
+    for attr in dir(self):
+        if not (attr.startswith("_") or attr in generic_attrs):
+            if hasattr(self, attr):
+                value = getattr(self, attr)
+                if type(value) != BuiltinMethodType:
+                    new_context[attr] = value
+
+    return new_context
+
+#a hacky solution
+Context.copy = copy    
+    
 def register():
     bpy.utils.register_module(__name__)
     
@@ -30,6 +50,6 @@ def unregister():
      
 if __name__ == "__main__":
     print("IN INITPY MAIN")
-    import destruction_gui
-    destruction_gui.register()
+    from object_destruction import destruction_gui
+    #destruction_gui.register()
     

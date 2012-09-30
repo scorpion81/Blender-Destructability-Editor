@@ -39,9 +39,10 @@ class DestructabilityPanel(types.Panel):
                 break;
         return context.object.type == 'EMPTY' and meshChild
     
-    def draw_basic_fracture(self, context):
+    def draw_basic_fracture(self, context, box):
         
-        layout = self.layout
+        #layout = self.layout
+        layout = box
          
         if self.isParent(context):
             row = layout.row()
@@ -146,11 +147,11 @@ class DestructabilityPanel(types.Panel):
                 row.prop(context.object.destruction, "dissolve_angle", text="Limited Dissolve Angle")
             
         
-    def draw_advanced_fracture(self, context):
+    def draw_advanced_fracture(self, context, box):
         
         layout = self.layout
         if self.isMesh(context):    
-            box = layout.box()   
+            #box = layout.box()
             
             row = box.row(align=True)
             row.prop(context.object.destruction.cell_fracture, "mass_mode")
@@ -211,12 +212,12 @@ class DestructabilityPanel(types.Panel):
             row.prop(context.object.destruction, "glue_threshold", text = "Glue Threshold")
 
     
-    def draw_recursion(self, context):
+    def draw_recursion(self, context, box):
         
         layout = self.layout
         #use recursion for all methods
         if context.object.destruction.destructionMode != 'DESTROY_L' and self.isMesh(context):     
-            box = layout.box()
+           # box = layout.box()
             col = box.column()
             col.label("Recursive Shatter")
             rowsub = col.row(align=True)
@@ -227,15 +228,15 @@ class DestructabilityPanel(types.Panel):
             rowsub.prop(context.object.destruction.cell_fracture, "recursion_chance")
             col.prop(context.object.destruction.cell_fracture, "recursion_chance_select", expand=True)
         
-    def draw_gameengine_setup(self, context):
+    def draw_gameengine_setup(self, context, box):
         
         layout = self.layout
         layout.separator()
-        box = layout.box() 
+      #  box = layout.box() 
         row = box.row()
-        row.label("Game Engine Settings: ")
-        row.scale_x = 1.5
-        row.scale_y = 1.5
+       # row.label("Game Engine Settings: ")
+        #row.scale_x = 1.5
+        #row.scale_y = 1.5
         
         #does not work correctly
         #if isMesh or isParent:
@@ -364,14 +365,14 @@ class DestructabilityPanel(types.Panel):
 #            row.operator("bge_test.run", text = txt) 
         
     
-    def draw_the_button(self, context):
+    def draw_the_button(self, context, box):
         
         layout = self.layout
-        box = layout.box() 
+       # box = layout.box() 
         row = box.row()
         row.operator("object.destroy")
         
-    def draw_the_undo_button(self, context):
+    def draw_the_undo_button(self, context, box):
         
         layout = self.layout
         names = []
@@ -380,35 +381,49 @@ class DestructabilityPanel(types.Panel):
                 if o.destruction.is_backup_for != None:
                     names.append(o.destruction.is_backup_for)
         if context.object.name in names:
-            box = layout.box()
+           # box = layout.box()
             row = box.row()
             row.operator("object.undestroy")
                     
+    def icon(self, bool):
+        if bool:
+            return 'TRIA_DOWN'
+        else:
+            return 'TRIA_RIGHT'
+        
     
     def draw(self, context):        
         
         layout = self.layout
-        self.draw_basic_fracture(context)
+        box = layout.box()
+        self.draw_basic_fracture(context, box)
         
         if self.isMesh(context):
-            layout.prop(context.object.destruction, "advanced_fracture", text = "Advanced Fracture Options")
+            inner = box.box()
+            inner.prop(context.object.destruction, "advanced_fracture", text = "Advanced Fracture Options", 
+                        icon = self.icon(context.object.destruction.advanced_fracture), emboss = False)
+                        
             if context.object.destruction.advanced_fracture:
-                self.draw_advanced_fracture(context)
-        
-            layout.prop(context.object.destruction, "auto_recursion", text = "Automatic Recursion Options")
+                self.draw_advanced_fracture(context, inner)
+            
+            inner = box.box()
+            inner.prop(context.object.destruction, "auto_recursion", text = "Automatic Recursion Options",
+                        icon = self.icon(context.object.destruction.auto_recursion), emboss = False)
             if context.object.destruction.auto_recursion:
-                self.draw_recursion(context)
+                self.draw_recursion(context, inner)
                 
         
         if self.isMesh(context) and context.object.destruction.dynamic_mode == "D_PRECALCULATED":
-            self.draw_the_button(context)
+            self.draw_the_button(context, box)
         
         if self.isParent(context):
-            self.draw_the_undo_button(context)
+            self.draw_the_undo_button(context, box)
         
-        layout.prop(context.object.destruction, "setup_gameengine", text = "Game Engine Setup Options")
+        box = layout.box()
+        box.prop(context.object.destruction, "setup_gameengine", text = "Game Engine Setup Options", 
+                    icon = self.icon(context.object.destruction.setup_gameengine), emboss = False)
         if context.object.destruction.setup_gameengine:
-            self.draw_gameengine_setup(context)
+            self.draw_gameengine_setup(context, box)
         
         layout.operator("active.to_selected")
         

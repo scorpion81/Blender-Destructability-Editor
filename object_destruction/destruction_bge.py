@@ -279,7 +279,7 @@ def setup():
          
     compounds = {}
     realcompounds = {}              
-    
+    start = None
     for i in children.items():
         parent = None
         oldPar = scene.objects[i[0]]  

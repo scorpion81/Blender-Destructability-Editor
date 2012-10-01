@@ -131,6 +131,7 @@ class DestructabilityPanel(types.Panel):
                 row = col.row()
                 row.prop_search(context.object.destruction, "voro_volume", 
                         context.scene, "objects", icon = 'OBJECT_DATA', text = "Volume:")
+                row = col.row()
                 if context.object.destruction.voro_particles == "":
                     row.prop(context.object.destruction, "voro_exact_shape", text = "Use Exact Shape")
                 if context.object.destruction.voro_volume != "":
@@ -247,7 +248,7 @@ class DestructabilityPanel(types.Panel):
         if self.isMesh(context) or self.isParent(context):       
             box.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
         
-        if self.isParent(context):
+        if self.isParent(context):# or context.object.destruction.dynamic_mode == 'D_DYNAMIC':
             box.prop(context.object.destruction, "groundConnectivity", text = "Calculate Ground Connectivity")
             
             if context.object.destruction.groundConnectivity:
@@ -329,20 +330,29 @@ class DestructabilityPanel(types.Panel):
         
         row = box.row()
         col = row.column() 
-    
-        col.operator("player.setup")
-        col.active = not context.scene.player
-    
-        col = row.column()
-        col.operator("player.clear")
-        col.active = context.scene.player
+        
+        if not context.scene.player:
+            col.operator("player.setup")
+        else:
+            col.operator("player.clear")
+        
+#        col.operator("player.setup")
+#        col.active = not context.scene.player
+#    
+#        col = row.column()
+#        col.operator("player.clear")
+#        col.active = context.scene.player
     
         row = box.row()
-    
-        txt = "To Game Parenting"
+        
+        mode = context.object.destruction.dynamic_mode == 'D_PRECALCULATED'
+        if not mode and context.scene.converted:    
+            txt = "Reset Game Parenting"
+        else:
+            txt = "To Game Parenting"
    
         row.operator("parenting.convert", text = txt)
-        row.active = not context.scene.converted
+        row.active = not(context.scene.converted and mode)
         row = box.row()
         row.operator("game.start")
         
@@ -978,11 +988,19 @@ class ConvertParenting(types.Operator):
             context.scene.converted = True
             context.user_preferences.edit.use_global_undo = undo
         else:
-            self.report({'INFO'}, "Hit Undo Key to undo conversion")
-            return {'CANCELLED'}
-            #context.scene.objects.active = context.object
-            #self.unconvert(context)
-      #  context.scene.converted = not context.scene.converted
+            if context.object.destruction.dynamic_mode == 'D_PRECALCULATED':
+                self.report({'INFO'}, "Hit Undo Key to undo conversion")
+                return {'CANCELLED'}
+            else:
+                #context.scene.objects.active = context.object
+                undo = context.user_preferences.edit.use_global_undo
+                context.user_preferences.edit.use_global_undo = False
+                
+                self.unconvert(context)
+                context.scene.converted = False
+                
+                context.user_preferences.edit.use_global_undo = undo
+                
         return {'FINISHED'}
     
     def layer(self, n, keepFirst = False):
@@ -1206,55 +1224,55 @@ class ConvertParenting(types.Operator):
                        
     def unconvert(self, context):
         
-        bpy.ops.ed.undo()
+#        bpy.ops.ed.undo()
         
-#        pos = Vector((0.0, 0.0, 0.0))
-#        posFound = False
-#        for o in context.scene.objects:
-#             if o.name.startswith("P0"):
-#                 for obj in data.objects:
-#                     if obj.destruction != None:
-#                         if obj.destruction.is_backup_for == o.name:
-#                            pos = obj.location
-#                            posFound = True
-#                            break
-#             if posFound:
-#                 break
-#        
-#        for o in context.scene.objects:
-#            
-#            if context.scene.player:
-#                if o.name == "Player" or o.name == "Eye" or \
-#                   o.name == "Launcher":# or o.name == "Ground":
-#                       continue
-#            
-#            context.scene.objects.active = o
-#            
-#            index = 0
-#            if len(o.game.properties) > 10:
-#                if "myParent" in o.game.properties:
-#                    props = 11
-#                    index = len(o.game.properties) - props
-#                    #correct some parenting error -> children at wrong position
-#                    par = data.objects[o.game.properties[index].value]
-#                    if par.name.startswith("P_0"):
-#                        o.location -= pos  
-#                    o.parent = par
-#                else: 
-#                    props = 10
-#                    index = len(o.game.properties) - props
-#                    
-#            while len(o.game.properties) > index:
-#                ops.object.game_property_remove()
-#            
-#            #delete the last ones added
-#            if o.parent != None: #here we have an additional always sensor
-#                ops.logic.controller_remove(controller = "Python", object = o.name)
-#                ops.logic.sensor_remove(sensor = "Always", object = o.name)
-#            if o.destruction.destructor:
-#                #and here should be the collision sensor
-#                ops.logic.controller_remove(controller = "Python1", object = o.name)
-#                ops.logic.sensor_remove(sensor = "Collision", object = o.name)
+        pos = Vector((0.0, 0.0, 0.0))
+        posFound = False
+        for o in context.scene.objects:
+             if o.name.startswith("P0"):
+                 for obj in data.objects:
+                     if obj.destruction != None:
+                         if obj.destruction.is_backup_for == o.name:
+                            pos = obj.location
+                            posFound = True
+                            break
+             if posFound:
+                 break
+        
+        for o in context.scene.objects:
+            
+            if context.scene.player:
+                if o.name == "Player" or o.name == "Eye" or \
+                   o.name == "Launcher":# or o.name == "Ground":
+                       continue
+            
+            context.scene.objects.active = o
+            
+            index = 0
+            if len(o.game.properties) > 0:
+                if "myParent" in o.game.properties:
+                    props = 1
+                    index = len(o.game.properties) - props
+                    #correct some parenting error -> children at wrong position
+                    par = data.objects[o.game.properties[index].value]
+                    if par.name.startswith("P_0"):
+                        o.location -= pos  
+                    o.parent = par
+                else: 
+                    props = 0
+                    index = len(o.game.properties) - props
+                    
+            while len(o.game.properties) > index:
+                ops.object.game_property_remove()
+            
+            #delete the last ones added
+            if o.parent != None: #here we have an additional always sensor
+                ops.logic.controller_remove(controller = "Python", object = o.name)
+                ops.logic.sensor_remove(sensor = "Always", object = o.name)
+            if o.destruction.destructor:
+                #and here should be the collision sensor
+                ops.logic.controller_remove(controller = "Python1", object = o.name)
+                ops.logic.sensor_remove(sensor = "Collision", object = o.name)
 
 
 #class MyServer(SimpleXMLRPCServer):

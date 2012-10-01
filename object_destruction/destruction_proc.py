@@ -2088,6 +2088,16 @@ def updateFlattenHierarchy(self, context):
     if context.object.destruction.flatten_hierarchy:
         context.scene.hideLayer = 1
 
+def updateDynamicMode(self, context):
+    if context.object.destruction.dynamic_mode == 'D_DYNAMIC' and not \
+    context.object.name.startswith("P_"):
+        context.object.game.physics_type = 'RIGID_BODY'
+        context.object.game.collision_bounds_type = 'CONVEX_HULL'
+        context.object.game.collision_margin = 0.0 
+        context.object.game.radius = 0.01
+        context.object.game.use_collision_bounds = True
+    return None
+
 #disable decorator when persistence is not available
 def unchanged(func):
     return func
@@ -2352,11 +2362,12 @@ class DestructionContext(types.PropertyGroup):
     use_debug_redraw = props.BoolProperty(
             name="Show Progress Realtime",
             description="Redraw as fracture is done",
-            default=True
+            default=False
             )
     
     def _redraw_yasiamevil(self):
-       bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
+        #if bpy.context.active_object and bpy.context.active_object.destruction.dynamic_mode == 'D_PRECALCULATED':
+        bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
        
     
 #    def fracture_progress(self, prog):
@@ -2486,7 +2497,8 @@ so only unconnected parts collapse according to their parent relations")
                                     description = "Distance or size of cluster in % of according bounding box dimension")
     cluster = props.BoolProperty(name = "cluster", default = False, description = "Use Clustering of child objects to build irregular shapes")
     boolean_original = props.StringProperty(name = "boolean_original")
-    dynamic_mode = props.EnumProperty(name = "dynamic_mode", items = dynamicMode, description = "Fracture Objects dynamically or precalculated")
+    dynamic_mode = props.EnumProperty(name = "dynamic_mode", items = dynamicMode, description = "Fracture Objects dynamically or precalculated",
+                                      update = updateDynamicMode)
     converted = props.BoolProperty(name = "converted", default = False)
     radius = props.FloatProperty(name = "radius", default = 1, min = 0, description = "Speed independent destruction radius, is added to Speed Modifier")
     modifier = props.FloatProperty(name = "modifier",default = 0.25, min = 0, 

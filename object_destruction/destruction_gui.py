@@ -1408,7 +1408,7 @@ class UndestroyObject(types.Operator):
                     context.scene.objects.link(backup)
                     backup.use_fake_user = False
         
-                backup.location = Vector((0,0,0))
+                backup.location = o.location #Vector((0,0,0))
                 backup.select = True
                 ops.object.origin_set(type='ORIGIN_GEOMETRY')
                 backup.select = False

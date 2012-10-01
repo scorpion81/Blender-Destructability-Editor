@@ -2536,9 +2536,10 @@ EACH cube will be further fractured to the given part count")
     cell_fracture = props.PointerProperty(type=CellFractureContext, name = "CellFractureContext")
     
     restore = props.BoolProperty(name = "restore")
-    advanced_fracture = props.BoolProperty(name = "advanced_fracture", description = "Show Advanced Fracture Options")
-    auto_recursion = props.BoolProperty(name = "auto_recursion", description = "Show Automatic Recursion Options")
-    setup_gameengine = props.BoolProperty(name = "setup_gameengine", description = "Show Game Engine Setup Options")
+    basic_fracture = props.BoolProperty(name = "basic_fracture", description = "Basic Fracture Options")
+    advanced_fracture = props.BoolProperty(name = "advanced_fracture", description = "Advanced Fracture Options")
+    auto_recursion = props.BoolProperty(name = "auto_recursion", description = "Automatic Recursion Options")
+    setup_gameengine = props.BoolProperty(name = "setup_gameengine", description = "Game Engine Setup Options")
     re_unwrap = props.BoolProperty(name = "re_unwrap", description = "Unwrap shards with Smart Projection to reduce uv distortion")
     smart_angle = props.FloatProperty(name = "smart_angle", default = 66.0, min = 1.0, max = 89.0, description = "Angle limit for Smart Projection")
     glue_threshold = props.FloatProperty(name = "glue_threshold", default = 0.0, min = 0.0, 

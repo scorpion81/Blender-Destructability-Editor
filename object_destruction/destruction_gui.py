@@ -44,12 +44,12 @@ class DestructabilityPanel(types.Panel):
         #layout = self.layout
         layout = box
          
-        if self.isParent(context):
-            row = layout.row()
+        if self.isParent(context) or context.object.name.startswith("P_"): # destroyability should be switchable
+            row = box.row()
             row.prop(context.object.destruction, "destroyable", text = "Destroyable")
         
         if self.isMesh(context):
-            box = layout.box()
+            #box = layout.box()
             row = box.row()
             row.prop(context.object.destruction, "destructionMode", text = "Mode")
 
@@ -406,7 +406,18 @@ class DestructabilityPanel(types.Panel):
         
         layout = self.layout
         box = layout.box()
-        self.draw_basic_fracture(context, box)
+        
+        if self.isMesh(context):
+            inner = box.box()
+            inner.prop(context.object.destruction, "basic_fracture", text = "Basic Fracture Options", 
+                        icon = self.icon(context.object.destruction.basic_fracture), emboss = False)
+                        
+        elif self.isParent(context) or context.object.name.startswith("P_"):
+            inner = box
+            
+        if context.object.destruction.basic_fracture or self.isParent(context) or \
+        context.object.name.startswith("P_"):
+            self.draw_basic_fracture(context, inner)
         
         if self.isMesh(context):
             inner = box.box()

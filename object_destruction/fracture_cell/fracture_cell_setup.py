@@ -383,28 +383,28 @@ def cell_fracture_boolean(scene, obj, objects, use_interior_hide, level):
             # avoid unneeded bmesh re-conversion
             if mesh_new is not None:
                 bm = None
-
-            if clean:
-                if bm is None:  # ok this will always be true for now...
-                    bm = bmesh.new()
-                    bm.from_mesh(mesh_new)
-                bm.normal_update()
-                try:
-                    bmesh.ops.dissolve_limit(bm, verts=bm.verts, edges=bm.edges, angle_limit=0.001)
-                except RuntimeError:
-                    import traceback
-                    traceback.print_exc()
-            
-            if remove_doubles:
-                if bm is None:
-                    bm = bmesh.new()
-                    bm.from_mesh(mesh_new)
-                bmesh.ops.remove_doubles(bm, verts=bm.verts, dist = 0.005)
-                    
-            if bm is not None:
-                bm.to_mesh(mesh_new)
-                bm.free()
-
+                
+                if clean:
+                    if bm is None:  # ok this will always be true for now...
+                        bm = bmesh.new()
+                        bm.from_mesh(mesh_new)
+                    bm.normal_update()
+                    try:
+                        bmesh.ops.dissolve_limit(bm, verts=bm.verts, edges=bm.edges, angle_limit=0.001)
+                    except RuntimeError:
+                        import traceback
+                        traceback.print_exc()
+                
+                if remove_doubles:
+                    if bm is None:
+                        bm = bmesh.new()
+                        bm.from_mesh(mesh_new)
+                    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist = 0.005)
+                        
+                if bm is not None:
+                    bm.to_mesh(mesh_new)
+                    bm.free()
+    
             del mesh_new
             del mesh_old
 

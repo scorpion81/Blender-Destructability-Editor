@@ -180,6 +180,9 @@ def boolop(ob, cutter, op):
     sce.objects.active = ob
     cutter.select = False
 
+    if sce.objects.active == None: #error case, sometimes setting the active object doesnt work....
+        return 0, [ob] #ob is the only shard
+    
     bpy.ops.object.duplicate(linked=False, mode='DUMMY')
     a = sce.objects.active
     mod = a.modifiers.new("Boolean", 'BOOLEAN')

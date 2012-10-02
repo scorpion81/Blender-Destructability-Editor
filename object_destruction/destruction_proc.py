@@ -451,7 +451,7 @@ class Processor():
             mat_index = self.getMatIndex(materialname, backup)
             
             if obj.destruction.cubify:
-                parts.extend(self.cubify(context, obj, bbox, 1, mat_index, level))
+                parts.extend(self.cubify(context, obj, bbox, 1, mat_index, materialname, level))
             else:
                 parts.extend(self.fracture_cells(context, obj, mat_index, level))
             
@@ -503,15 +503,16 @@ class Processor():
             ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
             backup.select = oldSel
             
+            materialname = backup.destruction.inner_material
+            
             if not wall:
-                materialname = backup.destruction.inner_material
                 mat_index = self.getMatIndex(materialname, backup)
             else:
                 #regular voronoi, handle mat assignment afterwards (because no bool involved)
                 mat_index = 0
             
             if obj.destruction.cubify:
-                parts.extend(self.cubify(context, obj, bbox, partCount, mat_index))
+                parts.extend(self.cubify(context, obj, bbox, partCount, mat_index, materialname))
             else:    
                 parts.extend(voronoi.voronoiCube(context, obj, partCount, volume, wall, mat_index))
             
@@ -1228,7 +1229,7 @@ class Processor():
             if obj.destruction.cubify:
                 parts.extend(self.cubify(context, obj, bbox, partCount, 0, materialname))
             else:
-                parts.extend(self.boolFrac(context, obj, partCount, crack_type, roughness, materialname))
+                parts.extend(self.boolFrac(context, [obj], partCount, crack_type, roughness, materialname))
             
             parent = self.doParenting(context, parentName, nameStart, bbox, backup, largest, obj)
             
@@ -1241,7 +1242,7 @@ class Processor():
     
     def boolFrac(self, context, obj, partCount, crack_type, roughness, materialname):
         
-        fo.fracture_basic(context, [obj], partCount, crack_type, roughness, materialname)
+        fo.fracture_basic(context, obj, partCount, crack_type, roughness, materialname)
         #find new parts and return them, needed for recursion
         if context.active_object != None:
             print("parts......")
@@ -1843,6 +1844,16 @@ class Processor():
         
         cutter = context.active_object
         cutter.name = "Cutter"
+        
+        #assign inner mat to cutter
+        if mat_name != "" and mat_name != None and \
+        mat_name in bpy.data.materials:
+            ctx = bpy.context.copy()
+            ctx["object"] = bpy.context.active_object
+            bpy.ops.object.material_slot_add(ctx)
+            material = bpy.data.materials[mat_name]
+            bpy.context.active_object.material_slots[0].material = material
+        
         cutter.select = False
      
         cubes = []
@@ -1857,7 +1868,8 @@ class Processor():
         shards = []
         if object.destruction.destructionMode == "DESTROY_C":
             for cube in cubes:
-                shards.extend(self.fracture_cells(context, cube, level))
+                shards.extend(self.fracture_cells(context, cube, mat_index, level))
+                context.scene.objects.unlink(cube)
                 
         if parts > 1: 
             if object.destruction.destructionMode == 'DESTROY_F':
@@ -1880,11 +1892,10 @@ class Processor():
                  object.destruction.destructionMode == 'DESTROY_VB':
                  volume = context.active_object.destruction.voro_volume
                  wall = context.active_object.destruction.wall
-                 context.scene.objects.unlink(object)
                    
                  for cube in cubes:
-                     #ops.object.transform_apply(scale=True, location=True)
                      shards.extend(voronoi.voronoiCube(context, cube, parts, volume, wall, mat_index))
+                     context.scene.objects.unlink(cube)
             
             else:
                 granularity = object.destruction.pieceGranularity
@@ -1904,7 +1915,6 @@ class Processor():
                     massive = True
                 
                 context.scene.objects.unlink(object)
-                
                 for cube in cubes:
                     shards.extend(self.explo(context, cube, parts, granularity, thickness))
                 

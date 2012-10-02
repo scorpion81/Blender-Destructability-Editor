@@ -343,6 +343,7 @@ def cell_fracture_boolean(scene, obj, objects, use_interior_hide, level):
     use_island_split = ctx.use_island_split
     use_interior_vgroup = ctx.use_interior_vgroup
     use_debug_redraw = obj.destruction.use_debug_redraw
+    remove_doubles = True
     
     objects_boolean = []
 
@@ -380,9 +381,10 @@ def cell_fracture_boolean(scene, obj, objects, use_interior_hide, level):
                         mesh_new = None
 
             # avoid unneeded bmesh re-conversion
-            bm = None
+            if mesh_new is not None:
+                bm = None
 
-            if clean and mesh_new:
+            if clean:
                 if bm is None:  # ok this will always be true for now...
                     bm = bmesh.new()
                     bm.from_mesh(mesh_new)
@@ -392,7 +394,13 @@ def cell_fracture_boolean(scene, obj, objects, use_interior_hide, level):
                 except RuntimeError:
                     import traceback
                     traceback.print_exc()
-
+            
+            if remove_doubles:
+                if bm is None:
+                    bm = bmesh.new()
+                    bm.from_mesh(mesh_new)
+                bmesh.ops.remove_doubles(bm, verts=bm.verts, dist = 0.005)
+                    
             if bm is not None:
                 bm.to_mesh(mesh_new)
                 bm.free()

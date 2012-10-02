@@ -2186,14 +2186,14 @@ class CellFractureContext(types.PropertyGroup):
             items=(('VERT_OWN', "Own Verts", "Use own vertices"),
                    ('EDGE_OWN', "Own Edges", "Use own edges"),
                    ('FACE_OWN', "Own Faces", "Use own faces"),
-                   ('VERT_CHILD', "Child Verts", "Use child vertices"),
+                   ('VERT_CHILD', "Child Verts", "Use child object vertices"),
                    ('EDGE_CHILD', "Child Edges", "Use child edges"),
                    ('FACE_CHILD', "Child Faces", "Use child faces"),
                    ('PARTICLE_OWN', "Own Particles", ("All particle systems of the "
                                                       "source object")),
                    ('PARTICLE_CHILD', "Child Particles", ("All particle systems of the "
                                                           "child objects")),
-                   ('PENCIL', "Grease Pencil", "This objects grease pencil"),
+                   ('PENCIL', "Grease Pencil", "This object's grease pencil"),
                    ),
             options={'ENUM_FLAG'},
             default={'PARTICLE_OWN', 'VERT_OWN'}  # 'VERT_OWN', 'EDGE_OWN', 'FACE_OWN'
@@ -2271,7 +2271,7 @@ class CellFractureContext(types.PropertyGroup):
     
     mass_mode = props.EnumProperty(
             name="Mass Mode",
-            items=(('VOLUME', "Volume", "All objects get the same volume"),
+            items=(('VOLUME', "Volume", "Objects get part of specified mass based on their volume"),
                    ('UNIFORM', "Uniform", "All objects get the same volume"),
                    ),
             default='VOLUME',
@@ -2335,7 +2335,7 @@ class CellFractureContext(types.PropertyGroup):
 
     recursion_chance = props.FloatProperty(
             name="Random Factor",
-            description="Likelyhood of recursion",
+            description="Likelihood of recursion",
             min=0.0, max=1.0,
             default=1.0,
             )
@@ -2344,9 +2344,9 @@ class CellFractureContext(types.PropertyGroup):
             name="Recurse Over",
             items=(('RANDOM', "Random", ""),
                    ('SIZE_MIN', "Small", "Recursively subdivide smaller objects"),
-                   ('SIZE_MAX', "Big", "Recursively subdivide smaller objects"),
+                   ('SIZE_MAX', "Big", "Recursively subdivide bigger objects"),
                    ('CURSOR_MIN', "Cursor Close", "Recursively subdivide objects closer to the cursor"),
-                   ('CURSOR_MAX', "Cursor Far", "Recursively subdivide objects closer to the cursor"),
+                   ('CURSOR_MAX', "Cursor Far", "Recursively subdivide objects farther from the cursor"),
                    ),
             default='SIZE_MIN',
             )

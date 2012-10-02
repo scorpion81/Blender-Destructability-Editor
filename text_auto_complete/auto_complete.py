@@ -127,7 +127,6 @@ import builtins
 import math
 import keyword
 import os
-from bpy.app.handlers import persistent
 
 running = False
 
@@ -1674,7 +1673,10 @@ class AutoCompleteOperator(bpy.types.Operator):
                 except Exception:
                     return event.mouse_region_x, event.mouse_region_y
             
-    
+    def cancel(self, context):
+        self.cleanup()
+        print("... autocompleter cancelled")
+        return {'CANCELLED'}
                  
     def modal(self, context, event):
         
@@ -1930,11 +1932,9 @@ class AutoCompletePanel(bpy.types.Panel):
     
     def register():
         bpy.types.Text.buffer = bpy.props.StringProperty(name = "buffer")
-        bpy.app.handlers.load_pre.append(load_handler)
     
     def unregister():
         del bpy.types.Text.buffer
-        bpy.app.handlers.load_pre.remove(load_handler)
         
     def draw(self, context):
         layout = self.layout
@@ -1949,13 +1949,3 @@ class AutoCompletePanel(bpy.types.Panel):
         layout.operator("text.autocomplete", text = text)
         layout.label(label)
         #layout.label("disable with ESC")
-
-    
-@persistent   
-def load_handler(dummy):
-    global running 
-    if running:
-        print("Stopping autocompleter...")
-        running = False
-        #trigger an event somehow so that modal gets called or ended...
-        #bpy.ops.text.autocomplete('INVOKE_DEFAULT')

@@ -639,7 +639,7 @@ class SetupPlayer(types.Operator):
         
         data.objects["Eye"].select = False
         data.objects["Player"].select = True
-        ops.transform.translate(value = (3, 0, 3))
+        ops.transform.translate(value = (6, 0, 0))
        
         ballname = context.scene.custom_ball
         if ballname == None or ballname == "":
@@ -650,23 +650,28 @@ class SetupPlayer(types.Operator):
             context.active_object.name = "Ball"
             ball = context.active_object 
             ball.game.physics_type = 'RIGID_BODY'
-            #ball.game.collision_bounds_type = 'SPHERE'
-            ball.game.mass = 100.0
+            ball.game.radius = 0.01
+            ball.game.collision_bounds_type = 'CONVEX_HULL'
+            ball.game.use_collision_bounds = True
+            ball.game.mass = 10.0
               
         else:
             ball = context.scene.objects[ballname] 
             if ball.type == 'MESH':
                 context.scene.objects.active = ball
                 context.active_object.game.physics_type = 'RIGID_BODY'
-                #context.active_object.game.collision_bounds_type = 'SPHERE' #what about non-spheres ?
-                context.active_object.game.mass = 100.0
+                context.active_object.game.collision_bounds_type = 'CONVEX_HULL'
+                context.active_object.game.use_collision_bounds = True
+                context.active_object.game.mass = 10.0
             elif ball.type == 'EMPTY' and len(ball.children) > 0 and ball.name != "Player" and \
             ball.name != "Launcher":
                 for c in ball.children: 
                     context.scene.objects.active = c
                     context.active_object.game.physics_type = 'RIGID_BODY'
                     context.active_object.game.collision_bounds_type = 'CONVEX_HULL'
-                    context.active_object.game.mass = 100.0
+                    context.active_object.game.use_collision_bounds = True
+                    context.active_object.game.mass = 10.0
+                    context.active_object.game.use_collision_compound = False
                 last = ball.children[-1]
                 last.game.use_collision_compound = True
             else:
@@ -873,23 +878,30 @@ class SetupPlayer(types.Operator):
         #ball
         context.scene.objects.active = ball
         context.active_object.destruction.destructor = True
-        
-        for o in context.scene.objects:
-            if o.destruction.destroyable:
-                target = context.active_object.destruction.destructorTargets.add()
-                target.name = o.name
-                     
+                  
         context.scene.objects.active = context.object
-        #ground and cells
-        context.object.destruction.groundConnectivity = True
         
-        ops.mesh.primitive_plane_add(location = (0, 0, -0.9))
+        #ground and cells
+        context.object.destruction.groundConnectivity = False
+        
+        ops.mesh.primitive_plane_add(location = (0, 0, -2.0))
+        ops.transform.resize( value = (8, 8, 1))
         context.active_object.name = "Ground"
         context.active_object.destruction.isGround = True
+        context.active_object.destruction.destructor = True
+        ground = context.active_object
         
         g = context.object.destruction.grounds.add()
         g.name = "Ground"
         
+        for o in context.scene.objects:
+            if o.destruction.destroyable:
+                target = ball.destruction.destructorTargets.add()
+                target.name = o.name
+                
+                target = ground.destruction.destructorTargets.add()
+                target.name = o.name
+
         context.scene.objects.active = context.object
         
         context.user_preferences.edit.use_global_undo = undo

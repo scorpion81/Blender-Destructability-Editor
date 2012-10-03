@@ -2099,6 +2099,9 @@ def updateFlattenHierarchy(self, context):
         context.scene.hideLayer = 1
 
 def updateDynamicMode(self, context):
+    if context.object == None:
+        return None
+    
     if context.object.destruction.dynamic_mode == 'D_DYNAMIC' and not \
     context.object.name.startswith("P_"):
         context.object.game.physics_type = 'RIGID_BODY'

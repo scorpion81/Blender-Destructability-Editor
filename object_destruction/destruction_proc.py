@@ -113,15 +113,15 @@ class Processor():
             context.scene.update()
             self.destroy(context, objects, 0)   
             
-            
-            mode = context.active_object.destruction.destructionMode
-            if mode == 'DESTROY_C':
-                ctx = context.active_object.destruction.cell_fracture
-                if ctx.use_interior_vgroup or ctx.use_sharp_edges:
-                    fracture_cell_setup.cell_fracture_interior_handle(objects,
-                            use_interior_vgroup=ctx.use_interior_vgroup,
-                            use_sharp_edges=ctx.use_sharp_edges,
-                            use_sharp_edges_apply=ctx.use_sharp_edges_apply)
+            if context.active_object != None:
+                mode = context.active_object.destruction.destructionMode
+                if mode == 'DESTROY_C':
+                    ctx = context.active_object.destruction.cell_fracture
+                    if ctx.use_interior_vgroup or ctx.use_sharp_edges:
+                        fracture_cell_setup.cell_fracture_interior_handle(objects,
+                                use_interior_vgroup=ctx.use_interior_vgroup,
+                                use_sharp_edges=ctx.use_sharp_edges,
+                                use_sharp_edges_apply=ctx.use_sharp_edges_apply)
               
             for o in data.objects:
                 if o.name.startswith("P_"):
@@ -363,7 +363,7 @@ class Processor():
         
         if parent.type == 'EMPTY':
             if not parent.name.startswith("P_"):
-                parent.name = "P_" + str(depth) + "_S_" + parent.name
+                parent.name = "P_" + str(depth) + "_S_" + parent.name + ".000"
                 parent.destruction.destroyable = True
                 parent.destruction.flatten_hierarchy = context.active_object.destruction.flatten_hierarchy
               #  print("FLatten", parent.destruction.flatten_hierarchy)
@@ -520,7 +520,8 @@ class Processor():
             
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                 backup.use_fake_user = True
-                context.scene.objects.unlink(backup)
+                if not obj.destruction.cubify:
+                    context.scene.objects.unlink(backup)
                 
             elif context.scene.hideLayer != 1:
                 def deselect(o):

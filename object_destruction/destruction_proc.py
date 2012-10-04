@@ -520,8 +520,8 @@ class Processor():
             
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                 backup.use_fake_user = True
-                if not obj.destruction.cubify:
-                    context.scene.objects.unlink(backup)
+                #if not obj.destruction.cubify:
+                context.scene.objects.unlink(backup)
                 
             elif context.scene.hideLayer != 1:
                 def deselect(o):
@@ -1110,6 +1110,7 @@ class Processor():
             c.destruction.glue_threshold = backup.destruction.glue_threshold
         
         if c == backup and b == None:
+            #print("Setting backup parent", pos)
             c.location -= pos
         
         if c.destruction.deform:
@@ -1920,8 +1921,14 @@ class Processor():
                     shards.extend(self.explo(context, cube, parts, granularity, thickness))
                 
         else:
-             context.scene.objects.unlink(object)
-              
+             #context.scene.objects.unlink(object)
+             shards = cubes
+             
+        #if parts == 1 or (parts > 1  and object.destruction.destructionMode not in ('DESTROY_V', 'DESTROY_VB')):
+        #    #apply position correction, seems to be off always at -2.75 in Z direction
+        #    for c in cubes: 
+        #        c.location[2] += 2.75
+                  
         return shards 
               
     def cubifyCell(self, cell, cutter, context, obj):

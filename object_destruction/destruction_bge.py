@@ -46,6 +46,7 @@ allInUse = False
 tempLoc = Vector((0,0,0))
 initswap = []
 firstGround = None
+isCollapsing = False
 
 def project(p, n):
     
@@ -516,6 +517,7 @@ def collide():
     global allInUse
     global children
     global firstGround
+    global isCollapsing
     #colliders have collision sensors attached, which trigger for registered destructibles only
     
     #first the script controller brick, its sensor and owner are needed
@@ -625,7 +627,8 @@ def collide():
     #print(children)
       
     #print("LEN", len(cellsToCheck))
-    if not isGroundConn: #without grid, check all objects (bad)
+    if not isGroundConn or isCollapsing:
+        #without grid, check all objects (bad)
         #print("checking all")
         for p in children.keys():
             for objname in children[p]:
@@ -1268,11 +1271,15 @@ def deadDelay(obj):
     return delay
 
 def isRegistered(destroyable, destructor):
-
+    
     if not isDestroyable(destroyable):
         return False
     if not isDestructor(destructor):
         return False
+    
+    global isCollapsing
+    if isCollapsing:
+        return True
      
     targets = bpy.context.scene.objects[destructor.name].destruction.destructorTargets
     for t in targets:
@@ -1391,8 +1398,12 @@ def destroyNeighborhood(cell):
     if compound != None:
         #STICKINESS DELAY HERE
         compound.restoreDynamics()
-        t = Timer(bpy.context.scene.collapse_delay, destroyFalling, args = [children])
-        t.start()
+        global isCollapsing
+        isCollapsing = True
+        
+        if bpy.context.scene.collapse_delay > 0:
+            t = Timer(bpy.context.scene.collapse_delay, destroyFalling, args = [children])
+            t.start()
     
      
 def destroyCell(cell, cells, compound):

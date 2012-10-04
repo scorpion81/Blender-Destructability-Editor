@@ -1921,7 +1921,8 @@ class Processor():
                     shards.extend(self.explo(context, cube, parts, granularity, thickness))
                 
         else:
-             #context.scene.objects.unlink(object)
+             if object.destruction.destructionMode not in ('DESTROY_V', 'DESTROY_VB'):
+                context.scene.objects.unlink(object)
              shards = cubes
              
         #if parts == 1 or (parts > 1  and object.destruction.destructionMode not in ('DESTROY_V', 'DESTROY_VB')):

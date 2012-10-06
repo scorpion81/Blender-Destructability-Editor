@@ -133,7 +133,10 @@ def getFaceDistance(a, b):
                mindist = dist
         return mindist
     else:
-        return a.getDistanceTo(b)        
+        if b in scene.objects:
+            return a.getDistanceTo(b)
+        else:
+            return a.getDistanceTo(b.location)        
 
 def descendants(p):
     ret = []
@@ -363,7 +366,7 @@ def setup():
         for p in firstparent: 
             if p.name != bpy.context.scene.custom_ball:
                 par = bpy.context.scene.objects[p.name]
-                initswap = swapBackup(scene.objects[par.destruction.backup])
+                initswap = swapBackup(scene.objects[par.destruction.backup], None)
     
     for first in firstparent:
         if first.name != bpy.context.scene.custom_ball:
@@ -409,7 +412,17 @@ def checkSpeed():
                 owner.suspendDynamics()
         except AttributeError:
             continue
-
+        
+#def allChildren(name):
+#    
+#    ret = []
+#    for c in children[name]:
+#        print("NAME", c)
+#        ret.append(c)
+#        if c.startswith("P_1_"):
+#            ret.extend(allChildren(c))
+#    return ret
+            
 def calculateGrids():
     
     #recalculate grid after movement
@@ -447,7 +460,7 @@ def calculateGrids():
                         g.pos = Vector(logic.getCurrentScene().objects[g.name].worldPosition)
                         print(g.pos)
                         
-                    
+                    #ac = allChildren(o.name)
                     childs = [scene.objects[c] for c in children[o.name]]
                     grid = dd.Grid(dim, o.worldPosition, bbox, childs, grounds)
                     grid.buildNeighborhood()
@@ -564,14 +577,7 @@ def collide():
             bpyObj.destruction.transmitMode = "T_SELF"
             
             name = bpyObj.name 
-            #if "lastProxy" in hitObj.getPropertyNames():
-             #   #add dummy mesh to possibly avoid naming conflict ?
-             #  m = bpy.data.meshes.new(name = hitObj["lastProxy"])
-             #   print("DUMMY", m.name)
             bpy.ops.object.destroy(impactLoc = owner.worldPosition)
-            
-           # if "lastProxy" in hitObj.getPropertyNames():
-            #    bpy.data.meshes.remove(m)    
             bpyObj.select = False
             
             objs = swapDynamic(name, hitObj)
@@ -586,12 +592,7 @@ def collide():
             #handle all other objects as well        
             for o in scene.objects:
                 try:
-                  #dist, speed, depth = distSpeed(owner, o, maxHierarchyDepth, lastSpeed)
-                  #if dist < speed and bpy.data.objects[o.name].destruction.glue_threshold < speed:
                     if compareSpeed(owner, o):
-    #                        if "isShard" in o.getPropertyNames():
-    #                            pos = Vector((o["posx"], o["posy"], o["posz"]))
-    #                            o.worldPosition = pos
                         o.restoreDynamics()
                         o["activated"] = True
                 except AttributeError:
@@ -625,9 +626,10 @@ def collide():
     restoreAll()
     
     #print(children)
-      
+    
+    depth = bpy.context.scene.objects[owner.name].destruction.hierarchy_depth  
     #print("LEN", len(cellsToCheck))
-    if not isGroundConn or isCollapsing:
+    if not isGroundConn or isCollapsing or depth > 1:
         #without grid, check all objects (bad)
         #print("checking all")
         for p in children.keys():
@@ -635,13 +637,8 @@ def collide():
                 #print("objname", p, objname)
                 if not objname.startswith("P_"):
                     if objname in scene.objects:
-                        #ob = scene.objects[objname]
-                        #if not "activated" in ob.getPropertyNames():
-                        #    objs.append(objname)
-                        #elif not ob["activated"]:
                         objs.append(objname)
     else:
-    #print("checking cells")
         for c in cellsToCheck:
             objs.extend(c.children)
     
@@ -667,31 +664,6 @@ def collide():
             #if isDeformable(obj):
             #    obj.cutSoftbodyLink(owner.worldPosition, dist)
             #    child.setSoftbodyPose(True, True)
-
-#def destroyCellDelayed(cell, cells):
-#    #break connection then destroy cell after a delay
-#    for item in cells.items():
-#        if cell == item[1] and item[0] in cells:
-#            del cells[item[0]]
-#            break
-#    
-#    childs = [c for c in cell.children]
-#    for child in cell.children:
-#      #  print("cell child: ", o)
-#        if child in scene.objects:
-#           # o = scene.objects[child]
-#           # o.restoreDynamics()
-#        #    o.removeParent()
-#            childs.remove(child)
-#         #   o["activated"] = True
-#        else:
-#            childs.remove(child) #remove invalid child
-#                    
-#    cell.children = childs 
-#    #timer...
-    
-
-                         
 
 def checkGravityCollapse():
     #check for gravity collapse (with ground connectivity)
@@ -885,15 +857,14 @@ def swapDynamic(objname, obj):
         #bpy.context.scene.update()
         return ret
     
-    return None
-                        
+    return None                    
                 
-def swapBackup(obj):    
+def swapBackup(obj, owner):    
     
     global children
     global firstparent
     
-    print("swap backup")
+    print("swap backup", obj)
     ret = []   
     
     obname = obj.name
@@ -913,14 +884,15 @@ def swapBackup(obj):
           
     childs= bpy.context.scene.objects[parent].destruction.children
     
-    print("CHILDS", childs[0])
+    print("CHILDS", childs[0], len(childs))
     compound = findCompound(childs, obname)
     
     if compound != None:
         #if not isGroundConnectivity(first):   
         parents[compound.name] = parent    
         ret.append(compound)
-        par["compound"] = compound.name       
+        par["compound"] = compound.name
+        compound.suspendDynamics()
     else:
         return ret
                    
@@ -944,10 +916,13 @@ def swapBackup(obj):
                 name = c.name
                 parents[name] = parent
             
+            #obb = bpy.context.scene.objects[c.name]    
+            #if (owner != None and compareSpeed(owner, obb)) or owner == None:
             print("Adding children", name)
             mesh = bpy.context.scene.objects[name].data.name
             o = scene.addObject(name, name)
             o.replaceMesh(mesh, True, True)
+            
             if not isGroundConnectivity(first):
            #     o.worldPosition = obj.worldPosition
                 o.setParent(compound, True, False)
@@ -1049,7 +1024,7 @@ def dissolve(obj, depth, maxdepth, owner):
     global initswap
     global children
     
-   # print("dissolve", obj, depth)
+    print("dissolve", obj, depth)
     parent = findParent(obj)
     owparent = findParent(owner)               
   
@@ -1078,53 +1053,38 @@ def dissolve(obj, depth, maxdepth, owner):
              
             #print(depth, objDepth+1, bDepth+1)
             first = findFirstParent(parent.name)
-            if bpy.context.scene.hideLayer != 1 and isBackup(obj) and ((depth == bDepth+1) \
+            if bpy.context.scene.hideLayer != 1 and isBackup(obj) and ((depth == bDepth+1)):# \
            # or ((depth == bDepth) and (owner.name == "Ball")) \
-            and not isGroundConnectivity(first)):
+            #and not isGroundConnectivity(first)):
                 print(depth, bDepth, isGroundConnectivity(first))
                 if bpy.context.scene.objects[obj.name].game.use_collision_compound:
-                   for ch in obj.children:
+                    for ch in obj.children:
                         ch.removeParent()
                         if isBackup(ch):
-                            shards = swapBackup(ch)
+                            shards = swapBackup(ch, owner)
                             ch["swapped"] = True
                             [activate(s, owner, grid) for s in shards if compareSpeed(owner, s)]
                         #else:
                             activate(ch, owner, grid)
                                         
-                objs = swapBackup(obj)
+                objs = swapBackup(obj, owner)
                 obj["swapped"] = True
                  
-                [activate(ob, owner, grid) for ob in objs if compareSpeed(owner, ob)]
-            
-            #if owner.name == "Ball":
-            #    objs = swapBackup(obj)
-            #    obj["swapped"] = True 
-                    
+                #[activate(ob, owner, grid) for ob in objs if compareSpeed(owner, ob)]
+                              
              #activate previously swapped shards    
             if (depth == objDepth+1):
                     
                 [activate(ob, owner, grid) for ob in initswap if compareSpeed(owner, ob)]
                 activate(obj, owner, grid)
-                
-           # if (depth == objDepth):# or (depth == objDepth):
-            #    activate(obj, owner, grid)
-            
-        #print("DEPTH:", depth, maxdepth, parent)    
+                 
         if depth < maxdepth and parent != None:
-#                pParent = None
-#                for p in children.keys():
-#                    if parent in children[p]:
-#                        pParent = p
-#                        break
-#              #  print(children[p], parent)
-#                if pParent != None:
-          #  print("CHILDS", len(children[parent]))
-            [dissolve(scene.objects[c], depth+1, maxdepth, owner) for c in children[parent.name]]
+            [dissolve(scene.objects[c], depth+1, maxdepth, owner) for c in children[parent.name] \
+            if c in scene.objects and not c.startswith("P_")]
 
 def activate(child, owner, grid):
    
-    # print("activated: ", child)
+     print("activated: ", child)
      global integrity
      global firstShard
      global delay

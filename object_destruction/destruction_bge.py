@@ -892,7 +892,7 @@ def swapBackup(obj, owner):
         parents[compound.name] = parent    
         ret.append(compound)
         par["compound"] = compound.name
-        compound.suspendDynamics()
+        #compound.suspendDynamics()
     else:
         return ret
                    

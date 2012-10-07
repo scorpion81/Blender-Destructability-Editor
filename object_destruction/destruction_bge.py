@@ -576,8 +576,16 @@ def collide():
             bpyObj.select = True
             bpyObj.destruction.transmitMode = "T_SELF"
             
+            vol = bpyObj.destruction.voro_volume
             name = bpyObj.name 
-            bpy.ops.object.destroy(impactLoc = owner.worldPosition)
+            if not "noFracture" in owner.getPropertyNames():
+                if "isShard" in hitObj.getPropertyNames():
+                    bpyObj.destruction.voro_volume = ""
+                    bpy.ops.object.destroy()
+                    bpyObj.destruction.voro_volume = vol
+                else:
+                    bpy.ops.object.destroy(impactLoc = owner.worldPosition)
+                owner["noFracture"] = True
             bpyObj.select = False
             
             objs = swapDynamic(name, hitObj)

@@ -821,9 +821,17 @@ def swapDynamic(objname, obj):
         print("after lib new")
         print(childs, meshproxies)
         
+        compound = None
+        comp = None
+        for c in childs:
+            if bpy.data.objects[c].game.use_collision_compound:
+                compound = c
+                break
+        
         ret = []
         for i in range(0, len(childs)):
-            child = bpy.data.objects[childs[i]]
+            
+            child = bpy.data.objects[childs[i]]     
             dummy = "Dummy" + toStr(objectCount)
             objectCount += 1
             try:
@@ -846,19 +854,34 @@ def swapDynamic(objname, obj):
             elif "activated" in obj.getPropertyNames():
                 o.worldPosition = obj.worldPosition + child.location
             else:
-                o.worldPosition = obj.worldPosition + child.location#tempLoc + child.location
+                o.worldPosition = obj.worldPosition + child.location - par.location#tempLoc + child.location
             
             #print("CHILDLOC", child.location)    
 #            pos = obj.worldPosition + child.location
 #            o["posx"] = pos[0]
 #            o["posy"] = pos[1]
 #            o["posz"] = pos[2]
-                
-           # o.worldOrientation = obj.worldOrientation
+            nr = int(meshproxies[i].name.split(".")[1])
+            nr2 = int(compound.split(".")[1])
+            print("NR", nr, nr2)
+            
+            if (nr-len(childs)-1) == nr2:
+                comp = o
             print(obj.worldPosition, child.location)        
             o["orig"] = childs[i]
           #  o["lastProxy"] = meshproxies[0].name
-            ret.append(o) 
+            ret.append(o)
+        
+        if comp != None:
+            for r in ret:
+                if r != comp:
+                    r.setParent(comp, True, False)
+            comp.worldOrientation = obj.worldOrientation
+            
+            for r in ret:
+                if r != comp:
+                    r.removeParent()
+                             
         print("after replace mesh")
         obj.endObject()
        # logic.LibFree(meshes[0])

@@ -589,6 +589,8 @@ def collide():
             bpyObj.select = False
             
             objs = swapDynamic(name, hitObj)
+            if objs == None:
+                continue
                 #substitute parent with children.... maybe before convert ? is convert necessary at all ?
             for o in objs:
                 o["isShard"] = True

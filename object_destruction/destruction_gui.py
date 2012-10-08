@@ -14,6 +14,47 @@ from time import clock
 
 #from object_destruction.unittest import destruction_bpy_test as test
 
+
+def layer(n, keepFirst = False):
+    ret = []
+    for i in range(0, 20):
+        if keepFirst and i == 0:
+           ret.append(True)
+        elif i == n-1:
+            ret.append(True)
+        else:
+            ret.append(False)
+    return ret
+
+def setDestructor(context, o):
+    
+    context.scene.objects.active = o        
+    controllers = len(context.active_object.game.controllers)
+    sensors = len(context.active_object.game.sensors)
+    
+    sensornames = [s.name for s in context.active_object.game.sensors]
+    if "Collision" in sensornames:
+        return
+        
+    ops.logic.controller_add(type = 'PYTHON', object = o.name)
+    ops.logic.sensor_add(type = 'COLLISION', object = o.name)
+    context.active_object.game.sensors[sensors].name = "Collision"
+    
+    context.active_object.game.sensors[sensors].use_tap = True
+    
+    if o.name != "Ball":
+        context.active_object.game.sensors[sensors].use_pulse_true_level = True
+        context.active_object.game.sensors[sensors].frequency = 25
+ 
+    context.active_object.game.controllers[controllers].mode = 'MODULE'
+    context.active_object.game.controllers[controllers].module = "destruction_bge.collide"
+    
+    context.active_object.game.controllers[controllers].link(
+    context.active_object.game.sensors[sensors])
+    
+    for c in o.children:
+        setDestructor(context, c)
+
 class DestructabilityPanel(types.Panel):
     bl_idname = "OBJECT_PT_destructability"
     bl_label = "Destructability"
@@ -346,15 +387,24 @@ class DestructabilityPanel(types.Panel):
         row = box.row()
         
         mode = context.object.destruction.dynamic_mode == 'D_PRECALCULATED'
-        if not mode and context.scene.converted:    
+        if (not mode and not context.scene.to_precalculated) and context.scene.converted:  
             txt = "Reset Game Parenting"
         else:
             txt = "To Game Parenting"
    
         row.operator("parenting.convert", text = txt)
-        row.active = not(context.scene.converted and mode)
+        row.active = not(context.scene.converted and (mode or context.scene.to_precalculated))
         row = box.row()
         row.operator("game.start")
+        
+        if self.isParent(context):
+            if context.object.children[1].destruction.dynamic_mode == 'D_DYNAMIC':
+                row = box.row()
+                txt = "Convert To Precalculated"
+                row.operator("mode.convert", text = txt).mode = 'TO_PRECALCULATED'
+           # elif context.object.children[1].destruction.dynamic_mode == 'D_PRECALCULATED':
+           #    txt = "Convert To Dynamic"
+           #    row.operator("mode.convert", text = txt).mode = 'TO_DYNAMIC'
         
 #        layout.separator()
 #        row = layout.row()
@@ -1001,17 +1051,17 @@ class ConvertParenting(types.Operator):
             context.user_preferences.edit.use_global_undo = False
             
             if context.scene.hideLayer != 1:
-                context.scene.layers = self.layer(context.scene.hideLayer, True)
+                context.scene.layers = layer(context.scene.hideLayer, True)
                 
             self.convert(context)
             
             if context.scene.hideLayer != 1:
-                context.scene.layers = self.layer(1)
+                context.scene.layers = layer(1)
                 
             context.scene.converted = True
             context.user_preferences.edit.use_global_undo = undo
         else:
-            if context.object.destruction.dynamic_mode == 'D_PRECALCULATED':
+            if context.object.destruction.dynamic_mode == 'D_PRECALCULATED' or context.scene.to_precalculated:
                 self.report({'INFO'}, "Hit Undo Key to undo conversion")
                 return {'CANCELLED'}
             else:
@@ -1026,45 +1076,8 @@ class ConvertParenting(types.Operator):
                 
         return {'FINISHED'}
     
-    def layer(self, n, keepFirst = False):
-        ret = []
-        for i in range(0, 20):
-            if keepFirst and i == 0:
-               ret.append(True)
-            elif i == n-1:
-                ret.append(True)
-            else:
-                ret.append(False)
-        return ret
     
-    def setDestructor(self, context, o):
     
-        context.scene.objects.active = o        
-        controllers = len(context.active_object.game.controllers)
-        sensors = len(context.active_object.game.sensors)
-        
-        sensornames = [s.name for s in context.active_object.game.sensors]
-        if "Collision" in sensornames:
-            return
-            
-        ops.logic.controller_add(type = 'PYTHON', object = o.name)
-        ops.logic.sensor_add(type = 'COLLISION', object = o.name)
-        context.active_object.game.sensors[sensors].name = "Collision"
-        
-        context.active_object.game.sensors[sensors].use_tap = True
-        
-        if o.name != "Ball":
-            context.active_object.game.sensors[sensors].use_pulse_true_level = True
-            context.active_object.game.sensors[sensors].frequency = 25
-     
-        context.active_object.game.controllers[controllers].mode = 'MODULE'
-        context.active_object.game.controllers[controllers].module = "destruction_bge.collide"
-        
-        context.active_object.game.controllers[controllers].link(
-        context.active_object.game.sensors[sensors])
-        
-        for c in o.children:
-            self.setDestructor(context, c)
                     
     
     def convert(self, context):
@@ -1216,7 +1229,7 @@ class ConvertParenting(types.Operator):
         for o in data.objects: #context.scene.objects misses objects on deselected layers
             #destructors
             if o.destruction.destructor:
-                self.setDestructor(context, o)
+                setDestructor(context, o)
         
         for o in data.objects: #restrict to P_ parents only ! no use all
             if context.scene.player:
@@ -1584,6 +1597,69 @@ class ActiveToSelected(types.Operator):
             return {'FINISHED'}
         
         return {'CANCELLED'}
+    
+class ModeConvert(types.Operator):
+    bl_idname = "mode.convert"
+    bl_label = "Convert Mode"
+    bl_description = "Use dynamic shards as precalculated ones"
+    bl_options = {'UNDO'}
+    mode = bpy.props.StringProperty("")
+    
+    
+    def setMode(self, parent):
+        
+        ball = bpy.data.objects["Ball"]
+        ground = bpy.data.objects["Ground"]
+        
+        for c in parent.children:
+           if self.mode == 'TO_PRECALCULATED':
+               c.layers = layer(2, True)
+               c.destruction.dynamic_mode = 'D_PRECALCULATED'
+               bpy.context.scene.hideLayer = 2
+               
+               if c.destruction.destroyable and c.name.startswith("P_"):
+                   target = ball.destruction.destructorTargets.add()
+                   target.name = c.name
+                
+                   target = ground.destruction.destructorTargets.add()
+                   target.name = c.name
+               
+               
+           elif self.mode == 'TO_DYNAMIC':
+               print("To Dynamic")
+               c.destruction.dynamic_mode == 'D_DYNAMIC'
+               c.layers = layer(1)
+               bpy.context.scene.hideLayer = 1
+               
+           if c.name.startswith("P_"):
+               self.setMode(c)
+                 
+    def execute(self, context):
+        
+        undo = context.user_preferences.edit.use_global_undo
+        context.user_preferences.edit.use_global_undo = False
+        
+        #unconvert if necessary
+        if context.scene.converted:
+            bpy.ops.parenting.convert()
+        
+        ball = bpy.data.objects["Ball"]
+        ground = bpy.data.objects["Ground"]
+        
+        if context.object.destruction.destroyable and context.object.name.startswith("P_"):
+            target = ball.destruction.destructorTargets.add()
+            target.name = context.object.name
+                
+            target = ground.destruction.destructorTargets.add()
+            target.name = context.object.name 
+               
+        self.setMode(context.object)
+        context.scene.to_precalculated = True
+            
+        context.user_preferences.edit.use_global_undo = undo
+        return {'FINISHED'}
+        
+    
 
 #class RunUnitTest(types.Operator):
 #    bl_idname = "test.run"

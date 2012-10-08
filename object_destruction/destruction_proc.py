@@ -2110,6 +2110,8 @@ def updateFlattenHierarchy(self, context):
 def updateDynamicMode(self, context):
     if context.object == None:
         return None
+   
+    context.scene.to_precalculated = False
     
     if context.object.destruction.dynamic_mode == 'D_DYNAMIC' and not \
     context.object.name.startswith("P_"):
@@ -2596,6 +2598,7 @@ def initialize():
     Scene.custom_ball = props.StringProperty(name="custom_ball" , 
        description = "Select custom ball object here before setup player, this will be shot from the player instead of the default ball")
     #Scene.fracture_progress = props.StringProperty(name = "fracture_progress", description = "Fracture Progress")
+    Scene.to_precalculated = props.BoolProperty(name = "to_precalculated")
     
     dd.DataStore.proc = Processor()  
   

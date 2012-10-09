@@ -678,13 +678,13 @@ class SetupPlayer(types.Operator):
         data.objects["Player"].select = False
         data.objects["Eye"].select = True
         data.objects["Launcher"].select = False
-        ops.transform.rotate(value = [math.radians(90)], 
+        ops.transform.rotate(value = math.radians(90), 
                              constraint_axis = [True, False, False])
                              
         data.objects["Player"].select = True
         data.objects["Eye"].select = False
         data.objects["Launcher"].select = False
-        ops.transform.rotate(value = [math.radians(90)], 
+        ops.transform.rotate(value = math.radians(90), 
                              constraint_axis = [False, False, True])                     
         
         data.objects["Eye"].select = False

@@ -1833,8 +1833,15 @@ class Processor():
         #intersect with pos of cells[0], go through all cells, set cube to pos, intersect again
         #repeat always with original object
         
+        loc = Vector(object.destruction.pos)
+        obj = object
+        while obj.parent != None:
+            loc += obj.parent.location
+            obj = obj.parent
+        
+       # print("loc", loc) 
         grid = dd.Grid(object.destruction.cubifyDim, 
-                       object.destruction.pos,
+                       loc.to_tuple(),
                        bbox, 
                        [], 
                        object.destruction.grounds)
@@ -1861,7 +1868,11 @@ class Processor():
         cubes = []
         for cell in grid.cells.values():
             ob = self.cubifyCell(cell,cutter, context, object)
+            if ob.destruction.use_debug_redraw:
+                context.scene.update()
+                ob.destruction._redraw_yasiamevil()
             cubes.append(ob)
+            
            
        
         context.scene.objects.unlink(cutter)
@@ -1944,7 +1955,7 @@ class Processor():
         ob = context.active_object
        # print(ob, context.object, context.scene.objects, context.selected_objects)
         
-       # print(cell, cell.center)
+        #print("LOC", ob.location, cell.center)
         cutter.location = Vector(cell.center)
         cutter.dimensions = Vector(cell.dim) * 1.01
         context.scene.update()
@@ -1974,7 +1985,7 @@ class Processor():
         
         ops.object.mode_set(mode = 'EDIT')  
         ops.mesh.select_all(action = 'SELECT')
-        ops.mesh.remove_doubles(mergedist = 0.01)
+        ops.mesh.remove_doubles(mergedist = 0.0001)
         ops.object.mode_set(mode = 'OBJECT') 
         
         ob.select = True

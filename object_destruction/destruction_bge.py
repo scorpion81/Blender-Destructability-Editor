@@ -1143,7 +1143,12 @@ def activate(child, owner, grid):
     #         ch.restoreDynamics()     
                  
      #if isGroundConnectivity(par) or isGround(par) and gridValid:
-     if isGroundConnectivity(par):# and gridValid:
+     
+     #sc = bpy.context.scene
+     #gravity = not sc.useGravityCollapse or \
+     #(sc.useGravityCollapse and sc.collapse_delay > 0.0)
+     
+     if isGroundConnectivity(par):
          if grid != None:
              cells = dict(grid.cells)
              gridPos = grid.getCellByName(child.name)
@@ -1392,7 +1397,9 @@ def destroyNeighborhood(cell):
         #STICKINESS DELAY HERE
         compound.restoreDynamics()
         global isCollapsing
-        isCollapsing = True
+        
+        if bpy.context.scene.collapse_delay == 0:
+            isCollapsing = True
         
         if bpy.context.scene.collapse_delay > 0:
             t = Timer(bpy.context.scene.collapse_delay, destroyFalling, args = [children])

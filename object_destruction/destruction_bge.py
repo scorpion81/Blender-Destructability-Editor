@@ -413,15 +413,16 @@ def checkSpeed():
         except AttributeError:
             continue
         
-#def allChildren(name):
-#    
-#    ret = []
-#    for c in children[name]:
-#        print("NAME", c)
-#        ret.append(c)
-#        if c.startswith("P_1_"):
-#            ret.extend(allChildren(c))
-#    return ret
+def allChildren(name):
+    
+    ret = []
+    for c in name.children:
+        print("NAME", c.name)
+        if c.name.startswith("P_"):
+            ret.extend(allChildren(c))
+        else:
+           ret.append(c)
+    return ret
             
 def calculateGrids():
     
@@ -812,9 +813,10 @@ def swapDynamic(objname, obj):
     #use ball (always there on layer 2, assumption) as dummy, add it multiple times
     if bpyOb.destruction.dynamic_mode == "D_DYNAMIC":
         par = bpy.data.objects[parent]
-       
+        
+        ch = allChildren(par)
         #print("Par.children", par, par.children)
-        childs = [c.name for c in par.children if c.destruction.is_backup_for == ""]
+        childs = [c.name for c in ch if c.destruction.is_backup_for == ""]
         print(len(childs))
         meshes = [bpy.data.objects[c].data.copy().name for c in childs]
    #     meshes.reverse()

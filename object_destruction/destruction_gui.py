@@ -280,13 +280,9 @@ class DestructabilityPanel(types.Panel):
         #row.scale_x = 1.5
         #row.scale_y = 1.5
         
-        #does not work correctly
-        #if isMesh or isParent:
-        #    layout.prop(context.object.destruction, "deform", text = "Enable Deformation")
-        
-        
        
-        if self.isMesh(context) or self.isParent(context):       
+        if self.isMesh(context) or self.isParent(context):
+           # box.prop(context.object.destruction, "deform", text = "Enable Deformation")       
             box.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
         
         if self.isParent(context):# or context.object.destruction.dynamic_mode == 'D_DYNAMIC':

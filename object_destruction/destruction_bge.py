@@ -317,13 +317,13 @@ def setup():
         for c in i[1]:
             if c != parent:
                 o = scene.objects[c]
-                #if isDeformable(o):
-                #    p = scene.objects[parent]
-                #    print("PARENT", p)
-                #    o.setSoftbodyLJoint(p) # joints must be set between adjacent(!) objects
-                #    o["joint"] = parent
-                #    o.suspendDynamics()
-                #    p.suspendDynamics()
+                if isDeformable(o):
+                    p = scene.objects[parent]
+                    print("PARENT", p)
+                    o.setSoftbodyLJoint(p) # joints must be set between adjacent(!) objects
+                    o["joint"] = parent
+                    o.suspendDynamics()
+                    p.suspendDynamics()
                      
                 if flattenHierarchy(o) and o not in firstShard and oldPar.name != bpy.context.scene.custom_ball:
                     #if oldPar.name in firstShard: 
@@ -672,9 +672,10 @@ def collide():
             #print("Collide", owner, dist, speed)
             if (dist < speed and glue < speed) or (dist < strength and glue < strength):  
                 dissolve(obj, depth, maxHierarchyDepth, owner)
-            #if isDeformable(obj):
-            #    obj.cutSoftbodyLink(owner.worldPosition, dist)
-            #    child.setSoftbodyPose(True, True)
+            
+            if isDeformable(obj):
+                obj.cutSoftbodyLink(owner.worldPosition, dist)
+                child.setSoftbodyPose(True, True)
 
 def checkGravityCollapse():
     #check for gravity collapse (with ground connectivity)
@@ -1180,24 +1181,24 @@ def activate(child, owner, grid):
         child.removeParent()
         child["activated"] = True
         
-    #    if isDeformable(child):
-    #       child.setSoftbodyPose(True, True)
+        if isDeformable(child):
+           child.setSoftbodyPose(True, True)
            
-    #       if "joint" in child.getPropertyNames():
-    #            child.cutSoftbodyJoint(scene.objects[child["joint"]])
+           if "joint" in child.getPropertyNames():
+               child.cutSoftbodyJoint(scene.objects[child["joint"]])
         
-    #    if parent != None:
-    #        if child.name in children[parent]:
-    #            children[parent].remove(child.name)
+           if parent != None:
+               if child.name in children[parent]:
+                    children[parent].remove(child.name)
      else:
         if not child.invalid:
             t = Timer(delay, child.suspendDynamics)
             t.start()
 
-#def isDeformable(obj):
-#    if obj == None:
-#        return False
-#    return bpy.context.scene.objects[obj.name].destruction.deform
+def isDeformable(obj):
+    if obj == None:
+        return False
+    return bpy.context.scene.objects[obj.name].destruction.deform
             
 def isGroundConnectivity(obj):
     global children

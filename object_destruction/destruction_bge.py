@@ -580,10 +580,12 @@ def collide():
             vol = bpyObj.destruction.voro_volume
             name = bpyObj.name 
             if not "noFracture" in owner.getPropertyNames():
-                if "isShard" in hitObj.getPropertyNames():
+                if "isShard" in hitObj.getPropertyNames() and "activated" in hitObj.getPropertyNames() and \
+                hitObj["activated"] == True:    
                     bpyObj.destruction.voro_volume = ""
                     bpy.ops.object.destroy()
                     bpyObj.destruction.voro_volume = vol
+                    #owner["noFracture"] = True
                 else:
                     bpy.ops.object.destroy(impactLoc = owner.worldPosition)
                 owner["noFracture"] = True
@@ -600,7 +602,7 @@ def collide():
                     o.restoreDynamics()
                     o["activated"] = True
             
-            #handle all other objects as well        
+           # handle all other objects as well        
             for o in scene.objects:
                 try:
                     if compareSpeed(owner, o):
@@ -612,7 +614,8 @@ def collide():
                            
     if isDynamic:
         print("Returning")
-        return    
+        return
+    
             
     for fp in firstparent:
         if not isGroundConnectivity(fp):
@@ -834,6 +837,13 @@ def swapDynamic(objname, obj):
                 break
         
         ret = []
+        
+        obb = par
+        correction = obb.location.copy()
+        while obb.parent != None:
+            obb = obb.parent
+            correction += obb.location
+                
         for i in range(0, len(childs)):
             
             child = bpy.data.objects[childs[i]]     
@@ -848,20 +858,26 @@ def swapDynamic(objname, obj):
                 allInUse = True #prevent further subdivisions
                 return ret
             
-            if "activated" not in obj.getPropertyNames():    
+            if "activated" not in obj.getPropertyNames() or not obj["activated"]: 
+               # o.linearVelocity = Vector((0,0,0))  
                 o.suspendDynamics()
             o.replaceMesh(meshproxies[i], True, True)
-            #print(o.reinstancePhysicsMesh())
+            #o.suspendDynamics() #IGNORED SILENTLY ????
+            #print("REPLACED", o.name)
+            
+            
+            
+        #    print("CORR", correction, obj.worldPosition, child.location)
+            
+        #    print("VELO", obj.linearVelocity)
             
             if "isShard" not in obj.getPropertyNames():
-                o.worldPosition = obj.worldPosition + child.location
+                o.worldPosition = child.location + correction
                 tempLoc = Vector(bpyOb.destruction.origLoc)
             elif "activated" in obj.getPropertyNames():
-                o.worldPosition = obj.worldPosition + child.location
+                o.worldPosition = child.location + obj.worldPosition
             else:
-                o.worldPosition = obj.worldPosition + child.location - par.location#tempLoc + child.location
-            
-            #print("CHILDLOC", child.location)    
+                o.worldPosition = child.location + correction   
 #            pos = obj.worldPosition + child.location
 #            o["posx"] = pos[0]
 #            o["posy"] = pos[1]
@@ -872,20 +888,21 @@ def swapDynamic(objname, obj):
             
             if (nr-len(childs)-1) == nr2:
                 comp = o
-            print(obj.worldPosition, child.location)        
+                comp.suspendDynamics()
+            print(o.worldPosition, child.location, o.worldPosition - child.location)        
             o["orig"] = childs[i]
           #  o["lastProxy"] = meshproxies[0].name
             ret.append(o)
         
-        if comp != None:
-            for r in ret:
-                if r != comp:
-                    r.setParent(comp, True, False)
-            comp.worldOrientation = obj.worldOrientation
-            
-            for r in ret:
-                if r != comp:
-                    r.removeParent()
+          #  if comp != None:
+        #        for r in ret:
+        #            if r != comp:
+        #                r.setParent(comp, True, False)
+        #        comp.worldOrientation = obj.worldOrientation
+        #    
+        #        for r in ret:
+        #            if r != comp:
+        #                r.removeParent()
                              
         print("after replace mesh")
         obj.endObject()

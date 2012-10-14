@@ -82,17 +82,24 @@ class DestructionFracturePanel(types.Panel):
         
         if isParent(context):
             row = layout.row()
-            row.prop(context.object.destruction, "destroyable", text = "Destroyable")
+            row.prop(context.object.destruction, "destroyable", text = "Destroyable", toggle=True)
         
         if isMesh(context):
             col = layout.column(align=True)
             col.label("Mode")
-            col.prop(context.object.destruction, "destructionMode", text = "")
+            row = col.row(align=True)
+            row.prop(context.object.destruction, "dynamic_mode", expand = True)
+            if context.object.destruction.dynamic_mode == "D_DYNAMIC":
+                col.prop(context.scene, "dummyPoolSize", text = "Dummy Object Pool Size")
+            
+            col = layout.column(align=True)
+            row = col.row(align=True)
+            row.prop(context.object.destruction, "destructionMode", text = "")
             
             if context.object.destruction.destructionMode != 'DESTROY_L' and \
                context.object.destruction.destructionMode != 'DESTROY_C':
                 if not context.object.destruction.voro_exact_shape and context.object.destruction.voro_particles == "":
-                    col.prop(context.object.destruction, "partCount", text = "Parts")
+                    row.prop(context.object.destruction, "partCount", text = "Parts")
             
             #gui parts from ideasman42
             if context.object.destruction.destructionMode == 'DESTROY_C':
@@ -138,10 +145,10 @@ class DestructionFracturePanel(types.Panel):
             if context.object.destruction.destructionMode == 'DESTROY_F':
                 col = layout.column(align=True)
                 col.label("Crack Type")
-                col.prop(context.object.destruction, "crack_type", text = "")
+                row = col.row(align=True)
+                row.prop(context.object.destruction, "crack_type", text = "")
                 if context.object.destruction.crack_type == 'FLAT_ROUGH' or \
                 context.object.destruction.crack_type == 'SPHERE_ROUGH':
-                    row = col.row(align=True)
                     row.prop(context.object.destruction, "roughness", text = "Roughness")
                     
             elif context.object.destruction.destructionMode.startswith('DESTROY_E'):
@@ -174,7 +181,53 @@ class DestructionFracturePanel(types.Panel):
                     row.prop(context.object.destruction, "remesh_depth", text="Remesh Depth")
                     row = col.row(align=True)
                 row.prop(context.object.destruction, "dissolve_angle", text="Limited Dissolve Angle")
-
+                
+            
+            col = layout.column(align=True)
+        
+            if context.object.destruction.destructionMode != 'DESTROY_L':        
+                row = col.row(align=True)
+                row.prop(context.object.destruction, "cubify", text = "Intersect with Grid", toggle=True)
+                
+            if context.object.destruction.destructionMode != 'DESTROY_L' and \
+            context.object.destruction.cubify:
+                
+                col.prop(context.object.destruction, "cubifyDim", text = "")
+        
+            if context.object.destruction.destructionMode != 'DESTROY_L':
+                col.label("Inner Material")
+                row = col.row(align=True)
+                row.prop_search(context.object.destruction, "inner_material", data, 
+                    "materials", icon = 'MATERIAL', text = "")    
+            
+            if context.object.destruction.destructionMode != 'DESTROY_L' and \
+            context.object.destruction.destructionMode != 'DESTROY_V':
+                row = col.row(align=True)
+                row.prop(context.object.destruction, "re_unwrap", text = "Smart Project Shard UVs", toggle=True)
+                if context.object.destruction.re_unwrap:
+                    row = col.row(align=True)
+                    row.prop(context.object.destruction, "smart_angle", text = "Angle limit")
+            
+            col = layout.column()
+            row = col.row()
+            row.prop(context.object.destruction, "use_debug_redraw", toggle=True)
+              
+            row = col.row(align=True)
+            if isMesh(context) and context.object.destruction.dynamic_mode == "D_PRECALCULATED":
+                row.operator("object.destroy")
+            
+            if isParent(context):
+                names = []
+                for o in data.objects:
+                    if o.destruction != None:
+                        if o.destruction.is_backup_for != None:
+                            names.append(o.destruction.is_backup_for)
+                
+                if context.object.name in names:
+                    row = col.row()
+                    row.operator("object.undestroy")
+                
+                
 class DestructionPhysicsPanel(types.Panel):
 
     bl_idname = "PHYSICS_PT_destructionPhysics"
@@ -182,25 +235,68 @@ class DestructionPhysicsPanel(types.Panel):
     bl_context = "physics"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
+    bl_options = {'DEFAULT_CLOSED'}
     
     def draw(self, context):
-        pass
+        
+        layout = self.layout
+        col = layout.column(align=True)
+        col.label("Mass Mode")
+        row = col.row(align=True)
+        row.prop(context.object.destruction.cell_fracture, "mass_mode", text = "")
+        row.prop(context.object.destruction.cell_fracture, "mass")
     
     #mass, mass mode, , margin, glue, delays(death, destruction), ground connectivity
     
+            
+        if (context.object.destruction.dynamic_mode == "D_PRECALCULATED"):
+                
+            if isMesh(context) or isParent(context):
+                col = layout.column(align=True)
+                row = col.row(align=True)
+                row.prop(context.object.destruction, "cluster", text = "Use Clusters", toggle = True)
+                if context.object.destruction.cluster:
+                    col.prop(context.object.destruction, "cluster_dist", text = "Cluster Distance in %")
+                
+            
+            row = col.row(align=True)
+            row.prop(context.object.destruction, "glue_threshold", text = "Glue Threshold")
+            
+            
+        row = col.row(align=True)
+        row.prop(context.object.destruction, "collision_margin", text = "Collision Bounds Margin")
+        
+        if isParent(context):# or context.object.destruction.dynamic_mode == 'D_DYNAMIC':
+            col.prop(context.object.destruction, "groundConnectivity", text = "Calculate Ground Connectivity", toggle=True)
+            
+            if context.object.destruction.groundConnectivity:
+                row = col.row(align=True)
+                row.label(text = "Connected Grounds")
+                row.active = context.object.destruction.groundConnectivity
+        
+                row = col.row(align=True)       
+                row.template_list(context.object.destruction, "grounds", 
+                          context.object.destruction, "active_ground", rows = 2)
+                row.operator("ground.remove", icon = 'ZOOMOUT', text = "")
+                row.active = context.object.destruction.groundConnectivity
+        
+                row = col.row(align=True)   
+                row.prop_search(context.object.destruction, "groundSelector", 
+                        context.scene, "objects", icon = 'OBJECT_DATA', text = "Ground:")
+                        
+                row.operator("ground.add", icon = 'ZOOMIN', text = "")
+                row.active = context.object.destruction.groundConnectivity
+            
+                
+                col.prop(context.object.destruction, "gridDim", text = "Connectivity Grid")
+                #col.active = context.object.destruction.groundConnectivity
+                
+                row = col.row(align=True)
+                row.prop(context.scene, "useGravityCollapse", text = "Use Gravity Collapse", toggle=True)
+                
+                if context.scene.useGravityCollapse:
+                    row.prop(context.scene, "collapse_delay", text = "Collapse Delay")
     
-
-class DestructionAppearancePanel(types.Panel):
-
-    bl_idname = "PHYSICS_PT_destructionAppearance"
-    bl_label = "Destruction Appearance"
-    bl_context = "physics"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    
-    def draw(self, context):
-        pass
-    #material, smart project, intersect grid, show realtime
 
 class DestructionHierarchyPanel(types.Panel):
 
@@ -209,11 +305,31 @@ class DestructionHierarchyPanel(types.Panel):
     bl_context = "physics"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
+    bl_options = {'DEFAULT_CLOSED'}
     
     def draw(self, context):
-        pass
     
     #hierarchylayer, flatten/use hierarchy, recursion, hierarchy depth
+        layout = self.layout
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        row.prop(context.object.destruction, "flatten_hierarchy", text = "Use Hierarchy", toggle=True)
+    
+        if context.object.destruction.flatten_hierarchy:    
+            row = col.row(align=True)
+            row.prop(context.scene, "hideLayer", text = "Hierarchy Layer")
+        
+        #use recursion for all methods
+        if context.object.destruction.destructionMode != 'DESTROY_L' and isMesh(context):     
+           # box = layout.box()
+            col.label("Recursive Shatter")
+            row = col.row(align=True)
+            row.prop(context.object.destruction.cell_fracture, "recursion")
+            row.prop(context.object.destruction.cell_fracture, "recursion_clamp")
+            row = col.row()
+            row.prop(context.object.destruction.cell_fracture, "recursion_chance")
+            col.prop(context.object.destruction.cell_fracture, "recursion_chance_select", expand=True)
+                
     
 
 class DestructionRolePanel(types.Panel):
@@ -223,11 +339,105 @@ class DestructionRolePanel(types.Panel):
     bl_context = "physics"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
+    bl_options = {'DEFAULT_CLOSED'}
     
     def draw(self, context):
-        pass
+      
     
     #destroyable, destructor, ground, custom ball, enable all children
+        layout = self.layout
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        
+        
+        if isMesh(context) or isParent(context):
+           # box.prop(context.object.destruction, "deform", text = "Enable Deformation")       
+            row.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground", toggle=True)
+            row = col.row(align=True)
+            row.prop(context.object.destruction, "destructor", text = "Destructor", toggle = True)
+            
+            if context.object.destruction.destructor:
+                
+                row = col.row(align=True)
+                row.prop(context.object.destruction, "enable_all_children", text = "Enable all children", toggle=True)
+                
+                row = col.row(align=True)
+                row.prop(context.object.destruction, "individual_override", text = "Individual Target Override", toggle=True)
+                
+                if context.object.destruction.individual_override and len(context.object.destruction.destructorTargets) > 0:
+                    
+                    active = context.object.destruction.destructorTargets[context.object.destruction.active_target]
+                    col.label("Settings for target:" + active.name)
+                    
+                    row = col.row(align=True)
+                    row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
+                
+                    row = col.row(align=True)
+                    row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
+                
+                    row = col.row(align=True)
+                    row.prop(active, "radius", text = "Radius")
+                
+                    row = col.row(align=True)
+                    row.prop(active, "modifier", text = "Speed Modifier")
+                    
+                    row = col.row(align=True)
+                    row.prop(active, "acceleration_factor", text = "Acceleration Factor")
+                    
+                    row = col.row(align=True)
+                    row.prop(context.object.destruction, "destruction_delay", text = "Destruction Delay")
+                
+                else:
+                    
+                    col.label("Global Settings")
+                    
+                    row = col.row(align=True)
+                    row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
+                    row.active = context.object.destruction.destructor
+                
+                    row = col.row(align=True)
+                    row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
+                    row.active = context.object.destruction.destructor
+                
+                    row = col.row(align=True)
+                    row.prop(context.object.destruction, "radius", text = "Radius")
+                    row.active = context.object.destruction.destructor
+                
+                    row = col.row(align=True)
+                    row.prop(context.object.destruction, "modifier", text = "Speed Modifier")
+                    row.active = context.object.destruction.destructor
+                    
+                    row = col.row(align=True)
+                    row.prop(context.object.destruction, "acceleration_factor", text = "Acceleration Factor")
+                    row.active = context.object.destruction.destructor
+                    
+                    row = col.row(align=True)
+                    row.prop(context.object.destruction, "destruction_delay", text = "Destruction Delay")
+                    row.active = context.object.destruction.destructor
+                    
+            
+                row = col.row(align=True)
+                row.label(text = "Destructor Targets")
+                row.active = context.object.destruction.destructor
+            
+                row = col.row(align=True)
+            
+                row.template_list(context.object.destruction, "destructorTargets", 
+                              context.object.destruction, "active_target" , rows = 2) 
+                            
+                row.operator("target.remove", icon = 'ZOOMOUT', text = "") 
+                row.active = context.object.destruction.destructor  
+            
+                row = col.row(align=True)
+                
+                row.prop_search(context.object.destruction, "targetSelector", context.scene, 
+                           "objects", icon = 'OBJECT_DATA', text = "Destroyable:")
+                                        
+                row.operator("target.add", icon = 'ZOOMIN', text = "")
+                
+                row = col.row(align=True)
+                row.prop_search(context.scene, "custom_ball", context.scene, 
+                    "objects", icon = 'OBJECT_DATA', text = "Custom Ball:")
 
 class DestructionSetupPanel(types.Panel):
 
@@ -236,14 +446,81 @@ class DestructionSetupPanel(types.Panel):
     bl_context = "physics"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
+    bl_options = {'DEFAULT_CLOSED'}
     
     def draw(self, context):
-        pass
     
     #buttons setup player, to game parenting (direct to layout, along with copy button
     #status (direct) fracture missing, player missing, to game parenting missing, ready to play (misleading)
+    
+        layout = self.layout
+        col = layout.column(align=True)
+        row = col.row(align=True) 
+        row.prop(context.scene, "use_player_cam", text = "Use Player Camera", toggle=True)
+              
+        if not context.scene.player:
+            col.operator("player.setup")
+        else:
+            col.operator("player.clear")
         
+#        col.operator("player.setup")
+#        col.active = not context.scene.player
+#    
+#        col = row.column()
+#        col.operator("player.clear")
+#        col.active = context.scene.player
+    
+        row = col.row(align=True)
         
+        mode = context.object.destruction.dynamic_mode == 'D_PRECALCULATED'
+        if (not mode and not context.scene.to_precalculated) and context.scene.converted:  
+            txt = "Reset Game Parenting"
+        else:
+            txt = "To Game Parenting"
+   
+        row.operator("parenting.convert", text = txt)
+        row.active = not(context.scene.converted and (mode or context.scene.to_precalculated))
+        row = col.row(align=True)
+        row.operator("game.start")
+        
+        if isParent(context):
+            if context.object.children[1].destruction.dynamic_mode == 'D_DYNAMIC':
+                row = col.row(align=True)
+                txt = "Convert To Precalculated"
+                row.operator("mode.convert", text = txt).mode = 'TO_PRECALCULATED'
+           # elif context.object.children[1].destruction.dynamic_mode == 'D_PRECALCULATED':
+           #    txt = "Convert To Dynamic"
+           #    row.operator("mode.convert", text = txt).mode = 'TO_DYNAMIC'
+        
+        col.operator("active.to_selected")
+
+
+class DestructionOperator(types.Operator):
+    bl_idname = "destruction.enable"
+    bl_label = "Destruction"
+    bl_description = "Enables or disables Destruction Panels"
+    bl_options = {"UNDO"}
+    
+    
+    def execute(self, context):
+        context.object.destEnabled = not context.object.destEnabled
+        print(context.object.destEnabled)
+        
+        if context.object.destEnabled:
+            bpy.utils.register_class(DestructionFracturePanel)
+            bpy.utils.register_class(DestructionPhysicsPanel)
+            bpy.utils.register_class(DestructionHierarchyPanel)
+            bpy.utils.register_class(DestructionRolePanel)
+            bpy.utils.register_class(DestructionSetupPanel)
+        else:
+            bpy.utils.unregister_class(DestructionFracturePanel)
+            bpy.utils.unregister_class(DestructionPhysicsPanel)
+            bpy.utils.unregister_class(DestructionHierarchyPanel)
+            bpy.utils.unregister_class(DestructionRolePanel)
+            bpy.utils.unregister_class(DestructionSetupPanel)
+        
+        return {"FINISHED"}
+                    
 
 class DestructabilityPanel(types.Panel):
     bl_idname = "OBJECT_PT_destructability"

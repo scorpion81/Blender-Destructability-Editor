@@ -2107,7 +2107,9 @@ def updateDestroyable(self, context):
     return None 
 
 def updateCam(self, context):
-    p = bpy.data.objects["Player"]
+    p = None
+    if "Player" in bpy.data.objects:
+        p = bpy.data.objects["Player"]
     if p:
         if context.scene.use_player_cam:
             p.game.controllers[0].link(p.game.sensors[0], p.game.actuators[0])
@@ -2182,7 +2184,7 @@ def updateEnableAllChildren(self, context):
     childs = childsRec(context.object)
     
     for c in childs:
-        c.object.destruction.destructor = context.object.destruction.enable_all_children
+        c.destruction.destructor = context.object.destruction.enable_all_children
             
     return None            
     
@@ -2699,6 +2701,7 @@ def initialize():
        description = "Select custom ball object here before setup player, this will be shot from the player instead of the default ball")
     #Scene.fracture_progress = props.StringProperty(name = "fracture_progress", description = "Fracture Progress")
     Scene.to_precalculated = props.BoolProperty(name = "to_precalculated")
+
     
     dd.DataStore.proc = Processor()  
   

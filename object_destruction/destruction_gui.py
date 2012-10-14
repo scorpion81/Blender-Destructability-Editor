@@ -55,6 +55,196 @@ def setDestructor(context, o):
     for c in o.children:
         setDestructor(context, c)
 
+def isMesh(context):
+    return context.object.type == 'MESH'
+
+def isParent(context):
+    meshChild = False
+    for o in context.object.children:
+        if o.type == 'MESH':
+            meshChild = True
+            break
+        
+    backup = context.object.destruction.backup
+    return context.object.type == 'EMPTY' and (meshChild or backup != "")
+
+
+
+class DestructionFracturePanel(types.Panel):
+    bl_idname = "PHYSICS_PT_destructionFracture"
+    bl_label = "Destruction Fracture"
+    bl_context = "physics"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    
+    def draw(self, context):
+        layout = self.layout
+        
+        if isParent(context):
+            row = layout.row()
+            row.prop(context.object.destruction, "destroyable", text = "Destroyable")
+        
+        if isMesh(context):
+            col = layout.column(align=True)
+            col.label("Mode")
+            col.prop(context.object.destruction, "destructionMode", text = "")
+            
+            if context.object.destruction.destructionMode != 'DESTROY_L' and \
+               context.object.destruction.destructionMode != 'DESTROY_C':
+                if not context.object.destruction.voro_exact_shape and context.object.destruction.voro_particles == "":
+                    col.prop(context.object.destruction, "partCount", text = "Parts")
+            
+            #gui parts from ideasman42
+            if context.object.destruction.destructionMode == 'DESTROY_C':
+                
+                col = layout.column()
+                col.label("Point Source")
+                row = layout.row()
+                col = row.column()
+                
+                col.prop(context.object.destruction.cell_fracture, "source")   
+                col = layout.column(align = True)
+                col.prop(context.object.destruction.cell_fracture, "source_limit")
+                col.prop(context.object.destruction.cell_fracture, "source_noise")
+                
+                row = col.row(align = True)
+                row.prop(context.object.destruction.cell_fracture, "cell_scale")                
+                
+                col = layout.column(align = True)
+                col.label("Options")
+                row = col.row(align=True)
+                row.prop(context.object.destruction.cell_fracture, "use_smooth_faces", toggle = True)
+                row.prop(context.object.destruction.cell_fracture, "use_sharp_edges", toggle = True)
+                
+                row = col.row(align=True)
+                row.prop(context.object.destruction.cell_fracture, "use_sharp_edges_apply", toggle = True)
+                row.prop(context.object.destruction.cell_fracture, "use_data_match", toggle = True)
+                
+                row = col.row(align=True)
+                row.prop(context.object.destruction.cell_fracture, "use_interior_vgroup", toggle = True)
+                row.prop(context.object.destruction.cell_fracture, "use_island_split", toggle = True)
+                
+                row = col.row(align=True)
+                row.prop(context.object.destruction.cell_fracture, "use_recenter", text = "Recenter Objects", toggle = True)
+                row.prop(context.object.destruction.cell_fracture, "margin")
+                 
+                row = col.row(align=True)
+                row.prop(context.object.destruction.cell_fracture, "group_name", text = "Use Group")
+        
+                row = col.row(align=True)
+                row.prop(context.object.destruction.cell_fracture, "use_debug_points", toggle = True)
+                row.prop(context.object.destruction.cell_fracture, "use_debug_bool", toggle = True)
+                    
+            if context.object.destruction.destructionMode == 'DESTROY_F':
+                col = layout.column(align=True)
+                col.label("Crack Type")
+                col.prop(context.object.destruction, "crack_type", text = "")
+                if context.object.destruction.crack_type == 'FLAT_ROUGH' or \
+                context.object.destruction.crack_type == 'SPHERE_ROUGH':
+                    row = col.row(align=True)
+                    row.prop(context.object.destruction, "roughness", text = "Roughness")
+                    
+            elif context.object.destruction.destructionMode.startswith('DESTROY_E'):
+                row = col.row(align=True)
+                row.prop(context.object.destruction, "wallThickness", text = "Thickness")
+                row.prop(context.object.destruction, "pieceGranularity", text = "Subdivisions")
+                
+            elif context.object.destruction.destructionMode == 'DESTROY_V' or \
+            context.object.destruction.destructionMode == 'DESTROY_VB':
+                col = layout.column(align=True)
+                col.label("Volume")
+                
+                row = col.row(align=True)
+                row.prop_search(context.object.destruction, "voro_volume", 
+                        context.scene, "objects", icon = 'OBJECT_DATA', text = "")
+                        
+                if context.object.destruction.voro_particles == "":
+                    row.prop(context.object.destruction, "voro_exact_shape", text = "Use Exact Shape", toggle=True)
+                if context.object.destruction.voro_volume != "" and not context.object.destruction.voro_exact_shape:
+                    vol = context.object.destruction.voro_volume 
+                    row = col.row()           
+                    row.prop_search(context.object.destruction, "voro_particles",
+                        data.objects[vol],  "particle_systems", icon = 'PARTICLES', text = "")
+                        
+            #    row.prop(context.object.destruction, "voro_path", text="Intermediate File")
+                
+                col = layout.column(align=True)
+                row = col.row(align=True)
+                if context.object.destruction.destructionMode == 'DESTROY_VB':
+                    row.prop(context.object.destruction, "remesh_depth", text="Remesh Depth")
+                    row = col.row(align=True)
+                row.prop(context.object.destruction, "dissolve_angle", text="Limited Dissolve Angle")
+
+class DestructionPhysicsPanel(types.Panel):
+
+    bl_idname = "PHYSICS_PT_destructionPhysics"
+    bl_label = "Destruction Physics"
+    bl_context = "physics"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    
+    def draw(self, context):
+        pass
+    
+    #mass, mass mode, , margin, glue, delays(death, destruction), ground connectivity
+    
+    
+
+class DestructionAppearancePanel(types.Panel):
+
+    bl_idname = "PHYSICS_PT_destructionAppearance"
+    bl_label = "Destruction Appearance"
+    bl_context = "physics"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    
+    def draw(self, context):
+        pass
+    #material, smart project, intersect grid, show realtime
+
+class DestructionHierarchyPanel(types.Panel):
+
+    bl_idname = "PHYSICS_PT_destructionHierarchy"
+    bl_label = "Destruction Hierarchy"
+    bl_context = "physics"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    
+    def draw(self, context):
+        pass
+    
+    #hierarchylayer, flatten/use hierarchy, recursion, hierarchy depth
+    
+
+class DestructionRolePanel(types.Panel):
+
+    bl_idname = "PHYSICS_PT_destructionRole"
+    bl_label = "Destruction Role "
+    bl_context = "physics"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    
+    def draw(self, context):
+        pass
+    
+    #destroyable, destructor, ground, custom ball, enable all children
+
+class DestructionSetupPanel(types.Panel):
+
+    bl_idname = "PHYSICS_PT_destructionSetup"
+    bl_label = "Destruction Setup "
+    bl_context = "physics"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    
+    def draw(self, context):
+        pass
+    
+    #buttons setup player, to game parenting (direct to layout, along with copy button
+    #status (direct) fracture missing, player missing, to game parenting missing, ready to play (misleading)
+        
+        
+
 class DestructabilityPanel(types.Panel):
     bl_idname = "OBJECT_PT_destructability"
     bl_label = "Destructability"

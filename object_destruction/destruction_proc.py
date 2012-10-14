@@ -2083,6 +2083,7 @@ def updateDestructor(context):
             for p in context.active_object.destruction.destructorTargets:
                 prop = c.destruction.destructorTargets.add()
                 prop.name = p.name
+           
         else:
             for p in context.active_object.destruction.destructorTargets:
                 index = 0
@@ -2128,10 +2129,63 @@ def updateDynamicMode(self, context):
     context.object.name.startswith("P_"):
         context.object.game.physics_type = 'RIGID_BODY'
         context.object.game.collision_bounds_type = 'CONVEX_HULL'
-        context.object.game.collision_margin = 0.0 
+        context.object.game.collision_margin = context.object.destruction.collision_margin 
         context.object.game.radius = 0.01
         context.object.game.use_collision_bounds = True
     return None
+
+#BEFORE ToGameParenting
+def childsRec(par):
+    ret = []
+    for c in par.children:
+        ret.extend(childsRec(c))
+        ret.append(c)
+        
+    return ret
+        
+def updateCollisionMargin(self, context):
+    if context.object.destruction.enable_all_children:
+        #go recursively(?) thru all children ?
+        childs = childsRec(context.object)
+        for c in childs:
+            if not context.object.destruction.enable_all_children or \
+            context.object.game.use_collision_compound:
+                c.game.collision_margin = context.object.destruction.collision_margin 
+    return None
+    
+
+def updateDestructionDelay(self, context):
+    #first all children
+    if context.object.destruction.enable_all_children:
+        #go recursively(?) thru all children ?
+        childs = childsRec(context.object)
+        for c in childs:
+            sensornames = [s.name for s in c.game.sensors]
+            if "Collision" in sensornames:
+                c.game.sensors["Collision"].frequency = context.object.destruction.destruction_delay
+    
+    
+    #then object itself
+    sensornames = [s.name for s in context.object.game.sensors]
+    if "Collision" in sensornames:
+        context.object.game.sensors["Collision"].frequency = context.object.destruction.destruction_delay
+         
+    return None
+
+
+def updateMass(self, context):
+    childs = childsRec(context.object)
+    [self.calcMass(c, c.backup) for c in childs]        
+    return None
+
+def updateEnableAllChildren(self, context):
+    childs = childsRec(context.object)
+    
+    for c in childs:
+        c.object.destruction.destructor = context.object.destruction.enable_all_children
+            
+    return None            
+    
 
 #disable decorator when persistence is not available
 def unchanged(func):
@@ -2300,6 +2354,7 @@ class CellFractureContext(types.PropertyGroup):
                    ('UNIFORM', "Uniform", "All objects get the same volume"),
                    ),
             default='VOLUME',
+            update = updateMass
             )
     
     mass = props.FloatProperty(
@@ -2307,6 +2362,7 @@ class CellFractureContext(types.PropertyGroup):
             description="Mass to give created objects",
             min=0.001, max=1000.0,
             default=1.0,
+            update = updateMass
             )
    
 
@@ -2389,6 +2445,24 @@ class CellFractureContext(types.PropertyGroup):
             min=0, max=10000,
             default=250,
             )
+            
+class DestructorTargetContext(types.PropertyGroup):
+    
+    hierarchy_depth = props.IntProperty(name = "hierarchy_depth", default = 1, min = 1, 
+                                        description = "Up to which hierarchy depth given targets can be destroyed by this object")
+                                        
+    dead_delay = props.FloatProperty(name = "dead_delay", default = 0, min = 0, max = 10, 
+                                    description = "After which time period activated objects get inactive again, set 0 for never")
+                                    
+    radius = props.FloatProperty(name = "radius", default = 1, min = 0, 
+    description = "Speed independent destruction radius, is added to Speed Modifier")
+    modifier = props.FloatProperty(name = "modifier",default = 0.25, min = 0, 
+    description = "Modifier(factor) for destructors speed relative to object speed, is added to Radius")
+                                        
+    acceleration_factor = props.FloatProperty(name = "acceleration_factor", default = 1.0, min = 0.0, max = 20.0, 
+        description = "Accelerate shards by this factor on impact")
+  #  destruction_delay = props.IntProperty(name = "destruction_delay", default = 25, min = 0, max = 500, 
+#        description = "Delay in logic ticks after which destruction should occur (repeatedly)", update = updateDestructionDelay)
 
 
 class DestructionContext(types.PropertyGroup):
@@ -2477,7 +2551,7 @@ so only unconnected parts collapse according to their parent relations")
                                           subtype ='XYZ', description = "How many cubes per direction shall be created" )
     
     gridBBox = props.FloatVectorProperty(name = "gridbbox", default = (0, 0, 0))
-    destructorTargets = props.CollectionProperty(type = types.PropertyGroup, name = "destructorTargets")
+    destructorTargets = props.CollectionProperty(type = DestructorTargetContext, name = "destructorTargets")
     grounds = props.CollectionProperty(type = types.PropertyGroup, name = "grounds")
     transmitMode = props.EnumProperty(items = transModes, name = "Transmit Mode", default = 'T_SELECTED')
     active_target = props.IntProperty(name = "active_target", default = 0)
@@ -2526,7 +2600,7 @@ so only unconnected parts collapse according to their parent relations")
     children = props.CollectionProperty(type = types.PropertyGroup, name = "children")
     backup = props.StringProperty(name = "backup")
     dead_delay = props.FloatProperty(name = "dead_delay", default = 0, min = 0, max = 10, 
-                                    description = "After which time period activated objects get inactive again, set 0 for never")
+                                   description = "After which time period activated objects get inactive again, set 0 for never")
     deform = props.BoolProperty(name = "deform", default = False)
     cluster_dist = props.IntVectorProperty(name = "cluster_dist", default = (200, 200, 200), min = 0, subtype = 'XYZ',
                                     description = "Distance or size of cluster in % of according bounding box dimension")
@@ -2538,6 +2612,7 @@ so only unconnected parts collapse according to their parent relations")
     radius = props.FloatProperty(name = "radius", default = 1, min = 0, description = "Speed independent destruction radius, is added to Speed Modifier")
     modifier = props.FloatProperty(name = "modifier",default = 0.25, min = 0, 
     description = "Modifier(factor) for destructors speed relative to object speed, is added to Radius")
+    
     ascendants = props.CollectionProperty(type = types.PropertyGroup, name = "ascendants")
     
     # From pildanovak, fracture script
@@ -2588,6 +2663,20 @@ EACH cube will be further fractured to the given part count")
     move_name = props.StringProperty(name = "move_name")
     orig_name = props.StringProperty(name = "orig_name")
     
+    enable_all_children = props.BoolProperty(name = "enable_all_children", default = True, description = "Make child objects destructors as well", 
+        update = updateEnableAllChildren )
+    
+    collision_margin = props.FloatProperty(name = "collision_margin", default = 0.01, min = 0.0, max = 1.0, 
+           description = "Margin for collision bounds", update = updateCollisionMargin)
+        
+    acceleration_factor = props.FloatProperty(name = "acceleration_factor", default = 1.0, min = 0.0, max = 20.0, 
+        description = "Accelerate shards by this force factor on impact")
+    destruction_delay = props.IntProperty(name = "destruction_delay", default = 25, min = 0, max = 500, 
+        description = "Delay in logic ticks after which destruction should occur (repeatedly)")
+        
+    individual_override = props.BoolProperty(name = "individual_override", description = "Adjust destructor settings individually per target")
+
+
 def initialize():
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")
     Scene.player = props.BoolProperty(name = "player")

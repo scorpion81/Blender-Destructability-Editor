@@ -477,9 +477,16 @@ def calculateGrids():
 
 def modSpeed(owner, speed):
     ownerBpy = bpy.data.objects[owner.name]
-    radius = ownerBpy.destruction.radius
-    modifier = ownerBpy.destruction.modifier
-
+    hit = owner.sensors["Collision"].hitObject
+    if hit != None and ownerBpy.destruction.individual_override and \
+    isRegistered(findParent(hit), owner)
+        hitBpy = bpy.data.objects[hit.name]
+        radius = hitBpy.destruction.radius
+        modifier = hitBpy.destruction.modifier
+    else:
+        radius = ownerBpy.destruction.radius
+        modifier = ownerBpy.destruction.modifier
+        
     #1 + 0.025*speed        
     mSpeed = radius + modifier *speed
     return mSpeed    
@@ -1038,7 +1045,10 @@ def swapBackup(obj, owner):
 
 def compareSpeed(owner, obj):
     lastSpeed = 0
-    maxHierarchyDepth = hierarchyDepth(owner)
+    if isRegistered(findParent(obj), owner):
+        maxHierarchyDepth = hierarchyDepth(obj)
+    else:
+        maxHierarchyDepth = hierarchyDepth(owner)
     dist, speed, depth =  distSpeed(owner, obj, maxHierarchyDepth , lastSpeed)
     if speed > 0:
         lastSpeed = speed
@@ -1192,6 +1202,9 @@ def activate(child, owner, grid):
                     c.visit = False
     
      child.restoreDynamics()
+     bpyOwner = bpy.data.objects[owner.name]
+     if bpyOwner.destruction.acceleration_factor != 1:
+         child.setLinearVelocity(child.linearVelocity * acceleration_factor)
      
     
      if delay == 0:              

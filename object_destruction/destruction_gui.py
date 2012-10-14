@@ -44,7 +44,7 @@ def setDestructor(context, o):
     
     if o.name != "Ball":
         context.active_object.game.sensors[sensors].use_pulse_true_level = True
-        context.active_object.game.sensors[sensors].frequency = 25
+        context.active_object.game.sensors[sensors].frequency = context.active_object.destruction.destruction_delay
  
     context.active_object.game.controllers[controllers].mode = 'MODULE'
     context.active_object.game.controllers[controllers].module = "destruction_bge.collide"
@@ -77,8 +77,10 @@ class DestructabilityPanel(types.Panel):
         for o in context.object.children:
             if o.type == 'MESH':
                 meshChild = True
-                break;
-        return context.object.type == 'EMPTY' and meshChild
+                break
+            
+        backup = context.object.destruction.backup
+        return context.object.type == 'EMPTY' and (meshChild or backup != "")
     
     def draw_basic_fracture(self, context, box):
         
@@ -252,6 +254,12 @@ class DestructabilityPanel(types.Panel):
             
             row = box.row()
             row.prop(context.object.destruction, "glue_threshold", text = "Glue Threshold")
+            
+            row = box.row()
+            row.prop(context.object.destruction, "enable_all_children", text = "Enable all children")
+            
+            row = box.row()
+            row.prop(context.object.destruction, "collision_margin", text = "Collision Bounds Margin")
 
     
     def draw_recursion(self, context, box):
@@ -321,22 +329,61 @@ class DestructabilityPanel(types.Panel):
             box.prop(context.object.destruction, "destructor", text = "Destructor")
             
             if context.object.destruction.destructor:
-                row = box.row()
-                row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
-                row.active = context.object.destruction.destructor
                 
                 row = box.row()
-                row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
-                row.active = context.object.destruction.destructor
+                row.prop(context.object.destruction, "individual_override", text = "Individual Target Override")
                 
-                row = box.row()
-                row.prop(context.object.destruction, "radius", text = "Radius")
-                row.active = context.object.destruction.destructor
+                if context.object.destruction.individual_override and len(context.object.destruction.destructorTargets) > 0:
+                    
+                    active = context.object.destruction.destructorTargets[context.object.destruction.active_target]
+                    box.label("Settings for target:" + active.name)
+                    
+                    row = box.row()
+                    row.prop(active, "hierarchy_depth", text = "Hierarchy Depth")
                 
-                row = box.row()
-                row.prop(context.object.destruction, "modifier", text = "Speed Modifier")
-                row.active = context.object.destruction.destructor
+                    row = box.row()
+                    row.prop(active, "dead_delay", text = "Object Death Delay")
                 
+                    row = box.row()
+                    row.prop(active, "radius", text = "Radius")
+                
+                    row = box.row()
+                    row.prop(active, "modifier", text = "Speed Modifier")
+                    
+                    row = box.row()
+                    row.prop(active, "acceleration_factor", text = "Acceleration Factor")
+                    
+                    row = box.row()
+                    row.prop(context.object.destruction, "destruction_delay", text = "Destruction Delay")
+                
+                else:
+                    
+                    box.label("Global Settings")
+                    
+                    row = box.row()
+                    row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
+                    row.active = context.object.destruction.destructor
+                
+                    row = box.row()
+                    row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
+                    row.active = context.object.destruction.destructor
+                
+                    row = box.row()
+                    row.prop(context.object.destruction, "radius", text = "Radius")
+                    row.active = context.object.destruction.destructor
+                
+                    row = box.row()
+                    row.prop(context.object.destruction, "modifier", text = "Speed Modifier")
+                    row.active = context.object.destruction.destructor
+                    
+                    row = box.row()
+                    row.prop(context.object.destruction, "acceleration_factor", text = "Acceleration Factor")
+                    row.active = context.object.destruction.destructor
+                    
+                    row = box.row()
+                    row.prop(context.object.destruction, "destruction_delay", text = "Destruction Delay")
+                    row.active = context.object.destruction.destructor
+                    
             
                 row = box.row()
                 row.label(text = "Destructor Targets")

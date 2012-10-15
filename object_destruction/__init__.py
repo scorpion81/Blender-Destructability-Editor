@@ -84,7 +84,7 @@ def draw(self, context):
     #destruction    
     if (ob.type == 'MESH'):
         
-        if not context.object.destEnabled:
+        if not context.scene.destEnabled:
             icon = 'MOD_EXPLODE'
         else:
             icon = 'X'
@@ -97,7 +97,7 @@ def draw(self, context):
 def register():
     bpy.utils.register_module(__name__)
     #unregister some panels again manually
-    bpy.types.Object.destEnabled = bpy.props.BoolProperty(name = "destEnabled", default = False)
+    bpy.types.Scene.destEnabled = bpy.props.BoolProperty(name = "destEnabled", default = False)
     
     bpy.utils.unregister_class(dg.DestructionFracturePanel)
     bpy.utils.unregister_class(dg.DestructionPhysicsPanel)
@@ -122,7 +122,7 @@ def unregister():
     
     bpy.types.PHYSICS_PT_add.draw = olddraw
     Context.copy = oldcopy
-    del bpy.types.Object.destEnabled
+    del bpy.types.Scene.destEnabled
      
 if __name__ == "__main__":
     print("IN INITPY MAIN")

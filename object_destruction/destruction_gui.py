@@ -68,7 +68,19 @@ def isParent(context):
     backup = context.object.destruction.backup
     return context.object.type == 'EMPTY' and (meshChild or backup != "")
 
-
+#def options(context, closed):
+#    if context.object.destEnabled:
+#       if closed:
+#           return {"DEFAULT_CLOSED"}
+#       else:
+#           return {""}
+#       
+#    else:
+#       if closed:
+#           return {"HIDE_HEADER", "DEFAULT_CLOSED"}
+#       else:
+#           return {"HIDE_HEADER"}    
+        
 
 class DestructionFracturePanel(types.Panel):
     bl_idname = "PHYSICS_PT_destructionFracture"
@@ -78,6 +90,7 @@ class DestructionFracturePanel(types.Panel):
     bl_region_type = "WINDOW"
     
     def draw(self, context):
+        #bpy.types.Panel.bl_options = options(context, False)
         layout = self.layout
         
         if isParent(context):
@@ -235,10 +248,12 @@ class DestructionPhysicsPanel(types.Panel):
     bl_context = "physics"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {"DEFAULT_CLOSED"}
+    
     
     def draw(self, context):
         
+        #bpy.types.Panel.bl_options = options(context, True)
         layout = self.layout
         col = layout.column(align=True)
         col.label("Mass Mode")
@@ -305,10 +320,12 @@ class DestructionHierarchyPanel(types.Panel):
     bl_context = "physics"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {"DEFAULT_CLOSED"}
+    
     
     def draw(self, context):
-    
+        
+        #bpy.types.Panel.bl_options = options(context, True)
     #hierarchylayer, flatten/use hierarchy, recursion, hierarchy depth
         layout = self.layout
         col = layout.column(align=True)
@@ -339,11 +356,12 @@ class DestructionRolePanel(types.Panel):
     bl_context = "physics"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {"DEFAULT_CLOSED"}
+    
     
     def draw(self, context):
       
-    
+        #types.Panel.bl_options = options(context, True)
     #destroyable, destructor, ground, custom ball, enable all children
         layout = self.layout
         col = layout.column(align=True)
@@ -446,10 +464,11 @@ class DestructionSetupPanel(types.Panel):
     bl_context = "physics"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {"DEFAULT_CLOSED"}
     
     def draw(self, context):
-    
+        
+        #types.Panel.bl_options = options(context, True)
     #buttons setup player, to game parenting (direct to layout, along with copy button
     #status (direct) fracture missing, player missing, to game parenting missing, ready to play (misleading)
     
@@ -503,10 +522,10 @@ class DestructionOperator(types.Operator):
     
     
     def execute(self, context):
-        context.object.destEnabled = not context.object.destEnabled
-        print(context.object.destEnabled)
+        context.scene.destEnabled = not context.scene.destEnabled
+        print(context.scene.destEnabled)
         
-        if context.object.destEnabled:
+        if context.scene.destEnabled:
             bpy.utils.register_class(DestructionFracturePanel)
             bpy.utils.register_class(DestructionPhysicsPanel)
             bpy.utils.register_class(DestructionHierarchyPanel)

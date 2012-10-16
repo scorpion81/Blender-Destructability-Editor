@@ -479,7 +479,7 @@ def modSpeed(owner, speed):
     ownerBpy = bpy.data.objects[owner.name]
     hit = owner.sensors["Collision"].hitObject
     if hit != None and ownerBpy.destruction.individual_override and \
-    isRegistered(findParent(hit), owner)
+    isRegistered(findParent(hit), owner):
         hitBpy = bpy.data.objects[hit.name]
         radius = hitBpy.destruction.radius
         modifier = hitBpy.destruction.modifier

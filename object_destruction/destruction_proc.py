@@ -2682,6 +2682,7 @@ EACH cube will be further fractured to the given part count")
 def initialize():
     Object.destruction = props.PointerProperty(type = DestructionContext, name = "DestructionContext")
     Scene.player = props.BoolProperty(name = "player")
+    Scene.setup_basic_scene = props.BoolProperty(name = "setup_basic_scene", description = "Setup Basic Scene", default = True)
     Scene.converted = props.BoolProperty(name = "converted")
     Scene.hideLayer = props.IntProperty(name = "hideLayer", min = 1, max = 20, default = 1, 
                                         description = "Layer where to hide the object hierarchy, needed for object substitution in game engine")

@@ -17,9 +17,10 @@ if not __name__ in "__main__":
        import imp
        imp.reload(destruction_gui)
     else:
-        from object_destruction import destruction_gui as dg
+       from object_destruction import destruction_gui as dg
 
 import bpy
+from bpy.app.handlers import persistent
 
 from bpy.types import Context
 StructRNA = bpy.types.Struct.__bases__[0]
@@ -92,8 +93,29 @@ def draw(self, context):
         col.operator("destruction.enable", text="Destruction", icon=icon)
 
 #a hacky solution
-#Context.copy = copy    
+#Context.copy = copy
+
+def setOp(it, name):
+    it.idname = name    
+
+def changeKeymap(name):
+     km = bpy.context.window_manager.keyconfigs.active.keymaps.find("Object Mode")
+     [setOp(it, name) for it in km.keymap_items if it.name == "Start Game Engine"]
+
+
+@persistent
+def load_handler(dummy):
+   # print("Load Handler")
+    changeKeymap("game.start")
+    #bpy.context.scene.destEnabled = False # doesnt work correctly otherwise
     
+
+@persistent
+def save_handler(dummy):
+    #print("Save Handler")
+    changeKeymap("game.start")
+    
+
 def register():
     bpy.utils.register_module(__name__)
     #unregister some panels again manually
@@ -114,8 +136,20 @@ def register():
     bpy.types.PHYSICS_PT_add.draw = draw
     Context.copy = copy
     
+    #change keymap here
+    changeKeymap("game.start")
+    bpy.app.handlers.load_post.append(load_handler)
+    bpy.app.handlers.save_post.append(save_handler)
+   
+    
 def unregister():
     bpy.utils.unregister_module(__name__)
+    
+    #and restore old op here
+    changeKeymap("view3d.game_start")
+    
+    bpy.app.handlers.load_post.remove(load_handler)
+    bpy.app.handlers.save_post.remove(save_handler)
     
     global olddraw
     global oldcopy

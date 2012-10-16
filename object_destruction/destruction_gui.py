@@ -28,6 +28,12 @@ def layer(n, keepFirst = False):
 
 def setDestructor(context, o):
     
+    #enable all layers temporarily to avoid active object issues
+    context.scene.layers = [True, True, True, True, True,
+                            True, True, True, True, True,
+                            True, True, True, True, True,
+                            True, True, True, True, True]
+    
     context.scene.objects.active = o        
     controllers = len(context.active_object.game.controllers)
     sensors = len(context.active_object.game.sensors)
@@ -54,6 +60,11 @@ def setDestructor(context, o):
     
     for c in o.children:
         setDestructor(context, c)
+        
+    context.scene.layers = [True, False,False,False, False,
+                            False, False, False, False,False,
+                            False, False, False, False, False,
+                            False, False, False, False, False]
 
 def isMesh(context):
     return context.object.type == 'MESH'
@@ -229,16 +240,19 @@ class DestructionFracturePanel(types.Panel):
             if isMesh(context) and context.object.destruction.dynamic_mode == "D_PRECALCULATED":
                 row.operator("object.destroy")
             
-            if isParent(context):
-                names = []
-                for o in data.objects:
-                    if o.destruction != None:
-                        if o.destruction.is_backup_for != None:
-                            names.append(o.destruction.is_backup_for)
-                
-                if context.object.name in names:
-                    row = col.row()
-                    row.operator("object.undestroy")
+        if isParent(context):
+            names = []
+            for o in data.objects:
+                if o.destruction != None:
+                    if o.destruction.is_backup_for != None:
+                        names.append(o.destruction.is_backup_for)
+            
+            if context.object.name in names:
+                row = layout.row()
+                row.operator("object.undestroy")
+        
+        if (context.blend_data.filepath == ""):
+            layout.label("Save file before starting game engine")
                 
                 
 class DestructionPhysicsPanel(types.Panel):
@@ -474,13 +488,14 @@ class DestructionSetupPanel(types.Panel):
     
         layout = self.layout
         col = layout.column(align=True)
-        row = col.row(align=True) 
+        row = col.row(align=True)
+        row.prop(context.scene, "setup_basic_scene", text = "Setup Basic Scene", toggle=True) 
         row.prop(context.scene, "use_player_cam", text = "Use Player Camera", toggle=True)
               
-        if not context.scene.player:
-            col.operator("player.setup")
-        else:
-            col.operator("player.clear")
+    #    if not context.scene.player:
+    #        col.operator("player.setup")
+    #    else:
+    #        col.operator("player.clear")
         
 #        col.operator("player.setup")
 #        col.active = not context.scene.player
@@ -491,14 +506,14 @@ class DestructionSetupPanel(types.Panel):
     
         row = col.row(align=True)
         
-        mode = context.object.destruction.dynamic_mode == 'D_PRECALCULATED'
-        if (not mode and not context.scene.to_precalculated) and context.scene.converted:  
-            txt = "Reset Game Parenting"
-        else:
-            txt = "To Game Parenting"
+        #mode = context.object.destruction.dynamic_mode == 'D_PRECALCULATED'
+        #if (not mode and not context.scene.to_precalculated) and context.scene.converted:  
+        #    txt = "Reset Game Parenting"
+        #else:
+        #    txt = "To Game Parenting"
    
-        row.operator("parenting.convert", text = txt)
-        row.active = not(context.scene.converted and (mode or context.scene.to_precalculated))
+        #row.operator("parenting.convert", text = txt)
+       # row.active = not(context.scene.converted and (mode or context.scene.to_precalculated))
         row = col.row(align=True)
         row.operator("game.start")
         
@@ -525,19 +540,22 @@ class DestructionOperator(types.Operator):
         context.scene.destEnabled = not context.scene.destEnabled
         print(context.scene.destEnabled)
         
-        if context.scene.destEnabled:
-            bpy.utils.register_class(DestructionFracturePanel)
-            bpy.utils.register_class(DestructionPhysicsPanel)
-            bpy.utils.register_class(DestructionHierarchyPanel)
-            bpy.utils.register_class(DestructionRolePanel)
-            bpy.utils.register_class(DestructionSetupPanel)
-        else:
-            bpy.utils.unregister_class(DestructionFracturePanel)
-            bpy.utils.unregister_class(DestructionPhysicsPanel)
-            bpy.utils.unregister_class(DestructionHierarchyPanel)
-            bpy.utils.unregister_class(DestructionRolePanel)
-            bpy.utils.unregister_class(DestructionSetupPanel)
-        
+        try:
+            if context.scene.destEnabled:
+                bpy.utils.register_class(DestructionFracturePanel)
+                bpy.utils.register_class(DestructionPhysicsPanel)
+                bpy.utils.register_class(DestructionHierarchyPanel)
+                bpy.utils.register_class(DestructionRolePanel)
+                bpy.utils.register_class(DestructionSetupPanel)
+            else:
+                bpy.utils.unregister_class(DestructionFracturePanel)
+                bpy.utils.unregister_class(DestructionPhysicsPanel)
+                bpy.utils.unregister_class(DestructionHierarchyPanel)
+                bpy.utils.unregister_class(DestructionRolePanel)
+                bpy.utils.unregister_class(DestructionSetupPanel)
+        except Exception:
+            pass
+            
         return {"FINISHED"}
                     
 
@@ -1177,6 +1195,8 @@ class SetupPlayer(types.Operator):
     bl_description = "Create Player, default Ground and default Ball (or custom ball) object"
     bl_options = {'UNDO'}
     
+    hidden = props.BoolProperty(name = "hidden")
+    
     def execute(self, context):
         
         undo = context.user_preferences.edit.use_global_undo
@@ -1219,43 +1239,55 @@ class SetupPlayer(types.Operator):
         data.objects["Eye"].select = False
         data.objects["Player"].select = True
         ops.transform.translate(value = (6, 0, 0))
-       
-        ballname = context.scene.custom_ball
-        if ballname == None or ballname == "":
-            ops.mesh.primitive_ico_sphere_add(layers = [False, True, False, False, False,
-                                                        False, False, False, False, False,
-                                                        False, False, False, False, False,
-                                                        False, False, False, False, False])
-            context.active_object.name = "Ball"
-            ball = context.active_object 
-            ball.game.physics_type = 'RIGID_BODY'
-            ball.game.radius = 0.01
-            ball.game.collision_bounds_type = 'CONVEX_HULL'
-            ball.game.use_collision_bounds = True
-            ball.game.mass = 10.0
-              
-        else:
-            ball = context.scene.objects[ballname] 
-            if ball.type == 'MESH':
-                context.scene.objects.active = ball
-                context.active_object.game.physics_type = 'RIGID_BODY'
-                context.active_object.game.collision_bounds_type = 'CONVEX_HULL'
-                context.active_object.game.use_collision_bounds = True
-                context.active_object.game.mass = 10.0
-            elif ball.type == 'EMPTY' and len(ball.children) > 0 and ball.name != "Player" and \
-            ball.name != "Launcher":
-                for c in ball.children: 
-                    context.scene.objects.active = c
+        
+        if not self.hidden:
+            ballname = context.scene.custom_ball
+            if ballname == None or ballname == "":
+                ops.mesh.primitive_ico_sphere_add(layers = [False, True, False, False, False,
+                                                            False, False, False, False, False,
+                                                            False, False, False, False, False,
+                                                            False, False, False, False, False])
+                                                            
+                context.scene.layers = [False, True, False, False, False,
+                                False, False, False, False, False,
+                                False, False, False, False, False,
+                                False, False, False, False, False]   
+                                                                                                                    
+                context.active_object.name = "Ball"
+                ball = context.active_object 
+                ball.game.physics_type = 'RIGID_BODY'
+                ball.game.radius = 0.01
+                ball.game.collision_bounds_type = 'CONVEX_HULL'
+                ball.game.use_collision_bounds = True
+                ball.game.mass = 10.0
+                
+                context.scene.layers = [True, False, False, False, False,
+                                False, False, False, False, False,
+                                False, False, False, False, False,
+                                False, False, False, False, False]
+                  
+            else:
+                ball = context.scene.objects[ballname] 
+                if ball.type == 'MESH':
+                    context.scene.objects.active = ball
                     context.active_object.game.physics_type = 'RIGID_BODY'
                     context.active_object.game.collision_bounds_type = 'CONVEX_HULL'
                     context.active_object.game.use_collision_bounds = True
                     context.active_object.game.mass = 10.0
-                    context.active_object.game.use_collision_compound = False
-                last = ball.children[-1]
-                last.game.use_collision_compound = True
-            else:
-                self.report({'ERROR_INVALID_INPUT'}, "The ball must be a mesh or a destroyable parent")
-                return {'CANCELLED'}                                         
+                elif ball.type == 'EMPTY' and len(ball.children) > 0 and ball.name != "Player" and \
+                ball.name != "Launcher":
+                    for c in ball.children: 
+                        context.scene.objects.active = c
+                        context.active_object.game.physics_type = 'RIGID_BODY'
+                        context.active_object.game.collision_bounds_type = 'CONVEX_HULL'
+                        context.active_object.game.use_collision_bounds = True
+                        context.active_object.game.mass = 10.0
+                        context.active_object.game.use_collision_compound = False
+                    last = ball.children[-1]
+                    last.game.use_collision_compound = True
+                else:
+                    self.report({'ERROR_INVALID_INPUT'}, "The ball must be a mesh or a destroyable parent")
+                    return {'CANCELLED'}                                         
         
         #load bge scripts
         print(__file__)
@@ -1377,111 +1409,128 @@ class SetupPlayer(types.Operator):
         
         
         launcher = context.active_object
-        i = 0
-        if len(ball.children) > 0:
-            childs = [c for c in ball.children]
-            context.scene.layers = [True, True, False, False, False,
+        
+        if not self.hidden:
+            i = 0
+        
+            if len(ball.children) > 0:
+                childs = [c for c in ball.children]
+                context.scene.layers = [True, True, False, False, False,
+                                        False, False, False, False, False,
+                                        False, False, False, False, False,
+                                        False, False, False, False, False]
+                for b in childs:
+                    b.select = True
+                    context.scene.objects.active = b
+                    ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
+                   # ops.object.origin_set(type = 'ORIGIN_GEOMETRY', center = 'BOUNDS')
+                    ops.object.transform_apply(location = True, scale = True, rotation = True)
+                    #ops.object.transform_apply(scale = True, rotation = True)
+                      
+                    controllers = len(context.active_object.game.controllers)
+                    sensors = len(context.active_object.game.sensors)
+            
+                    sensornames = [s.name for s in context.active_object.game.sensors]
+                    if not "Collision" in sensornames:
+                        
+                        ops.logic.controller_add(type = 'PYTHON', object = b.name)
+                        ops.logic.sensor_add(type = 'COLLISION', object = b.name)
+                        context.active_object.game.sensors[sensors].name = "Collision"
+            
+                        context.active_object.game.sensors[sensors].use_tap = True
+                        context.active_object.game.sensors[sensors].use_pulse_true_level = True
+                        context.active_object.game.sensors[sensors].frequency = 25
+         
+                        context.active_object.game.controllers[controllers].mode = 'MODULE'
+                        context.active_object.game.controllers[controllers].module = "destruction_bge.collide"
+            
+                        context.active_object.game.controllers[controllers].link(
+                        context.active_object.game.sensors[sensors])
+                   
+                    ops.object.game_property_new()
+                    b.game.properties[0].name = "myParent"
+                    b.game.properties[0].type = 'STRING'
+                    b.game.properties[0].value = ball.name
+                    
+                    b.select = False
+                    
+                    context.scene.objects.active = launcher
+                    ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Shoot", object = "Launcher")
+                    context.active_object.game.actuators[i].mode = 'ADDOBJECT'
+                    context.active_object.game.actuators[i].object = b
+                    
+                    ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Detonate", object = "Launcher")
+                    context.active_object.game.actuators[i+1].mode = 'ADDOBJECT'
+                    context.active_object.game.actuators[i+1].object = ball
+                    
+                    context.active_object.game.controllers[0].link(
+                        actuator = context.active_object.game.actuators[i])
+                    
+                    context.active_object.game.controllers[1].link(
+                        actuator = context.active_object.game.actuators[i+1])
+                    
+                    i += 2
+                context.scene.layers = [True, False, False, False, False,
+                                        False, False, False, False, False,
+                                        False, False, False, False, False,
+                                        False, False, False, False, False]
+                
+            ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Shoot", object = "Launcher")
+            context.active_object.game.actuators[i].mode = 'ADDOBJECT'
+            context.active_object.game.actuators[i].object = ball
+            
+            ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Detonate", object = "Launcher")
+            context.active_object.game.actuators[i+1].mode = 'ADDOBJECT'
+            context.active_object.game.actuators[i+1].object = ball
+                
+            context.active_object.game.controllers[0].link(
+                    actuator = context.active_object.game.actuators[i])
+            
+            context.active_object.game.controllers[1].link(
+                    actuator = context.active_object.game.actuators[i+1])
+            
+        
+            
+            #ball
+            
+            context.scene.layers = [False, True, False, False, False,
                                     False, False, False, False, False,
                                     False, False, False, False, False,
                                     False, False, False, False, False]
-            for b in childs:
-                b.select = True
-                context.scene.objects.active = b
-                ops.object.parent_clear(type = 'CLEAR_KEEP_TRANSFORM')
-               # ops.object.origin_set(type = 'ORIGIN_GEOMETRY', center = 'BOUNDS')
-                ops.object.transform_apply(location = True, scale = True, rotation = True)
-                #ops.object.transform_apply(scale = True, rotation = True)
-                  
-                controllers = len(context.active_object.game.controllers)
-                sensors = len(context.active_object.game.sensors)
-        
-                sensornames = [s.name for s in context.active_object.game.sensors]
-                if not "Collision" in sensornames:
-                    
-                    ops.logic.controller_add(type = 'PYTHON', object = b.name)
-                    ops.logic.sensor_add(type = 'COLLISION', object = b.name)
-                    context.active_object.game.sensors[sensors].name = "Collision"
-        
-                    context.active_object.game.sensors[sensors].use_tap = True
-                    context.active_object.game.sensors[sensors].use_pulse_true_level = True
-                    context.active_object.game.sensors[sensors].frequency = 25
-     
-                    context.active_object.game.controllers[controllers].mode = 'MODULE'
-                    context.active_object.game.controllers[controllers].module = "destruction_bge.collide"
-        
-                    context.active_object.game.controllers[controllers].link(
-                    context.active_object.game.sensors[sensors])
-               
-                ops.object.game_property_new()
-                b.game.properties[0].name = "myParent"
-                b.game.properties[0].type = 'STRING'
-                b.game.properties[0].value = ball.name
-                
-                b.select = False
-                
-                context.scene.objects.active = launcher
-                ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Shoot", object = "Launcher")
-                context.active_object.game.actuators[i].mode = 'ADDOBJECT'
-                context.active_object.game.actuators[i].object = b
-                
-                ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Detonate", object = "Launcher")
-                context.active_object.game.actuators[i+1].mode = 'ADDOBJECT'
-                context.active_object.game.actuators[i+1].object = ball
-                
-                context.active_object.game.controllers[0].link(
-                    actuator = context.active_object.game.actuators[i])
-                
-                context.active_object.game.controllers[1].link(
-                    actuator = context.active_object.game.actuators[i+1])
-                
-                i += 2
+                                    
+            context.scene.objects.active = ball
+            context.active_object.destruction.destructor = True
+            
+            
             context.scene.layers = [True, False, False, False, False,
                                     False, False, False, False, False,
                                     False, False, False, False, False,
-                                    False, False, False, False, False]
+                                    False, False, False, False, False]  
+                                            
+            #context.scene.objects.active = context.object
             
-        ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Shoot", object = "Launcher")
-        context.active_object.game.actuators[i].mode = 'ADDOBJECT'
-        context.active_object.game.actuators[i].object = ball
-        
-        ops.logic.actuator_add(type = 'EDIT_OBJECT', name = "Detonate", object = "Launcher")
-        context.active_object.game.actuators[i+1].mode = 'ADDOBJECT'
-        context.active_object.game.actuators[i+1].object = ball
+            #ground and cells
+            #context.object.destruction.groundConnectivity = False
             
-        context.active_object.game.controllers[0].link(
-                actuator = context.active_object.game.actuators[i])
-        
-        context.active_object.game.controllers[1].link(
-                actuator = context.active_object.game.actuators[i+1])
-        
-        #ball
-        context.scene.objects.active = ball
-        context.active_object.destruction.destructor = True
-                  
-        context.scene.objects.active = context.object
-        
-        #ground and cells
-        context.object.destruction.groundConnectivity = False
-        
-        ops.mesh.primitive_plane_add(location = (0, 0, -2.0))
-        ops.transform.resize( value = (8, 8, 1))
-        context.active_object.name = "Ground"
-        context.active_object.destruction.isGround = True
-        context.active_object.destruction.destructor = True
-        ground = context.active_object
-        
-        g = context.object.destruction.grounds.add()
-        g.name = "Ground"
-        
-        for o in context.scene.objects:
-            if o.destruction.destroyable:
-                target = ball.destruction.destructorTargets.add()
-                target.name = o.name
-                
-                target = ground.destruction.destructorTargets.add()
-                target.name = o.name
+            ops.mesh.primitive_plane_add(location = (0, 0, -2.0))
+            ops.transform.resize( value = (8, 8, 1))
+            context.active_object.name = "Ground"
+            context.active_object.destruction.isGround = True
+            context.active_object.destruction.destructor = True
+            ground = context.active_object
+            
+            g = context.object.destruction.grounds.add()
+            g.name = "Ground"
+            
+            for o in context.scene.objects:
+                if o.destruction.destroyable:
+                    target = ball.destruction.destructorTargets.add()
+                    target.name = o.name
+                    
+                    target = ground.destruction.destructorTargets.add()
+                    target.name = o.name
 
-        context.scene.objects.active = context.object
+        #context.scene.objects.active = context.object
         
         context.user_preferences.edit.use_global_undo = undo
         return {'FINISHED'}
@@ -2023,6 +2072,11 @@ class UndestroyObject(types.Operator):
 #        return {'FINISHED'}
     
     def selectShards(self, object, backup):
+         
+        bpy.context.scene.layers = [True, True, True, True, True,
+                            True, True, True, True, True,
+                            True, True, True, True, True,
+                            True, True, True, True, True] 
                 
         for o in bpy.context.scene.objects:
             if o.destruction.destructor and object.name in o.destruction.destructorTargets:
@@ -2045,6 +2099,11 @@ class UndestroyObject(types.Operator):
                         
                     bpy.context.scene.backups.remove(index)
             #self.selectShards(c, backup)
+       
+        bpy.context.scene.layers = [True, False, False, False,False,
+                            False, False,False, False, False,
+                            False, False, False, False, False,
+                            False, False, False,False, False]
 
 class GameStart(types.Operator):
     bl_idname = "game.start"
@@ -2055,9 +2114,9 @@ class GameStart(types.Operator):
     def execute(self, context):
         
         names = []
-        #isDynamic = False
+        isDynamic = False
         if context.object.destruction.dynamic_mode == "D_DYNAMIC":
-            #isDynamic = True
+            isDynamic = True
             for i in range(0, context.scene.dummyPoolSize):
                 ops.mesh.primitive_cube_add(layers = [False, True, False, False, False,
                                                    False, False, False, False, False,
@@ -2071,32 +2130,59 @@ class GameStart(types.Operator):
                 context.active_object.game.radius = 0.01
                 context.active_object.game.use_collision_bounds = True
                 context.active_object.game.collision_bounds_type = 'TRIANGLE_MESH'
-                context.active_object.game.collision_margin = 0.0
+                context.active_object.game.collision_margin = context.object.destruction_collision_margin
                 context.active_object.game.mass = 100.0
         
-        if context.object.destruction.dynamic_mode == "D_PRECALCULATED":  
-            context.scene.game_settings.use_animation_record = True
-            context.scene.game_settings.use_frame_rate = True
-            context.scene.game_settings.restrict_animation_updates = True
-        context.scene.game_settings.show_framerate_profile = True
+        #if context.object.destruction.dynamic_mode == "D_PRECALCULATED":  
+            #context.scene.game_settings.use_animation_record = True
+            #context.scene.game_settings.use_frame_rate = True
+            #context.scene.game_settings.restrict_animation_updates = True
+        #context.scene.game_settings.show_framerate_profile = True
+        
+        #setup visible player, will remain after reloading
+        if context.scene.setup_basic_scene:
+            ops.player.setup()
+        
+        filepath = bpy.context.blend_data.filepath
+        
+        #maybe disable this in dynamic mode, because you want to reuse the shards.
+        if context.object.destruction.dynamic_mode == "D_PRECALCULATED":
+            if filepath == "":
+                #ops.wm.save_as_mainfile('INVOKE_DEFAULT')
+                pass
+            else:
+                ops.wm.save_mainfile(filepath = filepath)
+                
+            if not context.scene.setup_basic_scene: # setup "hidden" player, wont be in mainfile afterwards
+                #cam = context.scene.use_player_cam
+                context.scene.use_player_cam = False
+                ops.player.setup(hidden=True)
+            ops.parenting.convert()
+        
         ops.view3d.game_start()
+        
+        if not isDynamic:
+             #context.object.destruction.dynamic_mode == "D_PRECALCULATED":
+            ops.wm.open_mainfile(filepath = filepath) #undoes everything
+        else:
+            #if context.object.destruction.dynamic_mode == "D_DYNAMIC":
         
         #if isDynamic:
         #    context.scene.converted = False
         
-        context.scene.layers = [False, True, False, False, False,
-                                False, False, False, False, False,
-                                False, False, False, False, False,
-                                False, False, False, False, False]
-        for n in names:
-            o = bpy.data.objects[n]
-            context.scene.objects.unlink(o)
-            bpy.data.objects.remove(o)
-        
-        context.scene.layers = [True, False, False, False, False,
-                                False, False, False, False, False,
-                                False, False, False, False, False,
-                                False, False, False, False, False] 
+            context.scene.layers = [False, True, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False]
+            for n in names:
+                o = bpy.data.objects[n]
+                context.scene.objects.unlink(o)
+                bpy.data.objects.remove(o)
+            
+            context.scene.layers = [True, False, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False] 
         #undestroy all P_0 parents
         #for o in context.scene.objects:
         #    if o.name.startswith("P_0_"):

@@ -83,9 +83,9 @@ def draw(self, context):
         physics_add(self, col, context.smoke, "Smoke", 'SMOKE', 'MOD_SMOKE', True)  
     
     #destruction    
-    if (ob.type == 'MESH'):
+    if dg.isMesh(context) or dg.isParent(context):
         
-        if not context.scene.destEnabled:
+        if not context.object.destEnabled:
             icon = 'MOD_EXPLODE'
         else:
             icon = 'X'
@@ -119,13 +119,13 @@ def save_handler(dummy):
 def register():
     bpy.utils.register_module(__name__)
     #unregister some panels again manually
-    bpy.types.Scene.destEnabled = bpy.props.BoolProperty(name = "destEnabled", default = False)
+    bpy.types.Object.destEnabled = bpy.props.BoolProperty(name = "destEnabled", default = False)
     
-    bpy.utils.unregister_class(dg.DestructionFracturePanel)
-    bpy.utils.unregister_class(dg.DestructionPhysicsPanel)
-    bpy.utils.unregister_class(dg.DestructionSetupPanel)
-    bpy.utils.unregister_class(dg.DestructionHierarchyPanel)
-    bpy.utils.unregister_class(dg.DestructionRolePanel)
+#    bpy.utils.unregister_class(dg.DestructionFracturePanel)
+#    bpy.utils.unregister_class(dg.DestructionPhysicsPanel)
+#    bpy.utils.unregister_class(dg.DestructionSetupPanel)
+#    bpy.utils.unregister_class(dg.DestructionHierarchyPanel)
+#    bpy.utils.unregister_class(dg.DestructionRolePanel)
     
     global olddraw
     global oldcopy
@@ -156,7 +156,7 @@ def unregister():
     
     bpy.types.PHYSICS_PT_add.draw = olddraw
     Context.copy = oldcopy
-    del bpy.types.Scene.destEnabled
+    del bpy.types.Object.destEnabled
      
 if __name__ == "__main__":
     print("IN INITPY MAIN")

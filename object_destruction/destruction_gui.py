@@ -93,7 +93,19 @@ def isParent(context):
 #           return {"HIDE_HEADER"}    
         
 
-class DestructionFracturePanel(types.Panel):
+class DestructionBasePanel(types.Panel):
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "physics"
+    bl_label = "label"
+
+    @classmethod
+    def poll(cls, context):
+        rd = context.scene.render
+        return (context.object) and (context.object.destEnabled) and (not rd.use_game_engine)
+    
+
+class DestructionFracturePanel(DestructionBasePanel):
     bl_idname = "PHYSICS_PT_destructionFracture"
     bl_label = "Destruction Fracture"
     bl_context = "physics"
@@ -255,7 +267,7 @@ class DestructionFracturePanel(types.Panel):
             layout.label("Save file before starting game engine")
                 
                 
-class DestructionPhysicsPanel(types.Panel):
+class DestructionPhysicsPanel(DestructionBasePanel):
 
     bl_idname = "PHYSICS_PT_destructionPhysics"
     bl_label = "Destruction Physics"
@@ -327,7 +339,7 @@ class DestructionPhysicsPanel(types.Panel):
                     row.prop(context.scene, "collapse_delay", text = "Collapse Delay")
     
 
-class DestructionHierarchyPanel(types.Panel):
+class DestructionHierarchyPanel(DestructionBasePanel):
 
     bl_idname = "PHYSICS_PT_destructionHierarchy"
     bl_label = "Destruction Hierarchy"
@@ -363,7 +375,7 @@ class DestructionHierarchyPanel(types.Panel):
                 
     
 
-class DestructionRolePanel(types.Panel):
+class DestructionRolePanel(DestructionBasePanel):
 
     bl_idname = "PHYSICS_PT_destructionRole"
     bl_label = "Destruction Role "
@@ -471,7 +483,7 @@ class DestructionRolePanel(types.Panel):
                 row.prop_search(context.scene, "custom_ball", context.scene, 
                     "objects", icon = 'OBJECT_DATA', text = "Custom Ball:")
 
-class DestructionSetupPanel(types.Panel):
+class DestructionSetupPanel(DestructionBasePanel):
 
     bl_idname = "PHYSICS_PT_destructionSetup"
     bl_label = "Destruction Setup "
@@ -537,24 +549,24 @@ class DestructionOperator(types.Operator):
     
     
     def execute(self, context):
-        context.scene.destEnabled = not context.scene.destEnabled
-        print(context.scene.destEnabled)
+        context.object.destEnabled = not context.object.destEnabled
+        print(context.object.destEnabled)
         
-        try:
-            if context.scene.destEnabled:
-                bpy.utils.register_class(DestructionFracturePanel)
-                bpy.utils.register_class(DestructionPhysicsPanel)
-                bpy.utils.register_class(DestructionHierarchyPanel)
-                bpy.utils.register_class(DestructionRolePanel)
-                bpy.utils.register_class(DestructionSetupPanel)
-            else:
-                bpy.utils.unregister_class(DestructionFracturePanel)
-                bpy.utils.unregister_class(DestructionPhysicsPanel)
-                bpy.utils.unregister_class(DestructionHierarchyPanel)
-                bpy.utils.unregister_class(DestructionRolePanel)
-                bpy.utils.unregister_class(DestructionSetupPanel)
-        except Exception:
-            pass
+#        try:
+#            if context.scene.destEnabled:
+#                bpy.utils.register_class(DestructionFracturePanel)
+#                bpy.utils.register_class(DestructionPhysicsPanel)
+#                bpy.utils.register_class(DestructionHierarchyPanel)
+#                bpy.utils.register_class(DestructionRolePanel)
+#                bpy.utils.register_class(DestructionSetupPanel)
+#            else:
+#                bpy.utils.unregister_class(DestructionFracturePanel)
+#                bpy.utils.unregister_class(DestructionPhysicsPanel)
+#                bpy.utils.unregister_class(DestructionHierarchyPanel)
+#                bpy.utils.unregister_class(DestructionRolePanel)
+#                bpy.utils.unregister_class(DestructionSetupPanel)
+#        except Exception:
+#            pass
             
         return {"FINISHED"}
                     

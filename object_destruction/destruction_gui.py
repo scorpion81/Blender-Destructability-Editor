@@ -1311,7 +1311,13 @@ class SetupPlayer(types.Operator):
         
         ops.logic.actuator_add(type = 'SCENE', object = "Player")
         context.active_object.game.actuators[0].mode = 'CAMERA'
-        context.active_object.game.actuators[0].camera = data.objects["Eye"]
+        
+        if (not context.scene.setup_basic_scene) and context.scene.use_player_cam:
+            print("Using camera")
+            context.active_object.game.actuators[0].camera = data.objects["Camera"]
+        else:
+            print("Using Eye")            
+            context.active_object.game.actuators[0].camera = data.objects["Eye"]
         
         if context.scene.use_player_cam:
             context.active_object.game.controllers[0].link(
@@ -2144,7 +2150,7 @@ class GameStart(types.Operator):
                 
             if not context.scene.setup_basic_scene: # setup "hidden" player, wont be in mainfile afterwards
                 #cam = context.scene.use_player_cam
-                context.scene.use_player_cam = False
+                #context.scene.use_player_cam = False
                 ops.player.setup(hidden=True)
             ops.parenting.convert()
         

@@ -2262,24 +2262,60 @@ class CellFractureContext(types.PropertyGroup):
     
     # -------------------------------------------------------------------------
     # Source Options
-    source = props.EnumProperty(
-            name="Source",
-            items=(('VERT_OWN', "Own Verts", "Use own vertices"),
+    
+    items_own = (('VERT_OWN', "Own Verts", "Use own vertices"),
                    ('EDGE_OWN', "Own Edges", "Use own edges"),
                    ('FACE_OWN', "Own Faces", "Use own faces"),
-                   ('VERT_CHILD', "Child Verts", "Use child object vertices"),
+                   ('PARTICLE_OWN', "Own Particles", "All particle systems of the "
+                                                      "source object"), )
+                                                      
+    items_child = (('VERT_CHILD', "Child Verts", "Use child object vertices"),
                    ('EDGE_CHILD', "Child Edges", "Use child edges"),
                    ('FACE_CHILD', "Child Faces", "Use child faces"),
-                   ('PARTICLE_OWN', "Own Particles", ("All particle systems of the "
-                                                      "source object")),
-                   ('PARTICLE_CHILD', "Child Particles", ("All particle systems of the "
-                                                          "child objects")),
-                   ('PENCIL', "Grease Pencil", "This object's grease pencil"),
-                   ),
-            options={'ENUM_FLAG'},
-            default={'PARTICLE_OWN', 'VERT_OWN'}  # 'VERT_OWN', 'EDGE_OWN', 'FACE_OWN'
-            )
+                   ('PARTICLE_CHILD', "Child Particles", "All particle systems of the "
+                                                          "child objects"), )
+                                                          
+    items_pencil = (('PENCIL', "Grease Pencil", "This object's grease pencil"),)
+    
+#    items = tuple(items_own + items_child + items_pencil)
+    
+#    source = props.EnumProperty(
+#            name="Source",
+#            items=(('VERT_OWN', "Own Verts", "Use own vertices"),
+#                   ('EDGE_OWN', "Own Edges", "Use own edges"),
+#                   ('FACE_OWN', "Own Faces", "Use own faces"),
+#                   ('VERT_CHILD', "Child Verts", "Use child object vertices"),
+#                   ('EDGE_CHILD', "Child Edges", "Use child edges"),
+#                   ('FACE_CHILD', "Child Faces", "Use child faces"),
+#                   ('PARTICLE_OWN', "Own Particles", ("All particle systems of the "
+#                                                      "source object")),
+#                   ('PARTICLE_CHILD', "Child Particles", ("All particle systems of the "
+#                                                          "child objects")),
+#                   ('PENCIL', "Grease Pencil", "This object's grease pencil"),
+#                   ),
+#            items = items, 
+#            options={'ENUM_FLAG'},
+#           default={'PARTICLE_OWN', 'VERT_OWN'}  # 'VERT_OWN', 'EDGE_OWN', 'FACE_OWN'
+#            )
+    
+    source = set(items_own + items_child + items_pencil)
+    
+    source_own = props.EnumProperty(
+        name = "SourceOwn", 
+        items = items_own, 
+        options = {'ENUM_FLAG'}, 
+        default={'PARTICLE_OWN', 'VERT_OWN'})  # 'VERT_OWN', 'EDGE_OWN', 'FACE_OWN'
 
+    source_child = props.EnumProperty(
+        name = "SourceChild", 
+        items = items_child, 
+        options = {'ENUM_FLAG'})
+        
+    source_pencil = props.EnumProperty(
+        name = "Pencil", 
+        items = items_pencil, 
+        options = {'ENUM_FLAG'}) 
+        
     source_limit = props.IntProperty(
             name="Source Limit",
             description="Limit the number of input points, 0 for unlimited",

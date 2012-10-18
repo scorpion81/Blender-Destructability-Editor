@@ -127,12 +127,19 @@ class DestructionFracturePanel(DestructionBasePanel):
             #gui parts from ideasman42
             if context.object.destruction.destructionMode == 'DESTROY_C':
                 
-                col = layout.column()
-                col.label("Point Source")
+                layout.label("Point Source")
                 row = layout.row()
                 col = row.column()
+                #col.label("Point Source")
+                #row = layout.row(align=True)
                 
-                col.prop(context.object.destruction.cell_fracture, "source")   
+                col.prop(context.object.destruction.cell_fracture, "source_own")
+                col2 = row.column()
+                col2.prop(context.object.destruction.cell_fracture, "source_child")
+                
+                row = layout.row(align=True)
+                row.prop(context.object.destruction.cell_fracture, "source_pencil")
+                   
                 col = layout.column(align = True)
                 col.prop(context.object.destruction.cell_fracture, "source_limit")
                 col.prop(context.object.destruction.cell_fracture, "source_noise")

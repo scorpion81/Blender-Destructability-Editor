@@ -34,8 +34,8 @@ def _points_from_object(obj, source):
 
     print(source - _source_all)
     print(source)
-    assert(len(source | _source_all) == len(_source_all))
-    assert(len(source))
+  #  assert(len(source | _source_all) == len(_source_all))
+#    assert(len(source))
 
     points = []
 

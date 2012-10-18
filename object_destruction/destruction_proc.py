@@ -2461,10 +2461,11 @@ class DestructorTargetContext(types.PropertyGroup):
     modifier = props.FloatProperty(name = "modifier",default = 0.25, min = 0, 
     description = "Modifier(factor) for destructors speed relative to object speed, is added to Radius")
                                         
-    acceleration_factor = props.FloatProperty(name = "acceleration_factor", default = 1.0, min = 0.0, max = 20.0, 
+    acceleration_factor = props.FloatProperty(name = "acceleration_factor", default = 1.0, min = 1.0, max = 20.0, 
         description = "Accelerate shards by this factor on impact")
   #  destruction_delay = props.IntProperty(name = "destruction_delay", default = 25, min = 0, max = 500, 
 #        description = "Delay in logic ticks after which destruction should occur (repeatedly)", update = updateDestructionDelay)
+    min_radius = props.FloatProperty(name = "min_radius", default = 1.0, min = 0.0, description = "Lower boundary of activation area")
 
 
 class DestructionContext(types.PropertyGroup):
@@ -2671,12 +2672,14 @@ EACH cube will be further fractured to the given part count")
     collision_margin = props.FloatProperty(name = "collision_margin", default = 0.01, min = 0.0, max = 1.0, 
            description = "Margin for collision bounds", update = updateCollisionMargin)
         
-    acceleration_factor = props.FloatProperty(name = "acceleration_factor", default = 1.0, min = 0.0, max = 20.0, 
+    acceleration_factor = props.FloatProperty(name = "acceleration_factor", default = 1.0, min = 1.0, max = 20.0, 
         description = "Accelerate shards by this force factor on impact")
     destruction_delay = props.IntProperty(name = "destruction_delay", default = 25, min = 0, max = 500, 
         description = "Delay in logic ticks after which destruction should occur (repeatedly)")
         
     individual_override = props.BoolProperty(name = "individual_override", description = "Adjust destructor settings individually per target")
+    
+    min_radius = props.FloatProperty(name = "min_radius", default = 1.0, min = 0.0, description = "Lower boundary of activation area")
 
 
 def initialize():

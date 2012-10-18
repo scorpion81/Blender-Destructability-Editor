@@ -79,20 +79,7 @@ def isParent(context):
     backup = context.object.destruction.backup
     return context.object.type == 'EMPTY' and (meshChild or backup != "")
 
-#def options(context, closed):
-#    if context.object.destEnabled:
-#       if closed:
-#           return {"DEFAULT_CLOSED"}
-#       else:
-#           return {""}
-#       
-#    else:
-#       if closed:
-#           return {"HIDE_HEADER", "DEFAULT_CLOSED"}
-#       else:
-#           return {"HIDE_HEADER"}    
         
-
 class DestructionBasePanel(types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -113,7 +100,7 @@ class DestructionFracturePanel(DestructionBasePanel):
     bl_region_type = "WINDOW"
     
     def draw(self, context):
-        #bpy.types.Panel.bl_options = options(context, False)
+        
         layout = self.layout
         
         if isParent(context):
@@ -279,7 +266,6 @@ class DestructionPhysicsPanel(DestructionBasePanel):
     
     def draw(self, context):
         
-        #bpy.types.Panel.bl_options = options(context, True)
         layout = self.layout
         col = layout.column(align=True)
         col.label("Mass Mode")
@@ -351,7 +337,6 @@ class DestructionHierarchyPanel(DestructionBasePanel):
     
     def draw(self, context):
         
-        #bpy.types.Panel.bl_options = options(context, True)
     #hierarchylayer, flatten/use hierarchy, recursion, hierarchy depth
         layout = self.layout
         col = layout.column(align=True)
@@ -387,7 +372,6 @@ class DestructionRolePanel(DestructionBasePanel):
     
     def draw(self, context):
       
-        #types.Panel.bl_options = options(context, True)
     #destroyable, destructor, ground, custom ball, enable all children
         layout = self.layout
         col = layout.column(align=True)
@@ -418,9 +402,11 @@ class DestructionRolePanel(DestructionBasePanel):
                 
                     row = col.row(align=True)
                     row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
+                 
                 
                     row = col.row(align=True)
-                    row.prop(active, "radius", text = "Radius")
+                    row.prop(context.object.destruction, "min_radius", text = "Min Radius")
+                    row.prop(active, "radius", text = "Max Radius")
                 
                     row = col.row(align=True)
                     row.prop(active, "modifier", text = "Speed Modifier")
@@ -444,7 +430,8 @@ class DestructionRolePanel(DestructionBasePanel):
                     row.active = context.object.destruction.destructor
                 
                     row = col.row(align=True)
-                    row.prop(context.object.destruction, "radius", text = "Radius")
+                    row.prop(context.object.destruction, "min_radius", text = "Min Radius")
+                    row.prop(context.object.destruction, "radius", text = "Max Radius")
                     row.active = context.object.destruction.destructor
                 
                     row = col.row(align=True)
@@ -494,7 +481,6 @@ class DestructionSetupPanel(DestructionBasePanel):
     
     def draw(self, context):
         
-        #types.Panel.bl_options = options(context, True)
     #buttons setup player, to game parenting (direct to layout, along with copy button
     #status (direct) fracture missing, player missing, to game parenting missing, ready to play (misleading)
     
@@ -550,23 +536,7 @@ class DestructionOperator(types.Operator):
     
     def execute(self, context):
         context.object.destEnabled = not context.object.destEnabled
-        print(context.object.destEnabled)
-        
-#        try:
-#            if context.scene.destEnabled:
-#                bpy.utils.register_class(DestructionFracturePanel)
-#                bpy.utils.register_class(DestructionPhysicsPanel)
-#                bpy.utils.register_class(DestructionHierarchyPanel)
-#                bpy.utils.register_class(DestructionRolePanel)
-#                bpy.utils.register_class(DestructionSetupPanel)
-#            else:
-#                bpy.utils.unregister_class(DestructionFracturePanel)
-#                bpy.utils.unregister_class(DestructionPhysicsPanel)
-#                bpy.utils.unregister_class(DestructionHierarchyPanel)
-#                bpy.utils.unregister_class(DestructionRolePanel)
-#                bpy.utils.unregister_class(DestructionSetupPanel)
-#        except Exception:
-#            pass
+        #print(context.object.destEnabled)
             
         return {"FINISHED"}
                     

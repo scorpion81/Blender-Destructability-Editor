@@ -1201,12 +1201,12 @@ def activate(child, owner, grid):
                  for c in cells.values():
                     c.visit = False
     
+     bpyOwner = bpy.data.objects[owner.name]
      dist = child.getDistanceTo(owner)
      maxRad = bpyOwner.destruction.radius
      minRad = bpyOwner.destruction.min_radius
          
      child.restoreDynamics()
-     bpyOwner = bpy.data.objects[owner.name]
      if bpyOwner.destruction.acceleration_factor != 1:
          
          acceleration_factor = (dist - minRad) / (maxRad - minRad) * bpyOwner.destruction.acceleration_factor

@@ -23,6 +23,8 @@
 import bpy
 import bmesh
 
+from mathutils import Vector
+
 def _points_from_object(obj, source):
 
     _source_all = {
@@ -350,20 +352,42 @@ def cell_fracture_boolean(scene, obj, objects, use_interior_hide, level):
     if use_interior_hide and level == 0:
         # only set for level 0
         obj.data.polygons.foreach_set("hide", [False] * len(obj.data.polygons))
+    
+    #correct position according to parents
+    loc = obj.location.copy()
+    object = objects[0].copy()
+    while object.parent != None:
+        loc += object.parent.location
+        object = object.parent
+    
+    obj.location += loc
+    
+    oldact = bpy.context.active_object.name
+    
+    bpy.context.scene.objects.active = obj
+    bpy.ops.object.transform_apply(location=True)
+    bpy.context.scene.objects.active = bpy.data.objects[oldact]
+    
+    #print("LOKATION: ", loc, obj.location, objects[0].location)
 
     for obj_cell in objects:
+              
         mod = obj_cell.modifiers.new(name="Boolean", type='BOOLEAN')
         mod.object = obj
         mod.operation = 'INTERSECT'
 
         if not use_debug_bool:
-
+            
+            obj_cell.location -= loc
+            
             if use_interior_hide:
                 obj_cell.data.polygons.foreach_set("hide", [True] * len(obj_cell.data.polygons))
-
+            
             mesh_new = obj_cell.to_mesh(scene,
                                         apply_modifiers=True,
                                         settings='PREVIEW')
+            
+            
             mesh_old = obj_cell.data
             obj_cell.data = mesh_new
             obj_cell.modifiers.remove(mod)
@@ -413,7 +437,7 @@ def cell_fracture_boolean(scene, obj, objects, use_interior_hide, level):
 
             if obj_cell.destruction.use_debug_redraw:
                 scene.update()
-                obj_cell.destruction._redraw_yasiamevil()                 
+                obj_cell.destruction._redraw_yasiamevil()             
 
     if (not use_debug_bool) and use_island_split:
         # this is ugly and Im not proud of this - campbell

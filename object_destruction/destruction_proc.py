@@ -92,6 +92,14 @@ class Processor():
             
             for o in data.objects:
                 if o in objects:
+                    
+                    #parenting correction vector
+                    #loc = Vector((0,0,0))
+                    #obj = o.copy()
+                    #while obj.parent != None:
+                    #    loc -= obj.parent.location
+                    #    obj = obj.parent
+                    
                     o.select = True
                     ops.object.origin_set(type = 'ORIGIN_GEOMETRY', center = 'BOUNDS')
                     o.select = False
@@ -481,6 +489,9 @@ class Processor():
             #prepare parenting
             orig_name = str(obj.name)
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
+            if parentName == None:
+                continue
+            
             backup = obj
             
             backup.destruction.orig_name = orig_name
@@ -856,8 +867,17 @@ class Processor():
         
     def prepareParenting(self, context, obj):
         
-        context.scene.objects.active = obj
-           
+        layers = list(context.scene.layers)
+        
+        context.scene.layers = [True, True, True, True, True,
+                            True, True, True, True, True,
+                            True, True, True, True, True,
+                            True, True, True, True, True] 
+        context.scene.objects.active = obj 
+        
+        if not context.active_object:
+            return None, None, None, None# object might have been removed
+                              
         context.active_object.destruction.pos = obj.location.to_tuple()
         bbox = obj.bound_box.data.dimensions.to_tuple()
         
@@ -907,6 +927,8 @@ class Processor():
             #get the largest child index number, hopefully it is the last one and hopefully
             #this scheme will not change in future releases !
             largest = obj.parent.children[length - 1].name.split(".")[1]
+         
+        context.scene.layers = layers
          
         return parentName, nameStart, largest, bbox    
         
@@ -1217,6 +1239,9 @@ class Processor():
         parts = []
         for obj in objects:
             parentName, nameStart, largest, bbox = self.prepareParenting(context, obj)
+            if parentName == None:
+                continue
+            
             backup = self.createBackup(context, obj) 
             
             backup.destruction.orig_name = str(obj.name)

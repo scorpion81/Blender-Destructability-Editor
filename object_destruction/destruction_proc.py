@@ -2102,6 +2102,12 @@ class Processor():
 
 def updateDestructor(context):
     
+    layers = context.scene.layers
+    context.scene.layers = [True, True, True, True, True,
+                            True, True, True, True, True,
+                            True, True, True, True, True,
+                            True, True, True, True, True] 
+                            
     for c in context.active_object.children:
         c.destruction.destructor = context.active_object.destruction.destructor
         if c.destruction.destructor:
@@ -2120,7 +2126,9 @@ def updateDestructor(context):
                     index += 1
                     
                 if found:
-                    c.destruction.destructorTargets.remove(index)        
+                    c.destruction.destructorTargets.remove(index) 
+                      
+    context.scene.layers = layers 
                     
     return None
 

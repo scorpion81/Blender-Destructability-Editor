@@ -106,14 +106,19 @@ def changeKeymap(name):
 @persistent
 def load_handler(dummy):
    # print("Load Handler")
-    changeKeymap("game.start")
-    #bpy.context.scene.destEnabled = False # doesnt work correctly otherwise
+    if hasattr(bpy.context.object, "destEnabled"):
+        changeKeymap("game.start")
+    else:
+        changeKeymap("view3d.game_start")
     
 
 @persistent
 def save_handler(dummy):
     #print("Save Handler")
-    changeKeymap("game.start")
+    if hasattr(bpy.context.object, "destEnabled"):
+        changeKeymap("game.start")
+    else:
+        changeKeymap("view3d.game_start")
     
 
 def register():
@@ -143,9 +148,10 @@ def register():
    
     
 def unregister():
-    bpy.utils.unregister_module(__name__)
     
     #and restore old op here
+    del bpy.types.Object.destEnabled
+    
     changeKeymap("view3d.game_start")
     
     bpy.app.handlers.load_post.remove(load_handler)
@@ -156,8 +162,9 @@ def unregister():
     
     bpy.types.PHYSICS_PT_add.draw = olddraw
     Context.copy = oldcopy
-    del bpy.types.Object.destEnabled
-     
+    
+    bpy.utils.unregister_module(__name__)
+   
 if __name__ == "__main__":
     print("IN INITPY MAIN")
     from object_destruction import destruction_gui

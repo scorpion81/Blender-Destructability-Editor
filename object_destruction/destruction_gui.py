@@ -2108,6 +2108,12 @@ class GameStart(types.Operator):
     
     def execute(self, context):
         
+        filepath = bpy.context.blend_data.filepath
+        
+        if filepath == "":
+            self.report({'ERROR_INVALID_INPUT'}, "Please save blend file before starting the game engine.")
+            return {'CANCELLED'}  
+        
         names = []
         isDynamic = False
         if context.object.destruction.dynamic_mode == "D_DYNAMIC":
@@ -2137,8 +2143,6 @@ class GameStart(types.Operator):
         #setup visible player, will remain after reloading
         if context.scene.setup_basic_scene:
             ops.player.setup()
-        
-        filepath = bpy.context.blend_data.filepath
         
         #maybe disable this in dynamic mode, because you want to reuse the shards.
         if context.object.destruction.dynamic_mode == "D_PRECALCULATED":

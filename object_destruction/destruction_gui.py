@@ -1511,7 +1511,7 @@ class SetupPlayer(types.Operator):
             ops.transform.resize( value = (8, 8, 1))
             context.active_object.name = "Ground"
             context.active_object.destruction.isGround = True
-            context.active_object.destruction.destructor = True
+           # context.active_object.destruction.destructor = True
             ground = context.active_object
             
             g = context.object.destruction.grounds.add()
@@ -1522,8 +1522,8 @@ class SetupPlayer(types.Operator):
                     target = ball.destruction.destructorTargets.add()
                     target.name = o.name
                     
-                    target = ground.destruction.destructorTargets.add()
-                    target.name = o.name
+                  #  target = ground.destruction.destructorTargets.add()
+                    #target.name = o.name
 
         #context.scene.objects.active = context.object
         
@@ -2093,7 +2093,7 @@ class UndestroyObject(types.Operator):
                         index += 1
                         
                     bpy.context.scene.backups.remove(index)
-            #self.selectShards(c, backup)
+            self.selectShards(c, backup)
        
         bpy.context.scene.layers = [True, False, False, False,False,
                             False, False,False, False, False,
@@ -2113,16 +2113,23 @@ class GameStart(types.Operator):
         if filepath == "":
             self.report({'ERROR_INVALID_INPUT'}, "Please save blend file before starting the game engine.")
             return {'CANCELLED'}  
-        
+               
         names = []
         isDynamic = False
         if context.object.destruction.dynamic_mode == "D_DYNAMIC":
             isDynamic = True
+            
+            context.scene.layers = [True, True, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False]
+                     
             for i in range(0, context.scene.dummyPoolSize):
                 ops.mesh.primitive_cube_add(layers = [False, True, False, False, False,
                                                    False, False, False, False, False,
                                                    False, False, False, False, False,
                                                    False, False, False, False, False])
+                
                                    
                 context.active_object.name = "Dummy" #rely on blender automatic unique naming here...
                 names.append(context.active_object.name)
@@ -2131,9 +2138,16 @@ class GameStart(types.Operator):
                 context.active_object.game.radius = 0.01
                 context.active_object.game.use_collision_bounds = True
                 context.active_object.game.collision_bounds_type = 'TRIANGLE_MESH'
-                context.active_object.game.collision_margin = context.object.destruction_collision_margin
+                context.active_object.game.collision_margin = context.object.destruction.collision_margin
                 context.active_object.game.mass = 100.0
-        
+                
+                
+            
+            context.scene.layers = [True, False, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False]
+            
         #if context.object.destruction.dynamic_mode == "D_PRECALCULATED":  
             #context.scene.game_settings.use_animation_record = True
             #context.scene.game_settings.use_frame_rate = True
@@ -2143,7 +2157,7 @@ class GameStart(types.Operator):
         #setup visible player, will remain after reloading
         if context.scene.setup_basic_scene:
             ops.player.setup()
-        
+          
         #maybe disable this in dynamic mode, because you want to reuse the shards.
         if context.object.destruction.dynamic_mode == "D_PRECALCULATED":
             if filepath == "":

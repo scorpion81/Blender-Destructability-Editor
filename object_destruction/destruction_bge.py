@@ -119,7 +119,7 @@ def getFaceDistance(a, b):
     #print(a, b)
     if isDestructor(a) and isGround(a):
         mindist = sys.maxsize# 10000000000
-        obj = bpyObjs[a.name]
+        obj = bpy.data.objects[a.name]
         #obj = bpy.context.scene.objects[a.name]
         for f in obj.data.polygons:
            v1 = obj.data.vertices[f.vertices[0]].co
@@ -217,6 +217,7 @@ def setup():
     print("setup")
     
     #temporarily parent
+ 
     for o in scene.objects:
         if o.name != "Player":
             if "myParent" in o.getPropertyNames():
@@ -235,17 +236,18 @@ def setup():
                             
                 print("Setting temp parent", o, parentname)
                 o.setParent(p)
-                bpyObjs[o.name] = bpy.context.scene.objects[o.name]
+                bpyObjs[o.name] = bpy.data.objects[o.name]
                 o["activated"] = False
                 o["suspended"] = False
                # o["lastdist"] = sys.maxsize
         if isGround(o):# o.name == "Ground":
             if firstGround == None:
                 firstGround = o.name
-            bpyObjs[o.name] = bpy.context.scene.objects[o.name]
+            bpyObjs[o.name] = bpy.data.objects[o.name]
        # if isDestructor(o):
         #    destructors.append(o)
         #    bpyObjs[o.name] = bpy.context.scene.objects[o.name]
+    
         
     setupClusters()
         

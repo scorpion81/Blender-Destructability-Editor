@@ -81,7 +81,7 @@ class Processor():
             space = None
             for s in area.spaces:
                 if s.type == 'PROPERTIES':
-                    s.context = 'OBJECT'
+                    s.context = 'PHYSICS'
                     s.pin_id = context.object
                     s.use_pin_id = True
                     space = s
@@ -2209,8 +2209,13 @@ def updateDestructionDelay(self, context):
 
 
 def updateMass(self, context):
+    
+    if context.object == None:
+        return None
+                            
     childs = childsRec(context.object)
-    [self.calcMass(c, c.backup) for c in childs]        
+    [self.calcMass(c, c.backup) for c in childs]    
+  
     return None
 
 def updateEnableAllChildren(self, context):

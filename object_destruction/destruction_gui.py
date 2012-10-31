@@ -376,6 +376,12 @@ class DestructionRolePanel(DestructionBasePanel):
     bl_region_type = "WINDOW"
     bl_options = {"DEFAULT_CLOSED"}
     
+                     
+    def icon(self, bool):
+        if bool:
+            return 'TRIA_DOWN'
+        else:
+            return 'TRIA_RIGHT'
     
     def draw(self, context):
       
@@ -399,61 +405,72 @@ class DestructionRolePanel(DestructionBasePanel):
                 row = col.row(align=True)
                 row.prop(context.object.destruction, "individual_override", text = "Individual Target Override", toggle=True)
                 
+                box = layout.box()
                 if context.object.destruction.individual_override and len(context.object.destruction.destructorTargets) > 0:
                     
                     active = context.object.destruction.destructorTargets[context.object.destruction.active_target]
-                    col.label("Settings for target:" + active.name)
+                   
+                    box.prop(context.object.destruction, "destructor_settings", text = "Settings for target:" + active.name, 
+                        icon = self.icon(context.object.destruction.destructor_settings), emboss = False)
+                        
                     
-                    row = col.row(align=True)
-                    row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
+                    #box.label("Settings for target:" + active.name)
+                    
+                    if context.object.destruction.destructor_settings:
+                        col = box.column(align=True)
+                        row = col.row(align=True)
+                        row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
                 
-                    row = col.row(align=True)
-                    row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
+                        row = col.row(align=True)
+                        row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
                  
+                        row = col.row(align=True)
+                        row.prop(context.object.destruction, "min_radius", text = "Min Radius")
+                        row.prop(active, "radius", text = "Max Radius")
                 
-                    row = col.row(align=True)
-                    row.prop(context.object.destruction, "min_radius", text = "Min Radius")
-                    row.prop(active, "radius", text = "Max Radius")
-                
-                    row = col.row(align=True)
-                    row.prop(active, "modifier", text = "Speed Modifier")
+                        row = col.row(align=True)
+                        row.prop(active, "modifier", text = "Speed Modifier")
                     
-                    row = col.row(align=True)
-                    row.prop(active, "acceleration_factor", text = "Acceleration Factor")
+                        row = col.row(align=True)
+                        row.prop(active, "acceleration_factor", text = "Acceleration Factor")
                     
-                    row = col.row(align=True)
-                    row.prop(context.object.destruction, "destruction_delay", text = "Destruction Delay")
+                        row = col.row(align=True)
+                        row.prop(context.object.destruction, "destruction_delay", text = "Destruction Delay")
                 
                 else:
                     
-                    col.label("Global Settings")
+                    box.prop(context.object.destruction, "destructor_settings", text = "Global Settings",  
+                        icon = self.icon(context.object.destruction.destructor_settings), emboss = False)
+                   # col.label("Global Settings")
                     
-                    row = col.row(align=True)
-                    row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
-                    row.active = context.object.destruction.destructor
-                
-                    row = col.row(align=True)
-                    row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
-                    row.active = context.object.destruction.destructor
-                
-                    row = col.row(align=True)
-                    row.prop(context.object.destruction, "min_radius", text = "Min Radius")
-                    row.prop(context.object.destruction, "radius", text = "Max Radius")
-                    row.active = context.object.destruction.destructor
-                
-                    row = col.row(align=True)
-                    row.prop(context.object.destruction, "modifier", text = "Speed Modifier")
-                    row.active = context.object.destruction.destructor
+                    if context.object.destruction.destructor_settings:
+                        col = box.column(align=True)
+                        row = col.row(align=True)
+                        row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
+                        row.active = context.object.destruction.destructor
                     
-                    row = col.row(align=True)
-                    row.prop(context.object.destruction, "acceleration_factor", text = "Acceleration Factor")
-                    row.active = context.object.destruction.destructor
+                        row = col.row(align=True)
+                        row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
+                        row.active = context.object.destruction.destructor
                     
-                    row = col.row(align=True)
-                    row.prop(context.object.destruction, "destruction_delay", text = "Destruction Delay")
-                    row.active = context.object.destruction.destructor
+                        row = col.row(align=True)
+                        row.prop(context.object.destruction, "min_radius", text = "Min Radius")
+                        row.prop(context.object.destruction, "radius", text = "Max Radius")
+                        row.active = context.object.destruction.destructor
                     
-            
+                        row = col.row(align=True)
+                        row.prop(context.object.destruction, "modifier", text = "Speed Modifier")
+                        row.active = context.object.destruction.destructor
+                        
+                        row = col.row(align=True)
+                        row.prop(context.object.destruction, "acceleration_factor", text = "Acceleration Factor")
+                        row.active = context.object.destruction.destructor
+                        
+                        row = col.row(align=True)
+                        row.prop(context.object.destruction, "destruction_delay", text = "Destruction Delay")
+                        row.active = context.object.destruction.destructor
+                    
+                col = layout.column()
                 row = col.row(align=True)
                 row.label(text = "Destructor Targets")
                 row.active = context.object.destruction.destructor
@@ -554,6 +571,11 @@ class DestructabilityPanel(types.Panel):
     bl_context = "object"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
+    
+    #deactivate old panel 
+    @classmethod
+    def poll(cls, context):
+        return False
     
     def register():
         dp.initialize()

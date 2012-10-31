@@ -2754,6 +2754,8 @@ EACH cube will be further fractured to the given part count")
     individual_override = props.BoolProperty(name = "individual_override", description = "Adjust destructor settings individually per target")
     
     min_radius = props.FloatProperty(name = "min_radius", default = 1.0, min = 0.0, description = "Lower boundary of activation area")
+    
+    destructor_settings = props.BoolProperty(name = "destructor_settings")
 
 
 def initialize():

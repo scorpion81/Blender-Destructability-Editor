@@ -348,9 +348,9 @@ class DestructionHierarchyPanel(DestructionBasePanel):
         layout = self.layout
         col = layout.column(align=True)
         row = col.row(align=True)
-        row.prop(context.object.destruction, "flatten_hierarchy", text = "Use Hierarchy", toggle=True)
+        row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy", toggle=True)
     
-        if context.object.destruction.flatten_hierarchy:    
+        if not context.object.destruction.flatten_hierarchy:    
             row = col.row(align=True)
             row.prop(context.scene, "hideLayer", text = "Hierarchy Layer")
         
@@ -1222,6 +1222,10 @@ class SetupPlayer(types.Operator):
         if context.object.destruction.dynamic_mode == "D_DYNAMIC":
             dd.DataStore.proc.copySettings(context, None)
         
+        #set cursor to 0,0,0 temporarily
+        oldCur = context.scene.cursor_location.copy()
+        context.scene.cursor_location = (0, 0, 0)
+        
         ops.object.add()
         context.active_object.name = "Player"
        
@@ -1549,6 +1553,7 @@ class SetupPlayer(types.Operator):
 
         #context.scene.objects.active = context.object
         
+        context.scene.cursor_location = oldCur
         context.user_preferences.edit.use_global_undo = undo
         return {'FINISHED'}
     

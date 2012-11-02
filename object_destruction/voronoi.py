@@ -293,6 +293,7 @@ def voronoiCube(context, obj, parts, vol, walls, mat_index):
     obj.select = True
     mesh_center = Vector((0, 0, 0))
     diff = Vector((0, 0, 0))
+    oldCur = context.scene.cursor_location.copy()
     if not walls:
         
         #memorize old origin and mesh_center(bounds)
@@ -322,6 +323,7 @@ def voronoiCube(context, obj, parts, vol, walls, mat_index):
         ops.object.origin_set(type='ORIGIN_CURSOR')
         ops.object.origin_set(type='GEOMETRY_ORIGIN', center='BOUNDS')
     else:
+        context.scene.cursor_location = (0, 0, 0)
         ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
         
     ops.object.transform_apply(scale=True, location = True, rotation=True)
@@ -472,6 +474,8 @@ def voronoiCube(context, obj, parts, vol, walls, mat_index):
     objs = buildCellMesh(records, obj.name, walls, diff, mat_index, re_unwrap, smart_angle, dissolve_angle)
     
     print("Mesh Construction Time ", clock() - start)
+    
+    context.scene.cursor_location = oldCur
     
     return objs
     

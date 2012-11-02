@@ -2192,13 +2192,16 @@ class GameStart(types.Operator):
                 pass
             else:
                 ops.wm.save_mainfile(filepath = filepath)
+            
+            #deselect all
+            ops.object.select_all(action='DESELECT')
                 
             if not context.scene.setup_basic_scene: # setup "hidden" player, wont be in mainfile afterwards
                 #cam = context.scene.use_player_cam
                 #context.scene.use_player_cam = False
                 ops.player.setup(hidden=True)
             ops.parenting.convert()
-        
+         
         ops.view3d.game_start()
         
         if not isDynamic:

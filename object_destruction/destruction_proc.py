@@ -2686,7 +2686,7 @@ so only unconnected parts collapse according to their parent relations")
     dynamic_mode = props.EnumProperty(name = "dynamic_mode", items = dynamicMode, description = "Fracture Objects dynamically or precalculated",
                                       update = updateDynamicMode)
     converted = props.BoolProperty(name = "converted", default = False)
-    radius = props.FloatProperty(name = "radius", default = 1, min = 0, description = "Speed independent destruction radius, is added to Speed Modifier")
+    radius = props.FloatProperty(name = "radius", default = 1.5, min = 0, description = "Speed independent destruction radius, is added to Speed Modifier")
     modifier = props.FloatProperty(name = "modifier",default = 0.25, min = 0, 
     description = "Modifier(factor) for destructors speed relative to object speed, is added to Radius")
     
@@ -2753,7 +2753,7 @@ EACH cube will be further fractured to the given part count")
         
     individual_override = props.BoolProperty(name = "individual_override", description = "Adjust destructor settings individually per target")
     
-    min_radius = props.FloatProperty(name = "min_radius", default = 1.0, min = 0.0, description = "Lower boundary of activation area")
+    min_radius = props.FloatProperty(name = "min_radius", default = 0.0, min = 0.0, description = "Lower boundary of activation area")
     
     destructor_settings = props.BoolProperty(name = "destructor_settings")
 

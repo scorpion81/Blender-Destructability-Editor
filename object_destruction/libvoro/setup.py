@@ -25,8 +25,8 @@ if platform.architecture()[0] == "64bit":
         dest = "win64/"+extname+".pyd"
         src = extname+".pyd"
     elif platform.architecture()[1] == "ELF":
-        dest = "linux64/"+extname+".cpython-33mu.so"
-        src = extname+".cpython-33mu.so"
+        dest = "linux64/"+extname+".cpython-33m.so"
+        src = extname+".cpython-33m.so"
     else:
         dest = "osx64/"+extname+".so"
         src = extname+".so"
@@ -35,8 +35,8 @@ elif platform.architecture()[0] == "32bit":
         dest = "win32/" + extname + ".pyd"
         src = extname + ".pyd"
     elif platform.architecture()[1] == "ELF":
-        dest = "linux32/"+extname+".cpython-33mu.so"
-        src = extname+".cpython-33mu.so"
+        dest = "linux32/"+extname+".cpython-33m.so"
+        src = extname+".cpython-33m.so"
     else:
         dest = "osx32/"+extname+".so"
         src = extname+".so"

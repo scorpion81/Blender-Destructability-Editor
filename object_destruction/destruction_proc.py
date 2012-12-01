@@ -7,6 +7,7 @@ import os
 import random
 from bpy_extras import mesh_utils
 from operator import indexOf
+import mathutils
 from mathutils import Vector, Quaternion, Euler, Matrix, geometry
 import math
 import bisect
@@ -89,65 +90,7 @@ class Processor():
             if context.scene.hideLayer != 1:
                 context.scene.layers = self.layer(context.scene.hideLayer, True)
                 
-            
-            for o in data.objects:
-                if o in objects:
-                    
-                    #parenting correction vector
-                    #loc = Vector((0,0,0))
-                    #obj = o.copy()
-                    #while obj.parent != None:
-                    #    loc -= obj.parent.location
-                    #    obj = obj.parent
-                    
-                    o.select = True
-                    ops.object.origin_set(type = 'ORIGIN_GEOMETRY', center = 'BOUNDS')
-                    o.select = False
-                    
-                    if o.parent != None:
-                        o.parent.destruction.restore = True
-                            
-                    o.destruction.restoreLoc = o.location.copy()
-                    o.location = Vector((0,0,0))
-                    #move also the volume object RELATIVE to the base object
-                    if o.destruction.voro_volume != "" and o.destruction.voro_volume in data.objects:
-                        vol = data.objects[o.destruction.voro_volume]
-                        if vol.destruction.move_name == "":
-                            vol.destruction.move_name = str(o.name)
-                            vol.location -= Vector(o.destruction.restoreLoc)
-                    
-                    print("Memorizing...", o.destruction.restoreLoc, o.location)
-                    
-            context.scene.update()
             self.destroy(context, objects, 0)   
-            
-            if context.active_object != None:
-                mode = context.active_object.destruction.destructionMode
-                if mode == 'DESTROY_C':
-                    ctx = context.active_object.destruction.cell_fracture
-                    if ctx.use_interior_vgroup or ctx.use_sharp_edges:
-                        fracture_cell_setup.cell_fracture_interior_handle(objects,
-                                use_interior_vgroup=ctx.use_interior_vgroup,
-                                use_sharp_edges=ctx.use_sharp_edges,
-                                use_sharp_edges_apply=ctx.use_sharp_edges_apply)
-              
-            for o in data.objects:
-                if o.name.startswith("P_"):
-                    if not o.destruction.restore:
-                        backup = data.objects[o.destruction.backup]
-                        o.location = Vector(backup.destruction.restoreLoc)
-                        #restore also the volume object RELATIVE to the base object
-                        if backup.destruction.voro_volume != "" and backup.destruction.voro_volume in data.objects:
-                            vol = data.objects[backup.destruction.voro_volume]
-                            if vol.destruction.move_name == backup.destruction.orig_name:
-                                vol.destruction.move_name = ""
-                                vol.location += Vector(backup.destruction.restoreLoc)
-                        
-                        backup.destruction.restoreLoc = Vector((0,0,0)) 
-                        print("Restoring...", o.location)
-                        o.destruction.restore = True
-                    
-            context.scene.update()
            
             if context.scene.hideLayer != 1:
                 context.scene.layers = self.layer(1)
@@ -172,6 +115,30 @@ class Processor():
                  DestructionContext.destModes[5][0]:
                      "self.applyLooseParts(context, obj)" } 
         #according to mode call correct method
+        
+        
+        for o in data.objects:
+            if o in objects:
+                               
+                o.select = True
+                ops.object.origin_set(type = 'ORIGIN_GEOMETRY', center = 'BOUNDS')
+                o.select = False
+                
+                if o.parent != None:
+                    o.parent.destruction.restore = True
+                        
+                o.destruction.restoreLoc = o.location.copy()
+                o.location = mathutils.Vector((0,0,0))
+                #move also the volume object RELATIVE to the base object
+                if o.destruction.voro_volume != "" and o.destruction.voro_volume in data.objects:
+                    vol = data.objects[o.destruction.voro_volume]
+                    if vol.destruction.move_name == "":
+                        vol.destruction.move_name = str(o.name)
+                        vol.location -= Vector(o.destruction.restoreLoc)
+                
+                print("Memorizing...", o.destruction.restoreLoc, o.location)        
+        context.scene.update()
+        
         
         #hack for boolean fracture
         if context.active_object == None:
@@ -226,20 +193,48 @@ class Processor():
                 # reverse index values so we can remove from original list.
                 objects_recurse_input.reverse()
             
-            objects_recursive =[]
+            #objects_recursive = []
+            objects_input = []
             for i, o in objects_recurse_input:
-                #assert(objects_out[i] is o)
-                obj = [o]
+                  
+                objects_input.append(o)
                 if context.active_object == None:
                     context.scene.objects.active = o
                 
-                if recursion_clamp and len(objects_recursive) >= recursion_clamp:
-                    break
-                objects_recursive += self.destroy(context, obj, level + 1)
-                #if use_remove_original
-                #    context.scene.objects.unlink(obj_cell)
-                #    del objects[i]
-            #objects.extend(objects_recursive)
+            if recursion_clamp and len(objects_recursive) >= recursion_clamp:
+                return objects_recursive
+ 
+            objects_recursive += self.destroy(context, objects_input, level + 1)
+            
+        
+        
+            #if context.active_object != None:
+            #    mode = context.active_object.destruction.destructionMode
+            #    if mode == 'DESTROY_C':
+            #        ctx = context.active_object.destruction.cell_fracture
+            #        if ctx.use_interior_vgroup or ctx.use_sharp_edges:
+            #           fracture_cell_setup.cell_fracture_interior_handle(objects,
+            #                    use_interior_vgroup=ctx.use_interior_vgroup,
+            #                    use_sharp_edges=ctx.use_sharp_edges,
+            #                    use_sharp_edges_apply=ctx.use_sharp_edges_apply)
+              
+        for o in data.objects:
+            if o.name.startswith("P_"):
+                if (not o.destruction.restore):
+                    backup = data.objects[o.destruction.backup]
+                    o.location = mathutils.Vector(backup.destruction.restoreLoc)
+                    #restore also the volume object RELATIVE to the base object
+                    if backup.destruction.voro_volume != "" and backup.destruction.voro_volume in data.objects:
+                        vol = data.objects[backup.destruction.voro_volume]
+                        if vol.destruction.move_name == backup.destruction.orig_name:
+                            vol.destruction.move_name = ""
+                            vol.location += Vector(backup.destruction.restoreLoc)
+                    
+                    backup.destruction.restoreLoc = mathutils.Vector((0,0,0)) 
+                    print("Restoring...", o.location)
+                    o.destruction.restore = True
+                
+        context.scene.update()
             
         return objects_recursive
 

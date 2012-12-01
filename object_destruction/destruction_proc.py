@@ -2005,7 +2005,7 @@ class Processor():
         
         ops.object.mode_set(mode = 'EDIT')  
         ops.mesh.select_all(action = 'SELECT')
-        ops.mesh.remove_doubles(mergedist = 0.0001)
+        ops.mesh.remove_doubles(threshold = 0.0001)
         ops.object.mode_set(mode = 'OBJECT') 
         
         ob.select = True

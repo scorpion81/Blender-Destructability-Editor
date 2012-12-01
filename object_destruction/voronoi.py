@@ -135,7 +135,7 @@ def buildCell(cell, name, walls, diff, mat_index, re_unwrap, smart_angle, dissol
     
     ops.object.mode_set(mode = 'EDIT')
     ops.mesh.select_all(action = 'SELECT')
-    ops.mesh.remove_doubles(mergedist = 0.0001)
+    ops.mesh.remove_doubles(threshold = 0.0001)
     ops.mesh.normals_make_consistent(inside=False)
     
     #if walls:
@@ -240,7 +240,7 @@ def fixNonManifolds(obj):
     try:
         ops.object.mode_set(mode = 'EDIT')
         ops.mesh.select_all(action = 'SELECT')
-        ops.mesh.remove_doubles(mergedist = 0.0001)
+        ops.mesh.remove_doubles(threshold = 0.0001)
         ops.mesh.select_all(action = 'DESELECT')
         ops.mesh.select_non_manifold()
         #ops.mesh.edge_collapse()

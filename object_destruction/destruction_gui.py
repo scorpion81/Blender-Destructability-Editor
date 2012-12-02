@@ -2049,6 +2049,12 @@ class UndestroyObject(types.Operator):
                 backup.select = True
                 ops.object.origin_set(type='ORIGIN_GEOMETRY')
                 backup.select = False
+                
+                if backup.name.startswith("S_") and \
+                backup.destruction.is_backup_for.startswith("P_0_"):
+                    s = backup.name.split(".")[0]
+                    backup.name = s.split("_")[1]
+                
                 backup.destruction.is_backup_for = ""
             
         context.user_preferences.edit.use_global_undo = undo     

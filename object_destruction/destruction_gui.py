@@ -1172,7 +1172,8 @@ class RemoveTargetOperator(types.Operator):
         ret = -1
         for p in context.object.destruction.destructorTargets:
             if p.name == name:
-                ret = i 
+                ret = i
+                return ret 
             i += 1
         
         return ret
@@ -2194,7 +2195,17 @@ class GameStart(types.Operator):
                 ops.wm.save_mainfile(filepath = filepath)
             
             #deselect all
+            context.scene.layers = [True, True, True, True, True,
+                                    True, True, True, True, True,
+                                    True, True, True, True, True,
+                                    True, True, True, True, True]
+                                    
             ops.object.select_all(action='DESELECT')
+            
+            context.scene.layers = [True, False, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False,
+                                    False, False, False, False, False]
                 
             if not context.scene.setup_basic_scene: # setup "hidden" player, wont be in mainfile afterwards
                 #cam = context.scene.use_player_cam

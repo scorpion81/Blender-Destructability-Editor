@@ -134,7 +134,7 @@ class Processor():
                     vol = data.objects[o.destruction.voro_volume]
                     if vol.destruction.move_name == "":
                         vol.destruction.move_name = str(o.name)
-                        vol.location -= Vector(o.destruction.restoreLoc)
+                        vol.location -= mathutils.Vector(o.destruction.restoreLoc)
                 
                 print("Memorizing...", o.destruction.restoreLoc, o.location)        
         context.scene.update()
@@ -228,7 +228,7 @@ class Processor():
                         vol = data.objects[backup.destruction.voro_volume]
                         if vol.destruction.move_name == backup.destruction.orig_name:
                             vol.destruction.move_name = ""
-                            vol.location += Vector(backup.destruction.restoreLoc)
+                            vol.location += mathutils.Vector(backup.destruction.restoreLoc)
                     
                     backup.destruction.restoreLoc = mathutils.Vector((0,0,0)) 
                     print("Restoring...", o.location)
@@ -522,7 +522,7 @@ class Processor():
             else:    
                 parts.extend(voronoi.voronoiCube(context, obj, partCount, volume, wall, mat_index))
             
-            origLoc = Vector(obj.destruction.origLoc)
+            origLoc = mathutils.Vector(obj.destruction.origLoc)
             
             if obj.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
                 backup.use_fake_user = True
@@ -666,15 +666,15 @@ class Processor():
         backup.destruction.is_backup_for = context.active_object.name
         
         #get the first backup, need that position
-        pos = Vector((0.0, 0.0, 0.0))
+        pos = mathutils.Vector((0.0, 0.0, 0.0))
         if parent == None:
             for o in data.objects:
                if o.destruction != None:
                    if o.destruction.is_backup_for == "P_0_" + nameStart + "." + largest:# + ".000":
                        pos = o.location
                        #if o.destruction.flatten_hierarchy or context.scene.hideLayer == 1:
-                       pos += Vector(o.destruction.origLoc) #needed for voronoi
-                       o.destruction.origLoc = Vector((0, 0, 0))
+                       pos += mathutils.Vector(o.destruction.origLoc) #needed for voronoi
+                       o.destruction.origLoc = mathutils.Vector((0, 0, 0))
             print("EMPTY Pos: ", pos)
             context.active_object.location = pos
         #else:
@@ -779,13 +779,13 @@ class Processor():
             self.delCompound(c)
     
     def setCompound(self, parent, delOld=False):
-        loc = Vector((0, 0, 0)) 
+        loc = mathutils.Vector((0, 0, 0)) 
         
         #set compound at topmost position when groundconnectivity is enabled
         if parent.destruction.groundConnectivity and bpy.context.scene.useGravityCollapse:
             backup = bpy.context.scene.objects[parent.destruction.backup]
             dim = backup.bound_box.data.dimensions
-            loc = Vector(0, 0, dim[2]/2)
+            loc = mathutils.Vector(0, 0, dim[2]/2)
             print("LOC: ", loc) 
         
         mindist = sys.maxsize
@@ -832,13 +832,13 @@ class Processor():
             
     
     def setBackupCompound(self, parent):
-        loc = Vector((0, 0, 0))
+        loc = mathutils.Vector((0, 0, 0))
         
         #set compound at topmost position when groundconnectivity is enabled
         if parent.destruction.groundConnectivity and bpy.context.scene.useGravityCollapse:
             backup = bpy.context.scene.objects[parent.destruction.backup]
             dim = backup.bound_box.data.dimensions
-            loc = Vector(0, 0, dim[2]/2)
+            loc = mathutils.Vector(0, 0, dim[2]/2)
             print("LOC: ", loc) 
         
         mindist = sys.maxsize
@@ -1086,7 +1086,7 @@ class Processor():
         elif backup.destruction.destructionMode == 'DESTROY_VB':
             if c != backup and (c.name != b or b == None) and (c.parent == None):
                 if context.scene.hideLayer != 1:
-                    c.location -= Vector(backup.destruction.pos) #correction ?
+                    c.location -= mathutils.Vector(backup.destruction.pos) #correction ?
             
           
         if c != backup and (c.name != b or b == None):
@@ -1318,8 +1318,8 @@ class Processor():
                 #distance between faces
                 #d = geometry.distance_point_to_plane(face.verts[0].co, mesh.vertices[p.vertices[0]].co, 
                 #                                     mesh.vertices[p.vertices[1]].co)
-                p1 = Vector(face.verts[0].co)
-                p2 = Vector(backup.data.vertices[p.vertices[0]].co)
+                p1 = mathutils.Vector(face.verts[0].co)
+                p2 = mathutils.Vector(backup.data.vertices[p.vertices[0]].co)
                 
                 p1 = p1 + c.location
                 
@@ -1853,7 +1853,7 @@ class Processor():
         #intersect with pos of cells[0], go through all cells, set cube to pos, intersect again
         #repeat always with original object
         
-        loc = Vector(object.destruction.pos)
+        loc = mathutils.Vector(object.destruction.pos)
         obj = object
         while obj.parent != None:
             loc += obj.parent.location
@@ -1976,8 +1976,8 @@ class Processor():
        # print(ob, context.object, context.scene.objects, context.selected_objects)
         
         #print("LOC", ob.location, cell.center)
-        cutter.location = Vector(cell.center)
-        cutter.dimensions = Vector(cell.dim) * 1.01
+        cutter.location = mathutils.Vector(cell.center)
+        cutter.dimensions = mathutils.Vector(cell.dim) * 1.01
         context.scene.update()
         
         bool = ob.modifiers.new("Boolean", 'BOOLEAN')
@@ -2332,6 +2332,16 @@ class CellFractureContext(types.PropertyGroup):
 #            )
     
     source = set(items_own + items_child + items_pencil)
+   # source = set(('VERT_OWN', 'EDGE_OWN', 'FACE_OWN', 'PARTICLE_OWN', 
+#               'VERT_CHILD', 'EDGE_CHILD', 'FACE_CHILD', 'PARTICLE_CHILD',
+#               'PENCIL'))
+               
+#    source = {
+#        'VERT_OWN', 'EDGE_OWN', 'FACE_OWN',
+#        'VERT_CHILD', 'EDGE_CHILD', 'FACE_CHILD',
+#        'PARTICLE_OWN', 'PARTICLE_CHILD',
+#        'PENCIL',
+#        }
     
     source_own = props.EnumProperty(
         name = "SourceOwn", 

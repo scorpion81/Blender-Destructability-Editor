@@ -1,4 +1,4 @@
-from bpy import types, props, utils, ops, data, path
+from bpy import types, props, utils, ops, path
 from bpy.types import Object, Scene
 from . import destruction_proc as dp
 from . import destruction_data as dd
@@ -99,8 +99,15 @@ class DestructionFracturePanel(DestructionBasePanel):
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     
+    def register():
+        dp.initialize()
+
+    def unregister():
+        dp.uninitialize()
+        
     def draw(self, context):
         
+        from bpy import data
         layout = self.layout
         
         if isParent(context):
@@ -563,503 +570,7 @@ class DestructionOperator(types.Operator):
         #print(context.object.destEnabled)
             
         return {"FINISHED"}
-                    
-
-class DestructabilityPanel(types.Panel):
-    bl_idname = "OBJECT_PT_destructability"
-    bl_label = "Destructability"
-    bl_context = "object"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    
-    #deactivate old panel 
-    @classmethod
-    def poll(cls, context):
-        return False
-    
-    def register():
-        dp.initialize()
-
-    def unregister():
-        dp.uninitialize()
-    
-    
-    def isMesh(self, context):
-        return context.object.type == 'MESH'
-    
-    def isParent(self, context):
-        meshChild = False
-        for o in context.object.children:
-            if o.type == 'MESH':
-                meshChild = True
-                break
-            
-        backup = context.object.destruction.backup
-        return context.object.type == 'EMPTY' and (meshChild or backup != "")
-    
-    def draw_basic_fracture(self, context, box):
-        
-        #layout = self.layout
-        layout = box
-         
-        if self.isParent(context) or context.object.name.startswith("P_"): # destroyability should be switchable
-            row = box.row()
-            row.prop(context.object.destruction, "destroyable", text = "Destroyable")
-        
-        if self.isMesh(context):
-            #box = layout.box()
-            row = box.row()
-            row.prop(context.object.destruction, "destructionMode", text = "Mode")
-
-            col = box.column()
-            if context.object.destruction.destructionMode != 'DESTROY_L' and \
-               context.object.destruction.destructionMode != 'DESTROY_C':
-                if not context.object.destruction.voro_exact_shape and context.object.destruction.voro_particles == "":
-                    col.prop(context.object.destruction, "partCount", text = "Parts")
-            
-            
-            #gui parts from ideasman42
-            if context.object.destruction.destructionMode == 'DESTROY_C':
-        
-                box = layout.box()
-                col = box.column()
-                col.label("Point Source")
-                #rowsub = col.row()
-                col.prop(context.object.destruction.cell_fracture, "source")
-                col.prop(context.object.destruction.cell_fracture, "source_limit")
-                col.prop(context.object.destruction.cell_fracture, "source_noise")
-                rowsub = col.row(align = True)
-                rowsub.prop(context.object.destruction.cell_fracture, "cell_scale")                
-                
-                box = layout.box()
-                col = box.column()
-                col.label("Mesh Data")
-                rowsub = col.row(align=True)
-                rowsub.prop(context.object.destruction.cell_fracture, "use_smooth_faces")
-                rowsub.prop(context.object.destruction.cell_fracture, "use_sharp_edges")
-                rowsub.prop(context.object.destruction.cell_fracture, "use_sharp_edges_apply")
-                rowsub.prop(context.object.destruction.cell_fracture, "use_data_match")
-                rowsub.prop(context.object.destruction.cell_fracture, "use_interior_vgroup")
-                rowsub = col.row(align=True)
-                rowsub.prop(context.object.destruction.cell_fracture, "margin")
-                rowsub.prop(context.object.destruction.cell_fracture, "use_island_split")
-                
-                box = layout.box()
-                col = box.column()    
-                col.label("Object")
-                rowsub = col.row(align=True)
-                rowsub.prop(context.object.destruction.cell_fracture, "use_recenter")
-                
-                box = layout.box()
-                col = box.column()
-                col.label("Scene")
-                rowsub = col.row(align=True)
-                rowsub.prop(context.object.destruction.cell_fracture, "group_name")
-        
-                box = layout.box()
-                col = box.column()
-                col.label("Debug")
-                rowsub = col.row(align=True)
-                rowsub.prop(context.object.destruction.cell_fracture, "use_debug_points")
-                rowsub.prop(context.object.destruction.cell_fracture, "use_debug_bool")
-                    
-            if context.object.destruction.destructionMode == 'DESTROY_F':
-                col.prop(context.object.destruction, "crack_type", text = "Crack Type")
-                if context.object.destruction.crack_type == 'FLAT_ROUGH' or \
-                context.object.destruction.crack_type == 'SPHERE_ROUGH':
-                    col.prop(context.object.destruction, "roughness", text = "Roughness")
-                    
-            elif context.object.destruction.destructionMode.startswith('DESTROY_E'):
-                col.prop(context.object.destruction, "wallThickness", text = "Thickness")
-                col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
-            elif context.object.destruction.destructionMode == 'DESTROY_K':
-                col.prop(context.object.destruction, "cut_type", text = "Cut type")
-                col.prop(context.object.destruction, "jitter", text = "Jitter")
-                col.prop(context.object.destruction, "pieceGranularity", text = "Granularity")
-                
-                row = col.row()
-                row.prop(context.object.destruction, "rot_start", text = "ObjRot Start")
-                row.prop(context.object.destruction, "rot_end", text = "ObjRot End")
-                
-                row = col.row()
-                row.prop(context.object.destruction, "line_start", text = "CutLine Start")
-                row.prop(context.object.destruction, "line_end", text = "CutLine End")
-            elif context.object.destruction.destructionMode == 'DESTROY_V' or \
-            context.object.destruction.destructionMode == 'DESTROY_VB':
-                row = col.row()
-                row.prop_search(context.object.destruction, "voro_volume", 
-                        context.scene, "objects", icon = 'OBJECT_DATA', text = "Volume:")
-                row = col.row()
-                if context.object.destruction.voro_particles == "":
-                    row.prop(context.object.destruction, "voro_exact_shape", text = "Use Exact Shape")
-                if context.object.destruction.voro_volume != "":
-                    vol = context.object.destruction.voro_volume 
-                    row = col.row()            
-                    row.prop_search(context.object.destruction, "voro_particles",
-                        data.objects[vol],  "particle_systems", icon = 'PARTICLES', text = "Particle System")
-                row = col.row()
-                row.prop(context.object.destruction, "voro_path", text="Intermediate File")
-                if context.object.destruction.destructionMode == 'DESTROY_VB':
-                    row = col.row()
-                    row.prop(context.object.destruction, "remesh_depth", text="Remesh Depth")
-                row = col.row()
-                row.prop(context.object.destruction, "dissolve_angle", text="Limited Dissolve Angle")
-            
-        
-    def draw_advanced_fracture(self, context, box):
-        
-        layout = self.layout
-        if self.isMesh(context):    
-            #box = layout.box()
-            
-            row = box.row(align=True)
-            row.prop(context.object.destruction.cell_fracture, "mass_mode")
-            row = box.row(align=True)
-            row.prop(context.object.destruction.cell_fracture, "mass")
-                    
-            if context.object.destruction.destructionMode != 'DESTROY_L':        
-                row = box.row()
-                row.prop(context.object.destruction, "cubify", text = "Intersect with Grid")
-            
-            if context.object.destruction.destructionMode != 'DESTROY_L' and \
-            context.object.destruction.cubify:
-                row = box.row()
-                col = row.column()
-                col.prop(context.object.destruction, "cubifyDim", text = "Intersection Grid")
-        
-            if context.object.destruction.destructionMode != 'DESTROY_L':
-                row = box.row()
-                row.prop_search(context.object.destruction, "inner_material", data, 
-                    "materials", icon = 'MATERIAL', text = "Inner Material:")    
-            
-            if context.object.destruction.destructionMode != 'DESTROY_L' and \
-            context.object.destruction.destructionMode != 'DESTROY_V':
-                row = box.row()
-                row.prop(context.object.destruction, "re_unwrap", text = "Smart Project Shard UVs")
-                if context.object.destruction.re_unwrap:
-                    row = box.row()
-                    row.prop(context.object.destruction, "smart_angle", text = "Angle limit")
-            
-            row = box.row()
-            row.prop(context.object.destruction, "dynamic_mode", expand = True)
-            
-            if (context.object.destruction.dynamic_mode == "D_PRECALCULATED"):
-                
-                if self.isMesh(context) or self.isParent(context):
-                    row = box.row()
-                    row.prop(context.object.destruction, "cluster", text = "Use Clusters")
-                    if context.object.destruction.cluster:
-                        row = box.row()
-                        col = row.column()
-                        col.prop(context.object.destruction, "cluster_dist", text = "Cluster Distance in %")
-            
-                row = box.row()
-                row.prop(context.object.destruction, "flatten_hierarchy", text = "Flatten Hierarchy")
-            
-                if not context.object.destruction.flatten_hierarchy:    
-                    row = box.row()
-                    row.prop(context.scene, "hideLayer", text = "Hierarchy Layer")
-                
-                row = box.row()
-                row.prop(context.object.destruction, "use_debug_redraw")
-                    
-            else:
-                row = box.row()
-                row.prop(context.scene, "dummyPoolSize", text = "Dummy Object Pool Size")
-            
-            row = box.row()
-            row.prop(context.object.destruction, "glue_threshold", text = "Glue Threshold")
-            
-            row = box.row()
-            row.prop(context.object.destruction, "enable_all_children", text = "Enable all children")
-            
-            row = box.row()
-            row.prop(context.object.destruction, "collision_margin", text = "Collision Bounds Margin")
-
-    
-    def draw_recursion(self, context, box):
-        
-        layout = self.layout
-        #use recursion for all methods
-        if context.object.destruction.destructionMode != 'DESTROY_L' and self.isMesh(context):     
-           # box = layout.box()
-            col = box.column()
-            col.label("Recursive Shatter")
-            rowsub = col.row(align=True)
-            rowsub.prop(context.object.destruction.cell_fracture, "recursion")
-            #rowsub.prop(context.object.destruction.cell_fracture, "recursion_source_limit")
-            rowsub.prop(context.object.destruction.cell_fracture, "recursion_clamp")
-            rowsub = col.row()
-            rowsub.prop(context.object.destruction.cell_fracture, "recursion_chance")
-            col.prop(context.object.destruction.cell_fracture, "recursion_chance_select", expand=True)
-        
-    def draw_gameengine_setup(self, context, box):
-        
-        layout = self.layout
-        layout.separator()
-      #  box = layout.box() 
-        row = box.row()
-       # row.label("Game Engine Settings: ")
-        #row.scale_x = 1.5
-        #row.scale_y = 1.5
-        
-       
-        if self.isMesh(context) or self.isParent(context):
-           # box.prop(context.object.destruction, "deform", text = "Enable Deformation")       
-            box.prop(context.object.destruction, "isGround", text = "Is Connectivity Ground")
-        
-        if self.isParent(context):# or context.object.destruction.dynamic_mode == 'D_DYNAMIC':
-            box.prop(context.object.destruction, "groundConnectivity", text = "Calculate Ground Connectivity")
-            
-            if context.object.destruction.groundConnectivity:
-                row = box.row()
-                row.label(text = "Connected Grounds")
-                row.active = context.object.destruction.groundConnectivity
-        
-                row = box.row()       
-                row.template_list(context.object.destruction, "grounds", 
-                          context.object.destruction, "active_ground", rows = 2)
-                row.operator("ground.remove", icon = 'ZOOMOUT', text = "")
-                row.active = context.object.destruction.groundConnectivity
-        
-                row = box.row()   
-                row.prop_search(context.object.destruction, "groundSelector", 
-                        context.scene, "objects", icon = 'OBJECT_DATA', text = "Ground:")
-                        
-                row.operator("ground.add", icon = 'ZOOMIN', text = "")
-                row.active = context.object.destruction.groundConnectivity
-            
-                row = box.row()
-                col = row.column()
-                col.prop(context.object.destruction, "gridDim", text = "Connectivity Grid")
-                #col.active = context.object.destruction.groundConnectivity
-                
-                row = box.row()
-                row.prop(context.scene, "useGravityCollapse", text = "Use Gravity Collapse")
-                
-                if context.scene.useGravityCollapse:
-                    row.prop(context.scene, "collapse_delay", text = "Collapse Delay")
-       
-        if self.isMesh(context) or self.isParent(context): #if destroyables were able to be dynamic....
-            box.prop(context.object.destruction, "destructor", text = "Destructor")
-            
-            if context.object.destruction.destructor:
-                
-                row = box.row()
-                row.prop(context.object.destruction, "individual_override", text = "Individual Target Override")
-                
-                if context.object.destruction.individual_override and len(context.object.destruction.destructorTargets) > 0:
-                    
-                    active = context.object.destruction.destructorTargets[context.object.destruction.active_target]
-                    box.label("Settings for target:" + active.name)
-                    
-                    row = box.row()
-                    row.prop(active, "hierarchy_depth", text = "Hierarchy Depth")
-                
-                    row = box.row()
-                    row.prop(active, "dead_delay", text = "Object Death Delay")
-                
-                    row = box.row()
-                    row.prop(active, "radius", text = "Radius")
-                
-                    row = box.row()
-                    row.prop(active, "modifier", text = "Speed Modifier")
-                    
-                    row = box.row()
-                    row.prop(active, "acceleration_factor", text = "Acceleration Factor")
-                    
-                    row = box.row()
-                    row.prop(context.object.destruction, "destruction_delay", text = "Destruction Delay")
-                
-                else:
-                    
-                    box.label("Global Settings")
-                    
-                    row = box.row()
-                    row.prop(context.object.destruction, "hierarchy_depth", text = "Hierarchy Depth")
-                    row.active = context.object.destruction.destructor
-                
-                    row = box.row()
-                    row.prop(context.object.destruction, "dead_delay", text = "Object Death Delay")
-                    row.active = context.object.destruction.destructor
-                
-                    row = box.row()
-                    row.prop(context.object.destruction, "radius", text = "Radius")
-                    row.active = context.object.destruction.destructor
-                
-                    row = box.row()
-                    row.prop(context.object.destruction, "modifier", text = "Speed Modifier")
-                    row.active = context.object.destruction.destructor
-                    
-                    row = box.row()
-                    row.prop(context.object.destruction, "acceleration_factor", text = "Acceleration Factor")
-                    row.active = context.object.destruction.destructor
-                    
-                    row = box.row()
-                    row.prop(context.object.destruction, "destruction_delay", text = "Destruction Delay")
-                    row.active = context.object.destruction.destructor
-                    
-            
-                row = box.row()
-                row.label(text = "Destructor Targets")
-                row.active = context.object.destruction.destructor
-            
-                row = box.row()
-            
-                row.template_list(context.object.destruction, "destructorTargets", 
-                              context.object.destruction, "active_target" , rows = 2) 
                             
-                row.operator("target.remove", icon = 'ZOOMOUT', text = "") 
-                row.active = context.object.destruction.destructor  
-            
-                row = box.row()
-                
-                row.prop_search(context.object.destruction, "targetSelector", context.scene, 
-                           "objects", icon = 'OBJECT_DATA', text = "Destroyable:")
-                                        
-                row.operator("target.add", icon = 'ZOOMIN', text = "")
-            #row.active = context.object.destruction.destructor 
-        
-        row = box.row()
-        row.prop_search(context.scene, "custom_ball", context.scene, 
-                    "objects", icon = 'OBJECT_DATA', text = "Custom Ball:")
-        
-        row = box.row()
-        row.prop(context.scene, "use_player_cam", text = "Use Player Camera")
-        
-        row = box.row()
-        col = row.column() 
-        
-        if not context.scene.player:
-            col.operator("player.setup")
-        else:
-            col.operator("player.clear")
-        
-#        col.operator("player.setup")
-#        col.active = not context.scene.player
-#    
-#        col = row.column()
-#        col.operator("player.clear")
-#        col.active = context.scene.player
-    
-        row = box.row()
-        
-        mode = context.object.destruction.dynamic_mode == 'D_PRECALCULATED'
-        if (not mode and not context.scene.to_precalculated) and context.scene.converted:  
-            txt = "Reset Game Parenting"
-        else:
-            txt = "To Game Parenting"
-   
-        row.operator("parenting.convert", text = txt)
-        row.active = not(context.scene.converted and (mode or context.scene.to_precalculated))
-        row = box.row()
-        row.operator("game.start")
-        
-        if self.isParent(context):
-            if context.object.children[1].destruction.dynamic_mode == 'D_DYNAMIC':
-                row = box.row()
-                txt = "Convert To Precalculated"
-                row.operator("mode.convert", text = txt).mode = 'TO_PRECALCULATED'
-           # elif context.object.children[1].destruction.dynamic_mode == 'D_PRECALCULATED':
-           #    txt = "Convert To Dynamic"
-           #    row.operator("mode.convert", text = txt).mode = 'TO_DYNAMIC'
-        
-#        layout.separator()
-#        row = layout.row()
-#        row.label("Unit Tests: ")
-#        row.scale_x = 1.5
-#        row.scale_y = 1.5
-#        
-#        row = layout.row()
-#        row.operator("test.run")
-#        
-#        if context.scene.player:
-#            
-#            if context.scene.runBGETests:
-#                txt = "Disable BGE Tests"
-#            else:
-#                txt = "Enable BGE Tests"
-#                
-#            row.operator("bge_test.run", text = txt) 
-        
-    
-    def draw_the_button(self, context, box):
-        
-        layout = self.layout
-       # box = layout.box() 
-        row = box.row()
-        row.operator("object.destroy")
-        
-    def draw_the_undo_button(self, context, box):
-        
-        layout = self.layout
-        names = []
-        for o in data.objects:
-            if o.destruction != None:
-                if o.destruction.is_backup_for != None:
-                    names.append(o.destruction.is_backup_for)
-        if context.object.name in names:
-           # box = layout.box()
-            row = box.row()
-            row.operator("object.undestroy")
-                    
-    def icon(self, bool):
-        if bool:
-            return 'TRIA_DOWN'
-        else:
-            return 'TRIA_RIGHT'
-        
-    
-    def draw(self, context):        
-        
-        layout = self.layout
-        box = layout.box()
-        
-        if self.isMesh(context):
-            inner = box.box()
-            inner.prop(context.object.destruction, "basic_fracture", text = "Basic Fracture Options", 
-                        icon = self.icon(context.object.destruction.basic_fracture), emboss = False)
-                        
-        elif self.isParent(context) or context.object.name.startswith("P_"):
-            inner = box
-            
-        if context.object.destruction.basic_fracture or self.isParent(context) or \
-        context.object.name.startswith("P_"):
-            self.draw_basic_fracture(context, inner)
-        
-        if self.isMesh(context):
-            inner = box.box()
-            inner.prop(context.object.destruction, "advanced_fracture", text = "Advanced Fracture Options", 
-                        icon = self.icon(context.object.destruction.advanced_fracture), emboss = False)
-                        
-            if context.object.destruction.advanced_fracture:
-                self.draw_advanced_fracture(context, inner)
-            
-            inner = box.box()
-            inner.prop(context.object.destruction, "auto_recursion", text = "Automatic Recursion Options",
-                        icon = self.icon(context.object.destruction.auto_recursion), emboss = False)
-            if context.object.destruction.auto_recursion:
-                self.draw_recursion(context, inner)
-                
-        
-        if self.isMesh(context) and context.object.destruction.dynamic_mode == "D_PRECALCULATED":
-            self.draw_the_button(context, box)
-        
-        if self.isParent(context):
-            self.draw_the_undo_button(context, box)
-        
-        box = layout.box()
-        box.prop(context.object.destruction, "setup_gameengine", text = "Game Engine Setup Options", 
-                    icon = self.icon(context.object.destruction.setup_gameengine), emboss = False)
-        if context.object.destruction.setup_gameengine:
-            self.draw_gameengine_setup(context, box)
-        
-        layout.operator("active.to_selected")
-        
-       # row = layout.row()
-        #row.label("Progress")
-        #row.label(context.scene.fracture_progress) 
-        
                
 class AddGroundOperator(types.Operator):
     bl_idname = "ground.add"
@@ -1211,6 +722,7 @@ class SetupPlayer(types.Operator):
     
     def execute(self, context):
         
+        from bpy import data
         undo = context.user_preferences.edit.use_global_undo
         context.user_preferences.edit.use_global_undo = False
         
@@ -1566,6 +1078,8 @@ class ClearPlayer(types.Operator):
     
     def execute(self, context):
         
+        from bpy import data
+        
         undo = context.user_preferences.edit.use_global_undo
         context.user_preferences.edit.use_global_undo = False
         
@@ -1683,6 +1197,7 @@ class ConvertParenting(types.Operator):
     
     def convert(self, context):
         
+        from bpy import data
         
         #temporarily parent all grounds to the parent object
         #rotate back, unparent with keep transform
@@ -1867,7 +1382,7 @@ class ConvertParenting(types.Operator):
         posFound = False
         for o in context.scene.objects:
              if o.name.startswith("P0"):
-                 for obj in data.objects:
+                 for obj in bpy.data.objects:
                      if obj.destruction != None:
                          if obj.destruction.is_backup_for == o.name:
                             pos = obj.location
@@ -1891,7 +1406,7 @@ class ConvertParenting(types.Operator):
                     props = 1
                     index = len(o.game.properties) - props
                     #correct some parenting error -> children at wrong position
-                    par = data.objects[o.game.properties[index].value]
+                    par = bpy.data.objects[o.game.properties[index].value]
                     if par.name.startswith("P_0"):
                         o.location -= pos  
                     o.parent = par
@@ -2037,7 +1552,7 @@ class UndestroyObject(types.Operator):
         
         for o in context.selected_objects:
             if o.name.startswith("P_"):
-                backup = data.objects[o.destruction.backup]
+                backup = bpy.data.objects[o.destruction.backup]
                 self.selectShards(o, backup)
                 ops.object.delete()
                 

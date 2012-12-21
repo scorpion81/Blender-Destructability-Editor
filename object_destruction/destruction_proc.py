@@ -1,4 +1,4 @@
-from bpy import types, props, utils, ops, data, path
+from bpy import types, props, utils, ops, path
 from bpy.types import Object, Scene
 from . import destruction_data as dd
 from . import voronoi
@@ -101,7 +101,8 @@ class Processor():
         return None
     
     def destroy(self, context, objects, level):
-    
+        from bpy import data
+        
         modes = {DestructionContext.destModes[0][0]: 
                     "self.applyFracture(context, obj)",
                  DestructionContext.destModes[1][0]: 
@@ -644,6 +645,8 @@ class Processor():
         return ret       
     
     def doParenting(self, context, parentName, nameStart, bbox, backup, largest, obj):
+        from bpy import data
+        
         print("Largest: ", largest)    
         
         parent = None
@@ -976,7 +979,7 @@ class Processor():
                 ctx = bpy.context.copy()
                 ctx["object"] = c
                 ops.object.material_slot_add(ctx)
-                material = data.materials[materialname]
+                material = bpy.data.materials[materialname]
                 c.material_slots[slots].material = material  
             return slots
         
@@ -1094,7 +1097,7 @@ class Processor():
             c.location -= pos
                   
             #if groups are wanted DO NOT parent here
-            myparent = data.objects[parentName]
+            myparent = bpy.data.objects[parentName]
             
             #if backup.destruction.destructionMode == 'DESTROY_V' or backup.destruction.destructionMode == 'DESTROY_VB':
             #    myparent.location = Vector(backup.destruction.origLoc)
@@ -1166,7 +1169,7 @@ class Processor():
         c.destruction.destroyable = False
         
         #memorize children and this way "potential" backups too.
-        par = data.objects[parentName]
+        par = bpy.data.objects[parentName]
         
         #needed for correct dissolve in destruction_bge.py
         #need to consider P_ children too ! (if any) 
@@ -1185,7 +1188,7 @@ class Processor():
             for ch in p.destruction.children:
                 name = ch.name
                 if ch.name.startswith("P_"):
-                    name = data.objects[ch.name].destruction.backup
+                    name = bpy.data.objects[ch.name].destruction.backup
                     
                 if name not in par.destruction.ascendants:
                     prp = par.destruction.ascendants.add()

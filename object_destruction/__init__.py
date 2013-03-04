@@ -2,8 +2,7 @@ bl_info = {
     "name": "Destructability Editor",
     "author": "scorpion81, plasmasolutions(Tester)",
     "version": (1, 2),
-    "blender": (2, 6, 4),
-    "api": 51287,
+    "blender": (2, 66, 0),
     "location": "Physics > Destruction",
     "description": "Define how game engine shall handle destruction of objects",
     "warning": "",
@@ -27,6 +26,8 @@ StructRNA = bpy.types.Struct.__bases__[0]
 olddraw = None
 oldcopy = None
 
+i18n_default_ctxt = bpy.app.translations.contexts.default
+
 #override some methods here, no need to change the original files this way
 def copy(self):
     from types import BuiltinMethodType
@@ -47,13 +48,21 @@ def physics_add(self, layout, md, name, type, typeicon, toggles):
     sub = layout.row(align=True)
     if md:
         sub.context_pointer_set("modifier", md)
-        sub.operator("object.modifier_remove", text=name, icon='X')
+        sub.operator("object.modifier_remove", text=name, text_ctxt=i18n_default_ctxt, icon='X')
         if(toggles):
             sub.prop(md, "show_render", text="")
             sub.prop(md, "show_viewport", text="")
     else:
-        sub.operator("object.modifier_add", text=name, icon=typeicon).type = type
-        
+        sub.operator("object.modifier_add", text=name, text_ctxt=i18n_default_ctxt, icon=typeicon).type = type
+
+
+def physics_add_special(self, layout, data, name, addop, removeop, typeicon):
+    sub = layout.row(align=True)
+    if data:
+        sub.operator(removeop, text=name, text_ctxt=i18n_default_ctxt, icon='X')
+    else:
+        sub.operator(addop, text=name, text_ctxt=i18n_default_ctxt, icon=typeicon)
+                
         
 def draw(self, context):
     ob = context.object
@@ -72,15 +81,6 @@ def draw(self, context):
         physics_add(self, col, context.collision, "Collision", 'COLLISION', 'MOD_PHYSICS', False)
         physics_add(self, col, context.cloth, "Cloth", 'CLOTH', 'MOD_CLOTH', True)
         physics_add(self, col, context.dynamic_paint, "Dynamic Paint", 'DYNAMIC_PAINT', 'MOD_DYNAMICPAINT', True)
-
-    col = split.column()
-
-    if(ob.type == 'MESH' or ob.type == 'LATTICE'or ob.type == 'CURVE'):
-        physics_add(self, col, context.soft_body, "Soft Body", 'SOFT_BODY', 'MOD_SOFT', True)
-
-    if(ob.type == 'MESH'):
-        physics_add(self, col, context.fluid, "Fluid", 'FLUID_SIMULATION', 'MOD_FLUIDSIM', True)
-        physics_add(self, col, context.smoke, "Smoke", 'SMOKE', 'MOD_SMOKE', True)  
     
     #destruction    
     if dg.isMesh(context) or dg.isParent(context):
@@ -92,6 +92,27 @@ def draw(self, context):
             
         col.operator("destruction.enable", text="Destruction", icon=icon)
 
+    col = split.column()
+
+    if(ob.type == 'MESH' or ob.type == 'LATTICE'or ob.type == 'CURVE'):
+        physics_add(self, col, context.soft_body, "Soft Body", 'SOFT_BODY', 'MOD_SOFT', True)
+
+    if(ob.type == 'MESH'):
+        physics_add(self, col, context.fluid, "Fluid", 'FLUID_SIMULATION', 'MOD_FLUIDSIM', True)
+        physics_add(self, col, context.smoke, "Smoke", 'SMOKE', 'MOD_SMOKE', True)  
+    
+    if(ob.type == 'MESH'):
+        physics_add_special(self, col, ob.rigid_body, "Rigid Body",
+                                "rigidbody.object_add",
+                                "rigidbody.object_remove",
+                                'MESH_ICOSPHERE')  # XXX: need dedicated icon
+
+        # all types of objects can have rigid body constraint
+    physics_add_special(self, col, ob.rigid_body_constraint, "Rigid Body Constraint",
+                            "rigidbody.constraint_add",
+                            "rigidbody.constraint_remove",
+                            'CONSTRAINT')  # RB_TODO needs better icon
+    
 #a hacky solution
 #Context.copy = copy
 

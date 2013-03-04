@@ -80,19 +80,15 @@ def isParent(context):
     return context.object.type == 'EMPTY' and (meshChild or backup != "")
 
         
-class DestructionBasePanel(types.Panel):
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_context = "physics"
-    bl_label = "label"
-
+class DestructionBasePanel:
+    
     @classmethod
     def poll(cls, context):
         rd = context.scene.render
         return (context.object) and (context.object.destEnabled) and (not rd.use_game_engine)
     
-
-class DestructionFracturePanel(DestructionBasePanel):
+    
+class DestructionFracturePanel(DestructionBasePanel, bpy.types.Panel):
     bl_idname = "PHYSICS_PT_destructionFracture"
     bl_label = "Destruction Fracture"
     bl_context = "physics"
@@ -268,7 +264,7 @@ class DestructionFracturePanel(DestructionBasePanel):
             layout.label("Save file before starting game engine")
                 
                 
-class DestructionPhysicsPanel(DestructionBasePanel):
+class DestructionPhysicsPanel(DestructionBasePanel, bpy.types.Panel):
 
     bl_idname = "PHYSICS_PT_destructionPhysics"
     bl_label = "Destruction Physics"
@@ -316,7 +312,7 @@ class DestructionPhysicsPanel(DestructionBasePanel):
                 row.active = context.object.destruction.groundConnectivity
         
                 row = col.row(align=True)       
-                row.template_list(context.object.destruction, "grounds", 
+                row.template_list("UI_UL_list", "grounds", context.object.destruction, "grounds", 
                           context.object.destruction, "active_ground", rows = 2)
                 row.operator("ground.remove", icon = 'ZOOMOUT', text = "")
                 row.active = context.object.destruction.groundConnectivity
@@ -339,7 +335,7 @@ class DestructionPhysicsPanel(DestructionBasePanel):
                     row.prop(context.scene, "collapse_delay", text = "Collapse Delay")
     
 
-class DestructionHierarchyPanel(DestructionBasePanel):
+class DestructionHierarchyPanel(DestructionBasePanel, bpy.types.Panel):
 
     bl_idname = "PHYSICS_PT_destructionHierarchy"
     bl_label = "Destruction Hierarchy"
@@ -374,7 +370,7 @@ class DestructionHierarchyPanel(DestructionBasePanel):
                 
     
 
-class DestructionRolePanel(DestructionBasePanel):
+class DestructionRolePanel(DestructionBasePanel, bpy.types.Panel):
 
     bl_idname = "PHYSICS_PT_destructionRole"
     bl_label = "Destruction Role "
@@ -484,7 +480,7 @@ class DestructionRolePanel(DestructionBasePanel):
             
                 row = col.row(align=True)
             
-                row.template_list(context.object.destruction, "destructorTargets", 
+                row.template_list("UI_UL_list", "destructorTargets", context.object.destruction, "destructorTargets", 
                               context.object.destruction, "active_target" , rows = 2) 
                             
                 row.operator("target.remove", icon = 'ZOOMOUT', text = "") 
@@ -501,7 +497,7 @@ class DestructionRolePanel(DestructionBasePanel):
                 row.prop_search(context.scene, "custom_ball", context.scene, 
                     "objects", icon = 'OBJECT_DATA', text = "Custom Ball:")
 
-class DestructionSetupPanel(DestructionBasePanel):
+class DestructionSetupPanel(DestructionBasePanel, bpy.types.Panel):
 
     bl_idname = "PHYSICS_PT_destructionSetup"
     bl_label = "Destruction Setup "

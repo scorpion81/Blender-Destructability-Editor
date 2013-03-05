@@ -728,8 +728,10 @@ class SetupPlayer(types.Operator):
         context.scene.player = True
         
         #transfer settings to all selected objects if NOT precalculated(done via destroy if precalculated)
-        if context.object.destruction.dynamic_mode == "D_DYNAMIC":
-            dd.DataStore.proc.copySettings(context, None)
+        for o in context.scene.objects:
+            if o.destruction.dynamic_mode == "D_DYNAMIC":
+                dd.DataStore.proc.copySettings(context, None)
+                break
         
         #set cursor to 0,0,0 temporarily
         oldCur = context.scene.cursor_location.copy()
@@ -1661,9 +1663,11 @@ class GameStart(types.Operator):
                
         names = []
         isDynamic = False
-        if context.object.destruction.dynamic_mode == "D_DYNAMIC":
-            isDynamic = True
-            
+        for o in context.scene.objects:
+            if o.destruction.dynamic_mode == "D_DYNAMIC":
+                isDynamic = True #hmm need dynamic mode in case atleast one object requests it
+        
+        if isDynamic:
             context.scene.layers = [True, True, False, False, False,
                                     False, False, False, False, False,
                                     False, False, False, False, False,
@@ -1701,10 +1705,12 @@ class GameStart(types.Operator):
         
         #setup visible player, will remain after reloading
         if context.scene.setup_basic_scene:
+            ops.player.clear() #ensure valid basic scene
             ops.player.setup()
           
         #maybe disable this in dynamic mode, because you want to reuse the shards.
-        if context.object.destruction.dynamic_mode == "D_PRECALCULATED":
+        #if context.object.destruction.dynamic_mode == "D_PRECALCULATED":
+        if not isDynamic:
             if filepath == "":
                 #ops.wm.save_as_mainfile('INVOKE_DEFAULT')
                 pass

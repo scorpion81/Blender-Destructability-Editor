@@ -27,9 +27,100 @@ except ImportError:
     
 from object_destruction.fracture_cell import fracture_cell_setup
 
+#def getGrounds(obj):
+#   # grounds = bpy.context.scene.objects[obj.name].destruction.grounds
+#    grounds = obj.destruction.grounds
+#   # print(grounds)
+#    ret = []
+#    for ground in grounds:
+#        g = dd.Ground()
+#        g.name = ground.name
+#        
+#        bGround = bpy.context.scene.objects[ground.name].bound_box.data.to_mesh(bpy.context.scene, False, 'PREVIEW')
+#        for e in bGround.edges:
+#            vStart = bGround.vertices[e.vertices[0]].co
+#            vEnd = bGround.vertices[e.vertices[1]].co
+#            g.edges.append((vStart, vEnd))
+#        ret.append(g)
+#    #print("RET", ret)
+#    return ret
+#
+#def getTargets(obj):
+#    targets = obj.destruction.destructorTargets
+#    for t in targets:
+#        props = dd.BGEProps()
+#        props.hierarchy_depth = t.hierarchy_depth
+#        props.dead_delay = t.dead_delay
+#        props.radius = t.radius
+#        props.min_radius = t.min_radius
+#        props.modifier = t.modifier
+#        props.acceleration_factor = t.acceleration_factor
 
+def bgePropsScene(scene):
+    props = dd.BGEProps()
+    props.custom_ball = scene.custom_ball
+    props.hideLayer = scene.hideLayer
+    props.collapse_delay = scene.collapse_delay
+    props.use_gravity_collapse = scene.useGravityCollapse
+    
+    return props
+        
+def bgeProps(ob):
+    props = dd.BGEProps()
+    
+    props.cluster_dist = ob.destruction.cluster_dist[:] 
+    props.cluster = ob.destruction.cluster
+    props.is_backup_for = ob.destruction.is_backup_for
+  
+    props.use_collision_compound = ob.game.use_collision_compound
+   
+    props.was_compound = ob.destruction.wasCompound
+    props.grid_bbox = ob.destruction.gridBBox[:]
+    props.grid_dim = ob.destruction.gridDim[:]
+    props.individual_override = ob.destruction.individual_override
+    props.radius = ob.destruction.radius
+    props.min_radius = ob.destruction.min_radius
+    props.modifier = ob.destruction.modifier
+    props.hierarchy_depth = ob.destruction.hierarchy_depth
+    props.glue_threshold = ob.destruction.glue_threshold
+   
+    props.backup = ob.destruction.backup
+    props.children = ob.destruction.children.keys()
+    props.ascendants = ob.destruction.ascendants.keys()
+    props.origLoc = ob.destruction.origLoc[:]
+    
+    if ob.data: 
+        props.mesh_name = ob.data.name
+    else:
+        props.mesh_name = ""
+        
+    props.acceleration_factor = ob.destruction.acceleration_factor
+    props.ground_connectivity = ob.destruction.groundConnectivity
+    props.destroyable = ob.destruction.destroyable
+    props.destructor = ob.destruction.destructor
+    props.is_ground = ob.destruction.isGround
+    props.flatten_hierarchy = ob.destruction.flatten_hierarchy
+    props.dead_delay = ob.destruction.dead_delay
+    props.destructor_targets = ob.destruction.destructorTargets.keys() #getTargets(ob)
+    props.grounds = ob.destruction.grounds.keys() #getGrounds(ob)
+   
+
+    props.edges = []
+    if (props.is_ground): #only then !! mostly is lowpoly or 1 face only
+        for e in ob.data.edges:
+            v1 = ob.data.vertices[e.vertices[0]].co.to_tuple()
+            v2 = ob.data.vertices[e.vertices[1]].co.to_tuple()
+            props.edges.append([v1, v2])
+    
+    if ob.data:
+        props.bbox = ob.bound_box.data.dimensions[:]
+    else:
+        props.bbox = (0, 0, 0)
+    
+    return props
+    
+    
 #do the actual non-bge processing here
-
 class Processor():
           
     def processDestruction(self, context, impactLoc):
@@ -236,7 +327,7 @@ class Processor():
                     o.destruction.restore = True
                 
         context.scene.update()
-            
+                   
         return objects_recursive
 
         
@@ -2529,7 +2620,7 @@ class CellFractureContext(types.PropertyGroup):
             min=0, max=10000,
             default=250,
             )
-            
+       
 class DestructorTargetContext(types.PropertyGroup):
     
     hierarchy_depth = props.IntProperty(name = "hierarchy_depth", default = 1, min = 1, 
@@ -2549,10 +2640,8 @@ class DestructorTargetContext(types.PropertyGroup):
 #        description = "Delay in logic ticks after which destruction should occur (repeatedly)", update = updateDestructionDelay)
     min_radius = props.FloatProperty(name = "min_radius", default = 1.0, min = 0.0, description = "Lower boundary of activation area")
 
-
 class DestructionContext(types.PropertyGroup):
-    
-    
+        
     use_debug_redraw = props.BoolProperty(
             name="Show Progress Realtime",
             description="Redraw as fracture is done",

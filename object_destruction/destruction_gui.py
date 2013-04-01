@@ -7,6 +7,7 @@ import os
 import bpy
 from mathutils import Vector
 from time import clock
+import json
 
 #import threading
 #from xmlrpc.server import SimpleXMLRPCRequestHandler, SimpleXMLRPCServer
@@ -114,7 +115,7 @@ class DestructionFracturePanel(DestructionBasePanel, bpy.types.Panel):
             col = layout.column(align=True)
             col.label("Mode")
             row = col.row(align=True)
-            row.prop(context.object.destruction, "dynamic_mode", expand = True)
+           # row.prop(context.object.destruction, "dynamic_mode", expand = True) disable Dynamic for now, wont work in blenderplayer
             if context.object.destruction.dynamic_mode == "D_DYNAMIC":
                 col.prop(context.scene, "dummyPoolSize", text = "Dummy Object Pool Size")
             
@@ -1522,6 +1523,7 @@ class DestroyObject(types.Operator):
         #s.join()
                       
         dd.DataStore.proc.processDestruction(context, Vector((self.impactLoc)))
+            
         print("Decomposition Time:" , clock() - start) 
         context.user_preferences.edit.use_global_undo = undo
         
@@ -1653,6 +1655,25 @@ class GameStart(types.Operator):
     bl_description = "Start game engine with recording enabled by default"
     bl_options = {'UNDO'}
     
+    def storeBGEProps(self, context):
+        #update BGE Prop Dict here as well
+        dd.DataStore.properties = {}
+        for o in bpy.data.objects:
+            print(o.name)
+            dd.DataStore.properties[o.name] = dp.bgeProps(o)
+        dd.DataStore.properties[context.scene.name] = dp.bgePropsScene(context.scene)
+        
+        if "jsondata.py" in bpy.data.texts:
+            bpy.data.texts.remove(bpy.data.texts["jsondata.py"])
+        t = bpy.data.texts.new("jsondata.py")
+        s = json.dumps(dd.DataStore.properties, cls = dd.BGEProps, indent=4)
+        #need a string to save, better would be external file though, but want to keep it in blend
+        #s = base64.encodebytes(b)
+        #s = str(s, encoding='utf-8')
+        t.write("data = '''\n")
+        t.write(s)
+        t.write("'''")
+    
     def execute(self, context):
         
         filepath = bpy.context.blend_data.filepath
@@ -1715,6 +1736,7 @@ class GameStart(types.Operator):
                 #ops.wm.save_as_mainfile('INVOKE_DEFAULT')
                 pass
             else:
+                self.storeBGEProps(context)
                 ops.wm.save_mainfile(filepath = filepath)
             
             #deselect all
@@ -1734,8 +1756,17 @@ class GameStart(types.Operator):
                 #cam = context.scene.use_player_cam
                 #context.scene.use_player_cam = False
                 ops.player.setup(hidden=True)
+            
             ops.parenting.convert()
-         
+            
+            #export for blenderplayer here
+            filename = bpy.path.basename(filepath)
+            f = filename.split(".")
+            filename = f[0] + "_game." + f[1]    
+            gamepath = os.path.dirname(filepath) + os.sep + filename
+            print(gamepath)
+            ops.wm.save_as_mainfile(filepath = gamepath, copy=True)
+                
         ops.view3d.game_start()
         
         if not isDynamic:

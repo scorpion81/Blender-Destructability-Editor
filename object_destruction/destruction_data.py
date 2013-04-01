@@ -7,13 +7,14 @@
 #each object has a destruction dataset in context, to get it to game engine store it externally or maybe all custom properties will be converted ? could even work like that
 #but for standalone mode no bpy may be used !
 #and here no bge may be used, need to be clean data objects
-from mathutils import geometry, Vector
-import math
-
 startclock = 0
+import json
 
 class Cell:
-    
+
+    from mathutils import geometry, Vector
+    import math
+        
     def __init__(self, gridPos, grid):
         self.gridPos = gridPos
         self.grid = grid
@@ -328,10 +329,63 @@ class Grid:
 #            rear = rear / layerchilds
 #            
 #        return left, right, front, rear   
-                    
+
+class BGEProps(json.JSONEncoder, json.JSONDecoder):
+     
+     def default(self, o):
+         o.__dict__["BGEProps"] = True;
+         return o.__dict__;
+     
+     def object_hook(dct):
+         if "BGEProps" in dct:
+            props = BGEProps()
+            props.__dict__ = dct
+            return props
+         else:
+            return dct
+ 
+#    cluster_dist = []
+#    cluster = False
+#    is_backup_for = ""
+#    hideLayer = 1
+#    use_collision_compound = False
+#    custom_ball = ""
+#    wasCompound = False
+#    grid_bbox = (0, 0, 0)
+#    grid_dim = (1, 1, 1)
+#    individual_override = False
+#    radius = 0
+#    min_radius = 0
+#    modifier = 0
+#    hierarchy_depth = 1
+#    glue_threshold = 0
+#    use_gravity_collapse = False
+#    backup = ""
+#    children = []
+#    ascendants = []
+#    origLoc = (0, 0, 0)
+#    mesh_name = ""
+#    acceleration_factor = 1
+#    ground_connectivity = False
+#    destroyable = False
+#    destructor = False
+#    is_ground = False
+#    flatten_hierarchy = False
+#    dead_delay = 0
+#    destructor_targets = []
+#    grounds = []
+#    grounds_bbox = []
+#    collapse_delay = 0
+#    edges = []
+#    bbox = []
+                        
 class DataStore:
+    
+    from mathutils import Vector
+    
     grids = {}
     impactLocation = Vector((0,0,0))
+    properties = {}
 
 class Ground:
     edges = []

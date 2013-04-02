@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Destructability Editor",
     "author": "scorpion81, plasmasolutions(Tester)",
-    "version": (1, 2),
+    "version": (1, 3),
     "blender": (2, 66, 0),
     "location": "Physics > Destruction",
     "description": "Define how game engine shall handle destruction of objects",

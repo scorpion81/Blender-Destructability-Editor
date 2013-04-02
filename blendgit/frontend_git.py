@@ -285,7 +285,7 @@ class GitPanel(bpy.types.Panel):
             layout.separator()
         
         layout.label("History")
-        layout.template_list(context.scene.git, "history", context.scene.git, "active_entry" , rows = 5)
+        layout.template_list("UI_UL_list", "history", context.scene.git, "history", context.scene.git, "active_entry" , rows = 5)
         
         if len(context.scene.git.history) != 0:
             layout.operator("git.update")

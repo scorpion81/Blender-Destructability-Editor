@@ -228,6 +228,7 @@ def loadBGEProps():
  #   print("Loaded:", len(dd.DataStore.properties))
     d = json.loads(jsondata.data, object_hook = dd.BGEProps.object_hook)
     dd.DataStore.properties = d
+    #print("GROUNDD: ", d["Ground"].edges)
 
 def setup():
     
@@ -258,7 +259,7 @@ def setup():
                 if parentname.startswith("P_0") and p not in firstparent:
                     firstparent.append(p)   
                             
-                print("Setting temp parent", o, parentname)
+                #print("Setting temp parent", o, parentname)
                 o.setParent(p)
                 #bpyObjs[o.name] = bpy.data.objects[o.name]
                 o["activated"] = False
@@ -358,7 +359,7 @@ def setup():
                     o.setParent(parent, True, False)   
                 elif c not in firstShard and oldPar.name != getProp(scene.name).custom_ball:#bpy.context.scene.custom_ball:
                     #if c != backup:
-                    print("Setting parent hierarchically", c, " -> ", parent)  
+                   # print("Setting parent hierarchically", c, " -> ", parent)  
                     o.setParent(parent, True, False)
              
                 #keep sticky if groundConnectivity is wanted
@@ -473,19 +474,24 @@ def calculateGrids():
             bbox = (gridbbox[0], gridbbox[1], gridbbox[2])
             dim = (griddim[0], griddim[1], griddim[2])
             
-            grounds = getProp(o.name).grounds #getGrounds(o)
-            groundObjs = [logic.getCurrentScene().objects[g.name] for g in grounds]
+            groundnames = getProp(o.name).grounds
+            groundObjs = [logic.getCurrentScene().objects[g] for g in groundnames]
+            grounds = []
             
             for fp in firstparent:
                 #fp = scene.objects[f]
                 if o.name in fp.name:
-                    [g.setParent(fp, False, False) for g in groundObjs]
+                    [go.setParent(fp, False, False) for go in groundObjs]
                     
                     oldRot = Matrix(fp.worldOrientation)
                     fp.worldOrientation = Vector((0, 0, 0))
-                    for g in grounds:
-                        g.pos = Vector(logic.getCurrentScene().objects[g.name].worldPosition)
-                        print(g.pos)
+                    for g in groundObjs:
+                        gr = dd.Ground()
+                        gr.pos = Vector(g.worldPosition)
+                       # print(gr.pos, g.worldPosition, g, groundObjs)
+                        gr.edges = getProp(g.name).edges
+                       # print(gr.edges)
+                        grounds.append(gr)
                         
                     #ac = allChildren(o.name)
                     childs = [scene.objects[c] for c in children[o.name]]
@@ -1375,6 +1381,7 @@ def isBackup(backup):
 #    parts = str.split(" ")
 #    return (int(parts[0]), int(parts[1]), int(parts[2]))
 #
+
 #def getGrounds(obj):
 #    grounds = bpy.context.scene.objects[obj.name].destruction.grounds
 #    print(grounds)
@@ -1391,7 +1398,7 @@ def isBackup(backup):
 #        ret.append(g)
 #    print("RET", ret)
 #    return ret
-    
+#    
 #    if "grounds" not in obj.getPropertyNames():
 #        return None
 #    grounds = []

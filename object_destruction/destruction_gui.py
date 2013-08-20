@@ -1309,7 +1309,7 @@ class ConvertParenting(types.Operator):
         #parent again , rotate to rotation, clear parent with keeptransform    
         #for g in grounds:
             for g in o.destruction.grounds: #names
-                if g != "":
+                if g != "" and g.name in context.scene.objects:
                     ground = context.scene.objects[g.name]
             
                     if parent == None:
@@ -1328,7 +1328,7 @@ class ConvertParenting(types.Operator):
                     parent.rotation_euler = oldRot  
         
             for g in o.destruction.grounds: #names
-                if g != "":
+                if g != "" and g.name in context.scene.objects:
                     ground = context.scene.objects[g.name]
                 
                     if parent == None:
@@ -1361,7 +1361,7 @@ class ConvertParenting(types.Operator):
                 if o.parent.name.startswith("P_"):    
                     o.select = True
                     context.scene.objects.active = o
-                    print("Clearing parent: ", o)
+                   # print("Clearing parent: ", o)
                     o.hide = False
                    # propNew = o.parent.destruction.children.add()
                     #propNew.name = o.name

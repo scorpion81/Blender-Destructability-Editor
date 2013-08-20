@@ -9,10 +9,12 @@
 #and here no bge may be used, need to be clean data objects
 startclock = 0
 import json
+import mathutils
+from mathutils import geometry, Vector
 
 class Cell:
 
-    from mathutils import geometry, Vector
+   
     import math
         
     def __init__(self, gridPos, grid):
@@ -204,9 +206,9 @@ class Cell:
             return None
                
         for ground in self.grid.grounds:
-          #  print ("GROUND/EDGE: ", ground, ground.edges)
+            #print ("GROUND/EDGE: ", ground, ground.edges)
             for edge in ground.edges:
-                closest = geometry.intersect_point_line(Vector(self.center), 
+                closest = mathutils.geometry.intersect_point_line(Vector(self.center), 
                           Vector(edge[0]), Vector(edge[1]))
                 vec = closest[0]
                 percentage = closest[1]

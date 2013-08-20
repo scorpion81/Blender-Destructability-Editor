@@ -28,15 +28,15 @@ except ImportError:
 from object_destruction.fracture_cell import fracture_cell_setup
 
 #def getGrounds(obj):
-#   # grounds = bpy.context.scene.objects[obj.name].destruction.grounds
-#    grounds = obj.destruction.grounds
-#   # print(grounds)
+##   # grounds = bpy.context.scene.objects[obj.name].destruction.grounds
+#    grounds = obj.destruction.grounds.keys()
+#    print("GET GROUNDS: ", grounds)
 #    ret = []
 #    for ground in grounds:
 #        g = dd.Ground()
-#        g.name = ground.name
+#        g.name = ground
 #        
-#        bGround = bpy.context.scene.objects[ground.name].bound_box.data.to_mesh(bpy.context.scene, False, 'PREVIEW')
+#        bGround = bpy.context.scene.objects[ground].bound_box.data.to_mesh(bpy.context.scene, False, 'PREVIEW')
 #        for e in bGround.edges:
 #            vStart = bGround.vertices[e.vertices[0]].co
 #            vEnd = bGround.vertices[e.vertices[1]].co
@@ -44,7 +44,7 @@ from object_destruction.fracture_cell import fracture_cell_setup
 #        ret.append(g)
 #    #print("RET", ret)
 #    return ret
-#
+
 #def getTargets(obj):
 #    targets = obj.destruction.destructorTargets
 #    for t in targets:

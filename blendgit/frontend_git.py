@@ -37,7 +37,7 @@ class GitLog(bpy.types.Operator):
     def isRepo(self, context, g):
         s = g.status(context.scene.git.file)
         stat = s.decode("utf-8")
-        if "fatal: Not a git repository" in stat: #very hackish
+        if "fatal: not a git repository" in stat: #very hackish
             return False
         return True    
     
@@ -219,9 +219,10 @@ class GitContext(bpy.types.PropertyGroup):
 class GitPanel(bpy.types.Panel):
     bl_idname = "OBJECT_PT_git"
     bl_label = "Git"
-    bl_context = "object"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
+    #bl_context = "object"
+    bl_category = "Git"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
     
     def register():
         

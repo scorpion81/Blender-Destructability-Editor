@@ -1,15 +1,14 @@
 bl_info = {
     "name": "BlendGit",
     "author": "scorpion81",
-    "version": (1, 0),
-    "blender": (2, 6, 3),
-    "api": 48582,
-    "location": "Object",
+    "version": (1, 1),
+    "blender": (2, 7, 9),
+    "location": "Toolshelf",
     "description": "Keep track of revisions of blend files in git from blender",
     "warning": "",
     "wiki_url": "",
     "tracker_url": "",
-    "category": "Object"}
+    "category": "Development"}
 
 if not __name__ in "__main__":
     if "bpy" in locals():

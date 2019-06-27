@@ -39,7 +39,7 @@ class Git():
         return self.command("add", [file])
     
     def status(self, file):
-        return self.command("status", [file])
+        return self.command("status", ['--porcelain', file])
     
     #def diff(self):
     #    pass    
